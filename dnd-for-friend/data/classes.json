@@ -1,0 +1,166 @@
+{
+  "_source": "SRD 5.2.1 Classes (CC-BY-4.0). Levels 1-5 only in phase 1. Feature text condensed.",
+  "xp": [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000],
+  "maxLevel": 5,
+  "classes": [
+    {
+      "id": "fighter", "name": "Fighter", "th": "นักรบ", "role": "แนวหน้า ทนทาน ตีแรงสม่ำเสมอ",
+      "hitDie": 10, "primary": ["STR", "DEX"], "saves": ["STR", "CON"],
+      "skills": {"count": 2, "from": ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Persuasion", "Perception", "Survival"]},
+      "weapons": ["simple", "martial"], "armor": ["light", "medium", "heavy", "shield"], "tools": [],
+      "standardArray": {"STR": 15, "DEX": 14, "CON": 13, "INT": 8, "WIS": 10, "CHA": 12},
+      "equip": {
+        "A": {"items": [["chain-mail", 1], ["greatsword", 1], ["flail", 1], ["javelin", 8], ["dungeoneers-pack", 1]], "gp": 4, "th": "สายหนัก: Chain Mail, Greatsword, Flail, Javelin 8"},
+        "B": {"items": [["studded-leather", 1], ["scimitar", 1], ["shortsword", 1], ["longbow", 1], ["arrows", 1], ["quiver", 1], ["dungeoneers-pack", 1]], "gp": 11, "th": "สายคล่อง: Studded Leather, Scimitar, Shortsword, Longbow"},
+        "C": {"items": [], "gp": 155, "th": "รับเงิน 155 GP ไปซื้อเอง"}
+      },
+      "weaponMastery": [3, 3, 3, 4, 4],
+      "resources": {"secondWind": {"name": "Second Wind", "byLevel": [2, 2, 2, 3, 3], "recharge": "short1"}, "actionSurge": {"name": "Action Surge", "byLevel": [0, 1, 1, 1, 1], "recharge": "short"}},
+      "features": [
+        {"lv": 1, "name": "Fighting Style", "choice": "fighting", "th": "เลือก Fighting Style Feat 1 อย่าง (แนะนำ Defense)"},
+        {"lv": 1, "name": "Second Wind", "th": "Bonus Action ฟื้น HP 1d10 + เลเวล นักรบ ใช้ได้ 2 ครั้ง (พักสั้นคืน 1 พักยาวคืนหมด)"},
+        {"lv": 1, "name": "Weapon Mastery", "th": "ใช้พลังพิเศษ (Mastery) ของอาวุธได้ 3 ชนิด"},
+        {"lv": 2, "name": "Action Surge", "th": "ได้ Action เพิ่ม 1 ครั้งในเทิร์น (ยกเว้น Magic) 1 ครั้ง/พักสั้น"},
+        {"lv": 2, "name": "Tactical Mind", "th": "เช็กทักษะพลาด ใช้ Second Wind 1 ครั้งบวก 1d10 ได้ (ถ้ายังพลาดไม่เสีย)"},
+        {"lv": 3, "name": "Fighter Subclass", "subclass": true, "th": "เลือกสายย่อย: Champion"},
+        {"lv": 4, "name": "Ability Score Improvement", "choice": "asi", "th": "เพิ่มค่าสถานะหรือเลือก Feat"},
+        {"lv": 5, "name": "Extra Attack", "th": "ตี 2 ครั้งต่อ Attack action"},
+        {"lv": 5, "name": "Tactical Shift", "th": "ใช้ Second Wind แล้วเดินได้ครึ่งความเร็วโดยไม่โดนตีสวน"}
+      ],
+      "subclasses": [
+        {"id": "champion", "name": "Champion", "th": "แชมเปี้ยน: คริติคอลบ่อย ร่างกายแกร่ง",
+         "features": [
+           {"lv": 3, "name": "Improved Critical", "th": "ทอยได้ 19-20 ก็คริติคอล"},
+           {"lv": 3, "name": "Remarkable Athlete", "th": "Initiative และ Athletics ได้เปรียบ คริติคอลแล้วเดินได้ครึ่งความเร็วไม่โดนตีสวน"}
+         ]}
+      ]
+    },
+    {
+      "id": "rogue", "name": "Rogue", "th": "โจร", "role": "ลอบโจมตีแรง ทักษะเยอะ คล่องตัว",
+      "hitDie": 8, "primary": ["DEX"], "saves": ["DEX", "INT"],
+      "skills": {"count": 4, "from": ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Persuasion", "Sleight of Hand", "Stealth"]},
+      "weapons": ["simple", "martial:Finesse|Light"], "armor": ["light"], "tools": ["Thieves' Tools"], "languages": ["Thieves' Cant"], "extraLanguages": 1,
+      "standardArray": {"STR": 12, "DEX": 15, "CON": 13, "INT": 14, "WIS": 10, "CHA": 8},
+      "equip": {
+        "A": {"items": [["leather", 1], ["dagger", 2], ["shortsword", 1], ["shortbow", 1], ["arrows", 1], ["quiver", 1], ["thieves-tools", 1], ["burglars-pack", 1]], "gp": 8, "th": "Leather, Dagger 2, Shortsword, Shortbow, Thieves' Tools"},
+        "B": {"items": [], "gp": 100, "th": "รับเงิน 100 GP"}
+      },
+      "weaponMastery": [2, 2, 2, 2, 2],
+      "sneakAttack": ["1d6", "1d6", "2d6", "2d6", "3d6"],
+      "expertise": [2, 2, 2, 2, 2],
+      "features": [
+        {"lv": 1, "name": "Expertise", "choice": "expertise", "th": "เลือก 2 ทักษะที่ชำนาญให้บวก PB สองเท่า (แนะนำ Sleight of Hand, Stealth)"},
+        {"lv": 1, "name": "Sneak Attack", "th": "เทิร์นละครั้ง ตีโดนด้วยอาวุธ Finesse/ระยะไกล ตอนได้เปรียบหรือมีเพื่อนยืนติดเป้า เพิ่มดาเมจ 1d6 (Lv3 2d6, Lv5 3d6)"},
+        {"lv": 1, "name": "Thieves' Cant", "th": "รู้ภาษาลับโจร + ภาษาอีก 1"},
+        {"lv": 1, "name": "Weapon Mastery", "th": "ใช้ Mastery ของอาวุธได้ 2 ชนิด"},
+        {"lv": 2, "name": "Cunning Action", "th": "Dash, Disengage หรือ Hide เป็น Bonus Action ได้"},
+        {"lv": 3, "name": "Rogue Subclass", "subclass": true, "th": "เลือกสายย่อย: Thief"},
+        {"lv": 3, "name": "Steady Aim", "th": "Bonus Action ให้ตัวเองได้เปรียบตีครั้งถัดไป (ห้ามเดินในเทิร์นนั้น)"},
+        {"lv": 4, "name": "Ability Score Improvement", "choice": "asi", "th": "เพิ่มค่าสถานะหรือเลือก Feat"},
+        {"lv": 5, "name": "Cunning Strike", "th": "ยอมลด Sneak Attack 1d6 เพื่อใส่ผล: Poison (ติดพิษ), Trip (ล้ม), Withdraw (ถอยไม่โดนตีสวน) · DC 8+DEX+PB"},
+        {"lv": 5, "name": "Uncanny Dodge", "th": "Reaction ลดดาเมจที่โดนตีครึ่งหนึ่ง"}
+      ],
+      "subclasses": [
+        {"id": "thief", "name": "Thief", "th": "หัวขโมย: มือไว ปีนเก่ง",
+         "features": [
+           {"lv": 3, "name": "Fast Hands", "th": "Bonus Action: สะเดาะกุญแจ ปลดกับดัก ล้วงกระเป๋า หรือใช้ของ"},
+           {"lv": 3, "name": "Second-Story Work", "th": "ปีนได้เท่าความเร็ว กระโดดใช้ DEX แทน STR"}
+         ]}
+      ]
+    },
+    {
+      "id": "cleric", "name": "Cleric", "th": "นักบวช", "role": "ฮีล บัฟ เวทศักดิ์สิทธิ์ ใส่เกราะได้",
+      "hitDie": 8, "primary": ["WIS"], "saves": ["WIS", "CHA"],
+      "skills": {"count": 2, "from": ["History", "Insight", "Medicine", "Persuasion", "Religion"]},
+      "weapons": ["simple"], "armor": ["light", "medium", "shield"], "tools": [],
+      "standardArray": {"STR": 14, "DEX": 8, "CON": 13, "INT": 10, "WIS": 15, "CHA": 12},
+      "equip": {
+        "A": {"items": [["chain-shirt", 1], ["shield", 1], ["mace", 1], ["holy-symbol", 1], ["priests-pack", 1]], "gp": 7, "th": "Chain Shirt, Shield, Mace, Holy Symbol"},
+        "B": {"items": [], "gp": 110, "th": "รับเงิน 110 GP"}
+      },
+      "spellcasting": {"ability": "WIS", "list": "Cleric", "prepare": "list", "cantrips": [3, 3, 3, 4, 4], "prepared": [4, 5, 6, 7, 9],
+        "slots": [[2], [3], [4, 2], [4, 3], [4, 3, 2]], "recommend": {"cantrips": ["guidance", "sacred-flame", "thaumaturgy"], "spells": ["bless", "cure-wounds", "guiding-bolt", "shield-of-faith"]}},
+      "resources": {"channelDivinity": {"name": "Channel Divinity", "byLevel": [0, 2, 2, 2, 2], "recharge": "short1"}},
+      "features": [
+        {"lv": 1, "name": "Spellcasting", "th": "ร่ายเวทนักบวชด้วย WIS เตรียมเวทใหม่ได้ทุกพักยาว"},
+        {"lv": 1, "name": "Divine Order", "choice": "divineOrder", "options": {"Protector": "ใช้อาวุธ Martial และเกราะหนักได้", "Thaumaturge": "Cantrip เพิ่ม 1 และ Arcana/Religion บวก WIS"}, "th": "เลือกบทบาท: Protector (สายบู๊) หรือ Thaumaturge (สายเวท)"},
+        {"lv": 2, "name": "Channel Divinity", "th": "2 ครั้ง/พักยาว (พักสั้นคืน 1): Divine Spark ฮีลหรือยิง 1d8+WIS ระยะ 30 ฟุต · Turn Undead ไล่ Undead"},
+        {"lv": 3, "name": "Cleric Subclass", "subclass": true, "th": "เลือกสายย่อย: Life Domain"},
+        {"lv": 4, "name": "Ability Score Improvement", "choice": "asi", "th": "เพิ่มค่าสถานะหรือเลือก Feat"},
+        {"lv": 5, "name": "Sear Undead", "th": "Turn Undead แล้ว Undead ที่เซฟพลาดโดน Radiant (WIS)d8"}
+      ],
+      "subclasses": [
+        {"id": "life", "name": "Life Domain", "th": "สายชีวิต: ฮีลเก่งที่สุด",
+         "alwaysPrepared": {"3": ["aid", "bless", "cure-wounds", "lesser-restoration"], "5": ["mass-healing-word", "revivify"]},
+         "features": [
+           {"lv": 3, "name": "Disciple of Life", "th": "เวทฮีลที่ใช้ช่องเวท ฮีลเพิ่ม 2 + เลเวลช่องเวท"},
+           {"lv": 3, "name": "Life Domain Spells", "th": "เตรียม Aid, Bless, Cure Wounds, Lesser Restoration ไว้ตลอด (Lv5 +Mass Healing Word, Revivify)"},
+           {"lv": 3, "name": "Preserve Life", "th": "ใช้ Channel Divinity ฮีลรวม 5 x เลเวล แบ่งให้เพื่อนที่ Bloodied ในระยะ 30 ฟุต (ไม่เกินครึ่ง HP)"}
+         ]}
+      ]
+    },
+    {
+      "id": "ranger", "name": "Ranger", "th": "พราน", "role": "ยิงธนูแม่น ตามล่าเป้า มีเวทธรรมชาติ",
+      "hitDie": 10, "primary": ["DEX", "WIS"], "saves": ["STR", "DEX"],
+      "skills": {"count": 3, "from": ["Animal Handling", "Athletics", "Insight", "Investigation", "Nature", "Perception", "Stealth", "Survival"]},
+      "weapons": ["simple", "martial"], "armor": ["light", "medium", "shield"], "tools": [],
+      "standardArray": {"STR": 12, "DEX": 15, "CON": 13, "INT": 8, "WIS": 14, "CHA": 10},
+      "equip": {
+        "A": {"items": [["studded-leather", 1], ["scimitar", 1], ["shortsword", 1], ["longbow", 1], ["arrows", 1], ["quiver", 1], ["druidic-focus", 1], ["explorers-pack", 1]], "gp": 7, "th": "Studded Leather, Scimitar, Shortsword, Longbow"},
+        "B": {"items": [], "gp": 150, "th": "รับเงิน 150 GP"}
+      },
+      "weaponMastery": [2, 2, 2, 2, 2],
+      "spellcasting": {"ability": "WIS", "list": "Ranger", "prepare": "list", "cantrips": [0, 0, 0, 0, 0], "prepared": [2, 3, 4, 5, 6],
+        "slots": [[2], [2], [3], [3], [4, 2]], "recommend": {"spells": ["cure-wounds", "ensnaring-strike"]}, "alwaysPrepared": ["hunters-mark"]},
+      "resources": {"favoredEnemy": {"name": "Favored Enemy (Hunter's Mark ฟรี)", "byLevel": [2, 2, 2, 2, 3], "recharge": "long"}},
+      "features": [
+        {"lv": 1, "name": "Spellcasting", "th": "ร่ายเวทพรานด้วย WIS"},
+        {"lv": 1, "name": "Favored Enemy", "th": "เตรียม Hunter's Mark ไว้ตลอด ร่ายฟรี 2 ครั้ง/พักยาว (ตีโดนเป้า +1d6)"},
+        {"lv": 1, "name": "Weapon Mastery", "th": "ใช้ Mastery ของอาวุธได้ 2 ชนิด"},
+        {"lv": 2, "name": "Deft Explorer", "choice": "expertise1", "th": "Expertise 1 ทักษะ + ภาษาเพิ่ม 2"},
+        {"lv": 2, "name": "Fighting Style", "choice": "fighting", "th": "เลือก Fighting Style Feat 1 อย่าง (แนะนำ Archery)"},
+        {"lv": 3, "name": "Ranger Subclass", "subclass": true, "th": "เลือกสายย่อย: Hunter"},
+        {"lv": 4, "name": "Ability Score Improvement", "choice": "asi", "th": "เพิ่มค่าสถานะหรือเลือก Feat"},
+        {"lv": 5, "name": "Extra Attack", "th": "ตี 2 ครั้งต่อ Attack action"}
+      ],
+      "subclasses": [
+        {"id": "hunter", "name": "Hunter", "th": "นักล่า: จัดการฝูงหรือล้มตัวใหญ่",
+         "features": [
+           {"lv": 3, "name": "Hunter's Lore", "th": "เป้าที่โดน Hunter's Mark รู้ว่าต้านทาน/แพ้ธาตุอะไร"},
+           {"lv": 3, "name": "Hunter's Prey", "choice": "huntersPrey", "options": {"Colossus Slayer": "ตีเป้าที่เลือดไม่เต็ม +1d8 (เทิร์นละครั้ง)", "Horde Breaker": "ตีเพิ่ม 1 ครั้งใส่ศัตรูอีกตัวที่ยืนติดเป้าแรก"}, "th": "เลือก Colossus Slayer หรือ Horde Breaker (เปลี่ยนได้ทุกพัก)"}
+         ]}
+      ]
+    },
+    {
+      "id": "wizard", "name": "Wizard", "th": "พ่อมด", "role": "เวทโจมตีวงกว้าง ควบคุมสนาม เลือดน้อย",
+      "hitDie": 6, "primary": ["INT"], "saves": ["INT", "WIS"],
+      "skills": {"count": 2, "from": ["Arcana", "History", "Insight", "Investigation", "Medicine", "Nature", "Religion"]},
+      "weapons": ["simple"], "armor": [], "tools": [],
+      "standardArray": {"STR": 8, "DEX": 12, "CON": 13, "INT": 15, "WIS": 14, "CHA": 10},
+      "equip": {
+        "A": {"items": [["dagger", 2], ["quarterstaff", 1], ["robe", 1], ["spellbook", 1], ["scholars-pack", 1]], "gp": 5, "th": "Dagger 2, Quarterstaff (Arcane Focus), Robe, Spellbook"},
+        "B": {"items": [], "gp": 55, "th": "รับเงิน 55 GP"}
+      },
+      "spellcasting": {"ability": "INT", "list": "Wizard", "prepare": "spellbook", "cantrips": [3, 3, 3, 4, 4], "prepared": [4, 5, 6, 7, 9],
+        "slots": [[2], [3], [4, 2], [4, 3], [4, 3, 2]], "spellbookStart": 6, "spellbookPerLevel": 2,
+        "recommend": {"cantrips": ["light", "mage-hand", "ray-of-frost"], "spellbook": ["detect-magic", "feather-fall", "mage-armor", "magic-missile", "sleep", "thunderwave"]}},
+      "resources": {"arcaneRecovery": {"name": "Arcane Recovery", "byLevel": [1, 1, 1, 1, 1], "recharge": "long"}},
+      "features": [
+        {"lv": 1, "name": "Spellcasting", "th": "ร่ายเวทพ่อมดด้วย INT มีสมุดเวท เตรียมเวทจากสมุดทุกพักยาว"},
+        {"lv": 1, "name": "Ritual Adept", "th": "ร่ายเวท Ritual ในสมุดได้โดยไม่ต้องเตรียม"},
+        {"lv": 1, "name": "Arcane Recovery", "th": "พักสั้นคืนช่องเวทรวมเลเวลไม่เกินครึ่งเลเวลพ่อมด (ปัดขึ้น) 1 ครั้ง/พักยาว"},
+        {"lv": 2, "name": "Scholar", "choice": "scholar", "th": "Expertise 1 ทักษะจาก Arcana, History, Investigation, Medicine, Nature, Religion"},
+        {"lv": 3, "name": "Wizard Subclass", "subclass": true, "th": "เลือกสายย่อย: Evoker"},
+        {"lv": 4, "name": "Ability Score Improvement", "choice": "asi", "th": "เพิ่มค่าสถานะหรือเลือก Feat"},
+        {"lv": 5, "name": "Memorize Spell", "th": "พักสั้นสลับเวทที่เตรียมกับเวทในสมุดได้ 1 อย่าง"}
+      ],
+      "subclasses": [
+        {"id": "evoker", "name": "Evoker", "th": "สายระเบิด: เวทธาตุแรง ไม่โดนเพื่อน",
+         "features": [
+           {"lv": 3, "name": "Evocation Savant", "th": "ได้เวท Evocation เลเวล ≤2 ฟรีลงสมุด 2 อย่าง และอีก 1 อย่างทุกครั้งที่ได้ช่องเวทเลเวลใหม่"},
+           {"lv": 3, "name": "Potent Cantrip", "th": "Cantrip ที่ตีพลาดหรือเป้าเซฟผ่าน ยังโดนดาเมจครึ่งหนึ่ง"}
+         ]}
+      ]
+    }
+  ]
+}

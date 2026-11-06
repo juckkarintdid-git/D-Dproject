@@ -1,0 +1,143 @@
+{
+  "_source": "SRD 5.2.1 Character Creation, Character Origins, Feats (CC-BY-4.0)",
+  "abilities": {
+    "STR": {"name": "Strength", "th": "พละกำลัง"},
+    "DEX": {"name": "Dexterity", "th": "ความคล่องแคล่ว"},
+    "CON": {"name": "Constitution", "th": "ความอึด"},
+    "INT": {"name": "Intelligence", "th": "สติปัญญา"},
+    "WIS": {"name": "Wisdom", "th": "ปัญญาญาณ/การรับรู้"},
+    "CHA": {"name": "Charisma", "th": "เสน่ห์"}
+  },
+  "skills": {
+    "Acrobatics": {"ab": "DEX", "th": "กายกรรม"},
+    "Animal Handling": {"ab": "WIS", "th": "ดูแลสัตว์"},
+    "Arcana": {"ab": "INT", "th": "ความรู้เวทมนตร์"},
+    "Athletics": {"ab": "STR", "th": "กรีฑา ปีน ว่าย กระโดด"},
+    "Deception": {"ab": "CHA", "th": "หลอกลวง"},
+    "History": {"ab": "INT", "th": "ประวัติศาสตร์"},
+    "Insight": {"ab": "WIS", "th": "อ่านใจคน"},
+    "Intimidation": {"ab": "CHA", "th": "ข่มขู่"},
+    "Investigation": {"ab": "INT", "th": "สืบสวน"},
+    "Medicine": {"ab": "WIS", "th": "การแพทย์"},
+    "Nature": {"ab": "INT", "th": "ธรรมชาติ"},
+    "Perception": {"ab": "WIS", "th": "สังเกตการณ์"},
+    "Performance": {"ab": "CHA", "th": "การแสดง"},
+    "Persuasion": {"ab": "CHA", "th": "โน้มน้าว"},
+    "Religion": {"ab": "INT", "th": "ศาสนา"},
+    "Sleight of Hand": {"ab": "DEX", "th": "มือไว ล้วงกระเป๋า"},
+    "Stealth": {"ab": "DEX", "th": "ลอบเร้น"},
+    "Survival": {"ab": "WIS", "th": "เอาตัวรอด แกะรอย"}
+  },
+  "standardArray": [15, 14, 13, 12, 10, 8],
+  "pointCost": {"8": 0, "9": 1, "10": 2, "11": 3, "12": 4, "13": 5, "14": 7, "15": 9},
+  "pointBudget": 27,
+  "languages": {
+    "standard": ["Common", "Common Sign Language", "Draconic", "Dwarvish", "Elvish", "Giant", "Gnomish", "Goblin", "Halfling", "Orc"],
+    "rare": ["Abyssal", "Celestial", "Deep Speech", "Druidic", "Infernal", "Primordial", "Sylvan", "Thieves' Cant", "Undercommon"]
+  },
+  "backgrounds": [
+    {"id": "acolyte", "name": "Acolyte", "th": "ผู้รับใช้วิหาร", "abilities": ["INT", "WIS", "CHA"], "feat": "magic-initiate-cleric", "skills": ["Insight", "Religion"], "tool": "Calligrapher's Supplies",
+     "equip": {"A": [["calligraphers-supplies", 1], ["book", 1], ["holy-symbol", 1], ["parchment", 10], ["robe", 1]], "Agp": 8, "Bgp": 50}},
+    {"id": "criminal", "name": "Criminal", "th": "อาชญากร", "abilities": ["DEX", "CON", "INT"], "feat": "alert", "skills": ["Sleight of Hand", "Stealth"], "tool": "Thieves' Tools",
+     "equip": {"A": [["dagger", 2], ["thieves-tools", 1], ["crowbar", 1], ["pouch", 2], ["travelers-clothes", 1]], "Agp": 16, "Bgp": 50}},
+    {"id": "sage", "name": "Sage", "th": "นักปราชญ์", "abilities": ["CON", "INT", "WIS"], "feat": "magic-initiate-wizard", "skills": ["Arcana", "History"], "tool": "Calligrapher's Supplies",
+     "equip": {"A": [["quarterstaff", 1], ["calligraphers-supplies", 1], ["book", 1], ["parchment", 8], ["robe", 1]], "Agp": 8, "Bgp": 50}},
+    {"id": "soldier", "name": "Soldier", "th": "ทหาร", "abilities": ["STR", "DEX", "CON"], "feat": "savage-attacker", "skills": ["Athletics", "Intimidation"], "tool": "Gaming Set",
+     "equip": {"A": [["spear", 1], ["shortbow", 1], ["arrows", 1], ["gaming-set", 1], ["healers-kit", 1], ["quiver", 1], ["travelers-clothes", 1]], "Agp": 14, "Bgp": 50}}
+  ],
+  "species": [
+    {"id": "dragonborn", "name": "Dragonborn", "th": "ดราก้อนบอร์น (เชื้อสายมังกร)", "size": "Medium", "speed": 30, "darkvision": 60,
+     "choice": {"key": "ancestry", "label": "Draconic Ancestry", "options": {"Black": "Acid", "Blue": "Lightning", "Brass": "Fire", "Bronze": "Lightning", "Copper": "Acid", "Gold": "Fire", "Green": "Poison", "Red": "Fire", "Silver": "Cold", "White": "Cold"}},
+     "traits": [
+       {"name": "Breath Weapon", "th": "พ่นลมหายใจ: แทนการโจมตี 1 ครั้ง กรวย 15 ฟุตหรือเส้น 30 ฟุต เซฟ DEX (DC 8+CON+PB) โดน 1d10 (Lv5: 2d10) ใช้ได้ PB ครั้ง/พักยาว", "uses": "PB", "recharge": "long"},
+       {"name": "Damage Resistance", "th": "ต้านทานธาตุตามสายเลือดมังกร (ดาเมจครึ่งเดียว)"},
+       {"name": "Darkvision", "th": "มองในที่มืด 60 ฟุต"},
+       {"name": "Draconic Flight", "th": "Lv5: งอกปีกบินได้ 10 นาที 1 ครั้ง/พักยาว", "minLevel": 5, "uses": 1, "recharge": "long"}
+     ]},
+    {"id": "dwarf", "name": "Dwarf", "th": "คนแคระ", "size": "Medium", "speed": 30, "darkvision": 120, "hpPerLevel": 1,
+     "traits": [
+       {"name": "Darkvision", "th": "มองในที่มืด 120 ฟุต"},
+       {"name": "Dwarven Resilience", "th": "ต้านทานดาเมจพิษ และเซฟกันติดพิษได้เปรียบ"},
+       {"name": "Dwarven Toughness", "th": "HP สูงสุด +1 ทุกเลเวล"},
+       {"name": "Stonecunning", "th": "Bonus Action: รับรู้การสั่นสะเทือน 60 ฟุตบนพื้นหิน 10 นาที (PB ครั้ง/พักยาว)", "uses": "PB", "recharge": "long"}
+     ]},
+    {"id": "elf", "name": "Elf", "th": "เอลฟ์", "size": "Medium", "speed": 30, "darkvision": 60,
+     "choice": {"key": "lineage", "label": "Elven Lineage", "options": {
+       "Drow": {"th": "มองมืด 120 ฟุต รู้ Dancing Lights · Lv3 Faerie Fire · Lv5 Darkness", "cantrips": ["dancing-lights"], "spells": {"3": "faerie-fire", "5": "darkness"}, "darkvision": 120},
+       "High Elf": {"th": "รู้ Prestidigitation · Lv3 Detect Magic · Lv5 Misty Step", "cantrips": ["prestidigitation"], "spells": {"3": "detect-magic", "5": "misty-step"}},
+       "Wood Elf": {"th": "ความเร็ว 35 ฟุต รู้ Druidcraft · Lv3 Longstrider · Lv5 Pass without Trace", "cantrips": ["druidcraft"], "spells": {"3": "longstrider", "5": "pass-without-trace"}, "speed": 35}}},
+     "skillChoice": {"count": 1, "from": ["Insight", "Perception", "Survival"]},
+     "traits": [
+       {"name": "Darkvision", "th": "มองในที่มืด 60 ฟุต"},
+       {"name": "Elven Lineage", "th": "ได้เวทตามสายเลือด ร่ายฟรี 1 ครั้ง/พักยาว"},
+       {"name": "Fey Ancestry", "th": "เซฟกันโดนเสน่ห์ (Charmed) ได้เปรียบ"},
+       {"name": "Keen Senses", "th": "ชำนาญ Insight, Perception หรือ Survival (เลือก 1)"},
+       {"name": "Trance", "th": "ไม่ต้องนอน พักยาวแค่ 4 ชม."}
+     ]},
+    {"id": "gnome", "name": "Gnome", "th": "โนม", "size": "Small", "speed": 30, "darkvision": 60,
+     "choice": {"key": "lineage", "label": "Gnomish Lineage", "options": {
+       "Forest Gnome": {"th": "รู้ Minor Illusion และร่าย Speak with Animals ได้ PB ครั้ง/พักยาว", "cantrips": ["minor-illusion"]},
+       "Rock Gnome": {"th": "รู้ Mending กับ Prestidigitation สร้างของเล่นกลไกได้", "cantrips": ["mending", "prestidigitation"]}}},
+     "traits": [
+       {"name": "Darkvision", "th": "มองในที่มืด 60 ฟุต"},
+       {"name": "Gnomish Cunning", "th": "เซฟ INT, WIS, CHA ได้เปรียบ"},
+       {"name": "Gnomish Lineage", "th": "ได้เวทตามสายเลือด"}
+     ]},
+    {"id": "goliath", "name": "Goliath", "th": "โกไลแอธ (เชื้อสายยักษ์)", "size": "Medium", "speed": 35,
+     "choice": {"key": "giant", "label": "Giant Ancestry", "options": {
+       "Cloud's Jaunt": {"th": "Bonus Action วาร์ป 30 ฟุต"},
+       "Fire's Burn": {"th": "ตีโดนเพิ่มไฟ 1d10"},
+       "Frost's Chill": {"th": "ตีโดนเพิ่มน้ำแข็ง 1d6 และลดความเร็ว 10 ฟุต"},
+       "Hill's Tumble": {"th": "ตีโดนทำให้ศัตรูขนาดใหญ่หรือเล็กกว่าล้ม"},
+       "Stone's Endurance": {"th": "Reaction ลดดาเมจ 1d12+CON"},
+       "Storm's Thunder": {"th": "Reaction ตอบโต้ฟ้าร้อง 1d8 ใส่คนที่ตีเรา"}}},
+     "traits": [
+       {"name": "Giant Ancestry", "th": "พลังยักษ์ที่เลือก ใช้ได้ PB ครั้ง/พักยาว", "uses": "PB", "recharge": "long"},
+       {"name": "Large Form", "th": "Lv5: ขยายร่างเป็นขนาดใหญ่ 10 นาที STR ได้เปรียบ เร็ว +10 ฟุต (1 ครั้ง/พักยาว)", "minLevel": 5, "uses": 1, "recharge": "long"},
+       {"name": "Powerful Build", "th": "หลุดจากการจับได้เปรียบ แบกของได้มากขึ้น"}
+     ]},
+    {"id": "halfling", "name": "Halfling", "th": "ฮาล์ฟลิง", "size": "Small", "speed": 30,
+     "traits": [
+       {"name": "Brave", "th": "เซฟกันความกลัวได้เปรียบ"},
+       {"name": "Halfling Nimbleness", "th": "เดินผ่านช่องของตัวที่ใหญ่กว่าได้"},
+       {"name": "Luck", "th": "ทอย d20 ได้ 1 ทอยใหม่ได้"},
+       {"name": "Naturally Stealthy", "th": "ซ่อนหลังตัวที่ใหญ่กว่าได้"}
+     ]},
+    {"id": "human", "name": "Human", "th": "มนุษย์", "size": "Medium", "speed": 30,
+     "skillChoice": {"count": 1, "from": "any"}, "originFeat": true,
+     "traits": [
+       {"name": "Resourceful", "th": "ได้ Heroic Inspiration ทุกครั้งที่พักยาว (ทอยใหม่ได้ 1 ครั้ง)"},
+       {"name": "Skillful", "th": "ชำนาญทักษะเพิ่ม 1 อย่าง"},
+       {"name": "Versatile", "th": "ได้ Origin Feat เพิ่ม 1 อย่าง (แนะนำ Skilled)"}
+     ]},
+    {"id": "orc", "name": "Orc", "th": "ออร์ค", "size": "Medium", "speed": 30, "darkvision": 120,
+     "traits": [
+       {"name": "Adrenaline Rush", "th": "Dash เป็น Bonus Action ได้ HP ชั่วคราวเท่า PB (PB ครั้ง/พักสั้น)", "uses": "PB", "recharge": "short"},
+       {"name": "Darkvision", "th": "มองในที่มืด 120 ฟุต"},
+       {"name": "Relentless Endurance", "th": "HP เหลือ 0 ให้เหลือ 1 แทน (1 ครั้ง/พักยาว)", "uses": 1, "recharge": "long"}
+     ]},
+    {"id": "tiefling", "name": "Tiefling", "th": "ทีฟลิง (เชื้อสายปีศาจ)", "size": "Medium", "speed": 30, "darkvision": 60,
+     "choice": {"key": "legacy", "label": "Fiendish Legacy", "options": {
+       "Abyssal": {"th": "ต้านพิษ รู้ Poison Spray · Lv3 Ray of Sickness · Lv5 Hold Person", "cantrips": ["poison-spray"], "spells": {"3": "ray-of-sickness", "5": "hold-person"}},
+       "Chthonic": {"th": "ต้าน Necrotic รู้ Chill Touch · Lv3 False Life · Lv5 Ray of Enfeeblement", "cantrips": ["chill-touch"], "spells": {"3": "false-life", "5": "ray-of-enfeeblement"}},
+       "Infernal": {"th": "ต้านไฟ รู้ Fire Bolt · Lv3 Hellish Rebuke · Lv5 Darkness", "cantrips": ["fire-bolt"], "spells": {"3": "hellish-rebuke", "5": "darkness"}}}},
+     "traits": [
+       {"name": "Darkvision", "th": "มองในที่มืด 60 ฟุต"},
+       {"name": "Fiendish Legacy", "th": "ต้านทานธาตุ + เวทตามสายเลือด"},
+       {"name": "Otherworldly Presence", "th": "รู้ Thaumaturgy"}
+     ]}
+  ],
+  "feats": [
+    {"id": "alert", "name": "Alert", "cat": "origin", "th": "บวก PB ในการทอย Initiative และสลับลำดับกับเพื่อนได้"},
+    {"id": "magic-initiate-cleric", "name": "Magic Initiate (Cleric)", "cat": "origin", "list": "Cleric", "th": "ได้ Cantrip 2 อย่างและเวทเลเวล 1 อีก 1 อย่างจากลิสต์ Cleric (ร่ายฟรี 1 ครั้ง/พักยาว)"},
+    {"id": "magic-initiate-wizard", "name": "Magic Initiate (Wizard)", "cat": "origin", "list": "Wizard", "th": "ได้ Cantrip 2 อย่างและเวทเลเวล 1 อีก 1 อย่างจากลิสต์ Wizard (ร่ายฟรี 1 ครั้ง/พักยาว)"},
+    {"id": "savage-attacker", "name": "Savage Attacker", "cat": "origin", "th": "เทิร์นละครั้ง ทอยดาเมจอาวุธ 2 รอบแล้วเลือกอันที่ดีกว่า"},
+    {"id": "skilled", "name": "Skilled", "cat": "origin", "repeatable": true, "th": "ชำนาญทักษะหรือเครื่องมือเพิ่ม 3 อย่าง"},
+    {"id": "ability-score-improvement", "name": "Ability Score Improvement", "cat": "general", "minLevel": 4, "repeatable": true, "th": "เพิ่มค่าสถานะ 1 อย่าง +2 หรือ 2 อย่าง +1 (สูงสุด 20)"},
+    {"id": "grappler", "name": "Grappler", "cat": "general", "minLevel": 4, "prereq": {"anyOf": {"STR": 13, "DEX": 13}}, "asi": ["STR", "DEX"], "th": "STR หรือ DEX +1 ต่อยแล้วจับได้ในครั้งเดียว ตีตัวที่จับไว้ได้เปรียบ"},
+    {"id": "archery", "name": "Archery", "cat": "fighting", "th": "ตีด้วยอาวุธระยะไกล +2"},
+    {"id": "defense", "name": "Defense", "cat": "fighting", "th": "ใส่เกราะอยู่ได้ AC +1"},
+    {"id": "great-weapon-fighting", "name": "Great Weapon Fighting", "cat": "fighting", "th": "อาวุธสองมือ ทอยดาเมจได้ 1 หรือ 2 นับเป็น 3"},
+    {"id": "two-weapon-fighting", "name": "Two-Weapon Fighting", "cat": "fighting", "th": "การตีเพิ่มด้วยอาวุธ Light บวกค่าสถานะในดาเมจได้"}
+  ]
+}

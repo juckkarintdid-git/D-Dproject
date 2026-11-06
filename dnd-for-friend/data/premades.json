@@ -1,0 +1,566 @@
+[
+ {
+  "v": 1,
+  "id": "pre-fighter",
+  "name": "Brannoc Ironvow",
+  "player": "",
+  "level": 1,
+  "xp": 0,
+  "classId": "fighter",
+  "subclassId": "",
+  "speciesId": "dwarf",
+  "speciesChoice": "",
+  "backgroundId": "soldier",
+  "bgBonus": {
+   "STR": 2,
+   "CON": 1
+  },
+  "abilityMethod": "standard",
+  "baseScores": {
+   "STR": 15,
+   "DEX": 13,
+   "CON": 14,
+   "INT": 8,
+   "WIS": 12,
+   "CHA": 10
+  },
+  "skills": [
+   "Perception",
+   "Survival"
+  ],
+  "speciesSkills": [],
+  "skilledPicks": [],
+  "expertise": [],
+  "humanFeat": "",
+  "fightingStyle": "great-weapon-fighting",
+  "divineOrder": "",
+  "huntersPrey": "",
+  "masteries": [
+   "greatsword",
+   "flail",
+   "javelin"
+  ],
+  "cantrips": [],
+  "spells": [],
+  "spellbook": [],
+  "magicInitiate": null,
+  "asi": [],
+  "hpRolls": {},
+  "inventory": [
+   {
+    "id": "chain-mail",
+    "qty": 1,
+    "equipped": true
+   },
+   {
+    "id": "greatsword",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "flail",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "javelin",
+    "qty": 8,
+    "equipped": false
+   },
+   {
+    "id": "dungeoneers-pack",
+    "qty": 1,
+    "equipped": false
+   }
+  ],
+  "gp": 54,
+  "languages": [
+   "Common",
+   "Dwarvish",
+   "Giant"
+  ],
+  "alignment": "Lawful Good",
+  "appearance": "คนแคระไหล่กว้าง เคราสีทองแดงถักเปีย มีแผลเป็นยาวที่แก้มซ้าย ใส่ชุดเกราะโซ่ แบกดาบสองมือ",
+  "backstory": "บรานน็อคเคยเป็นหัวหน้าหน่วยเฝ้าประตูเหมืองเหล็กแห่งภูเขาคาร์ก จนคืนหนึ่งมีบางอย่างขึ้นมาจากใต้ดินแล้วกวาดหน่วยของเขาจนเหลือเขาคนเดียว เขาสาบานกับค้อนของบรรพบุรุษว่าจะตามหาสิ่งนั้นให้เจอ และจะไม่ยอมให้เพื่อนร่วมทางคนไหนตายต่อหน้าเขาอีก เขาพูดน้อย กินเยอะ และเชื่อว่าปัญหาส่วนใหญ่แก้ได้ด้วยการยืนอยู่ข้างหน้าสุด",
+  "portrait": "",
+  "state": {
+   "hp": null,
+   "tempHp": 0,
+   "slotsUsed": [],
+   "resUsed": {},
+   "deathSaves": {
+    "ok": 0,
+    "fail": 0
+   },
+   "conditions": []
+  },
+  "tagline": "โล่มนุษย์ของปาร์ตี้ ตีแรง ทนมาก",
+  "portraitPrompt": "Fantasy portrait of a stout dwarf warrior, braided copper beard, long scar on left cheek, chain mail armor, greatsword over shoulder, determined stern eyes, torch-lit mine gate background, painterly D&D character art, upper body, dramatic lighting"
+ },
+ {
+  "v": 1,
+  "id": "pre-rogue",
+  "name": "Pip Quickfinger",
+  "player": "",
+  "level": 1,
+  "xp": 0,
+  "classId": "rogue",
+  "subclassId": "",
+  "speciesId": "halfling",
+  "speciesChoice": "",
+  "backgroundId": "criminal",
+  "bgBonus": {
+   "DEX": 2,
+   "INT": 1
+  },
+  "abilityMethod": "standard",
+  "baseScores": {
+   "STR": 8,
+   "DEX": 15,
+   "CON": 14,
+   "INT": 12,
+   "WIS": 13,
+   "CHA": 10
+  },
+  "skills": [
+   "Acrobatics",
+   "Deception",
+   "Investigation",
+   "Perception"
+  ],
+  "speciesSkills": [],
+  "skilledPicks": [],
+  "expertise": [
+   "Stealth",
+   "Perception"
+  ],
+  "humanFeat": "",
+  "fightingStyle": "",
+  "divineOrder": "",
+  "huntersPrey": "",
+  "masteries": [
+   "dagger",
+   "shortsword"
+  ],
+  "cantrips": [],
+  "spells": [],
+  "spellbook": [],
+  "magicInitiate": null,
+  "asi": [],
+  "hpRolls": {},
+  "inventory": [
+   {
+    "id": "leather",
+    "qty": 1,
+    "equipped": true
+   },
+   {
+    "id": "dagger",
+    "qty": 2,
+    "equipped": false
+   },
+   {
+    "id": "shortsword",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "shortbow",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "arrows",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "quiver",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "thieves-tools",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "burglars-pack",
+    "qty": 1,
+    "equipped": false
+   }
+  ],
+  "gp": 58,
+  "languages": [
+   "Common",
+   "Halfling",
+   "Thieves' Cant"
+  ],
+  "alignment": "Chaotic Good",
+  "appearance": "ฮาล์ฟลิงผมหยิกสีน้ำตาล ยิ้มกวน ๆ ตลอดเวลา สวมเสื้อคลุมหนังมีฮู้ด มีมีดสั้นซ่อนอยู่ทุกที่บนตัว",
+  "backstory": "พิปโตมาในตรอกท่าเรือเมืองซอลท์เมียร์ และเรียนรู้ว่ากุญแจทุกดอกมีจุดอ่อน เขาเคยทำงานให้แก๊งหน้ากากเทา จนถูกใส่ร้ายว่าขโมยมงกุฎของท่านเจ้าเมือง ตอนนี้เขามีค่าหัวติดอยู่ทั่วเมือง และกำลังหาหลักฐานว่าใครคือคนที่หักหลังเขาจริง ๆ ระหว่างนั้นก็รับงานผจญภัยไปพลาง เพราะเงินรางวัลดีกว่าล้วงกระเป๋าเยอะ",
+  "portrait": "",
+  "state": {
+   "hp": null,
+   "tempHp": 0,
+   "slotsUsed": [],
+   "resUsed": {},
+   "deathSaves": {
+    "ok": 0,
+    "fail": 0
+   },
+   "conditions": []
+  },
+  "tagline": "ตัวเล็ก หายตัวเก่ง แทงจุดตายแรง",
+  "portraitPrompt": "Fantasy portrait of a cheerful halfling rogue, curly brown hair, mischievous grin, dark leather hooded cloak, twin daggers, harbor alley at night with lanterns, painterly D&D character art, upper body, moody blue and orange lighting"
+ },
+ {
+  "v": 1,
+  "id": "pre-cleric",
+  "name": "Sister Elara Dawnmere",
+  "player": "",
+  "level": 1,
+  "xp": 0,
+  "classId": "cleric",
+  "subclassId": "",
+  "speciesId": "human",
+  "speciesChoice": "",
+  "backgroundId": "acolyte",
+  "bgBonus": {
+   "WIS": 2,
+   "CHA": 1
+  },
+  "abilityMethod": "standard",
+  "baseScores": {
+   "STR": 14,
+   "DEX": 8,
+   "CON": 13,
+   "INT": 10,
+   "WIS": 15,
+   "CHA": 12
+  },
+  "skills": [
+   "Medicine",
+   "Persuasion"
+  ],
+  "speciesSkills": [
+   "Perception"
+  ],
+  "skilledPicks": [],
+  "expertise": [],
+  "humanFeat": "alert",
+  "fightingStyle": "",
+  "divineOrder": "Protector",
+  "huntersPrey": "",
+  "masteries": [],
+  "cantrips": [
+   "guidance",
+   "sacred-flame",
+   "thaumaturgy"
+  ],
+  "spells": [
+   "bless",
+   "cure-wounds",
+   "guiding-bolt",
+   "shield-of-faith"
+  ],
+  "spellbook": [],
+  "magicInitiate": {
+   "list": "Cleric",
+   "ability": "WIS",
+   "cantrips": [
+    "light",
+    "spare-the-dying"
+   ],
+   "spell": "healing-word"
+  },
+  "asi": [],
+  "hpRolls": {},
+  "inventory": [
+   {
+    "id": "chain-shirt",
+    "qty": 1,
+    "equipped": true
+   },
+   {
+    "id": "shield",
+    "qty": 1,
+    "equipped": true
+   },
+   {
+    "id": "mace",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "holy-symbol",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "priests-pack",
+    "qty": 1,
+    "equipped": false
+   }
+  ],
+  "gp": 57,
+  "languages": [
+   "Common",
+   "Elvish",
+   "Halfling"
+  ],
+  "alignment": "Neutral Good",
+  "appearance": "หญิงสาวผมยาวสีเงินมัดรวบ ดวงตาสีอำพัน สวมเกราะทับชุดนักบวชสีขาวทอง มีสัญลักษณ์รูปตะวันห้อยคอ",
+  "backstory": "เอลาร่าถูกทิ้งไว้หน้าวิหารแห่งรุ่งอรุณตั้งแต่ยังเป็นทารก นักบวชเลี้ยงเธอมาเหมือนลูก เธอเรียนทั้งการรักษาและการถือโล่ เพราะวิหารตั้งอยู่ชายแดนที่มีพวกอันเดดออกมาทุกคืนเดือนมืด เมื่อแสงในหอคอยวิหารดับลงอย่างไม่มีสาเหตุ เธอได้ยินเสียงในความฝันบอกให้ออกเดินทางไปตามหาเปลวไฟดวงแรก เธอใจดีกับทุกคน ยกเว้นพวกที่ปลุกคนตาย",
+  "portrait": "",
+  "state": {
+   "hp": null,
+   "tempHp": 0,
+   "slotsUsed": [],
+   "resUsed": {},
+   "deathSaves": {
+    "ok": 0,
+    "fail": 0
+   },
+   "conditions": []
+  },
+  "tagline": "ฮีลเลอร์สายแทงก์ ใส่เกราะหนัก ถือโล่",
+  "portraitPrompt": "Fantasy portrait of a young human female cleric, long silver hair tied back, amber eyes, white and gold vestments over chain shirt, round shield with sun emblem, holy light glowing from her hand, temple interior background, painterly D&D character art, upper body, warm golden lighting"
+ },
+ {
+  "v": 1,
+  "id": "pre-ranger",
+  "name": "Faelan Windleaf",
+  "player": "",
+  "level": 1,
+  "xp": 0,
+  "classId": "ranger",
+  "subclassId": "",
+  "speciesId": "elf",
+  "speciesChoice": "Wood Elf",
+  "backgroundId": "soldier",
+  "bgBonus": {
+   "DEX": 2,
+   "CON": 1
+  },
+  "abilityMethod": "standard",
+  "baseScores": {
+   "STR": 12,
+   "DEX": 15,
+   "CON": 13,
+   "INT": 8,
+   "WIS": 14,
+   "CHA": 10
+  },
+  "skills": [
+   "Stealth",
+   "Survival",
+   "Nature"
+  ],
+  "speciesSkills": [
+   "Perception"
+  ],
+  "skilledPicks": [],
+  "expertise": [],
+  "humanFeat": "",
+  "fightingStyle": "",
+  "divineOrder": "",
+  "huntersPrey": "",
+  "masteries": [
+   "longbow",
+   "shortsword"
+  ],
+  "cantrips": [],
+  "spells": [
+   "cure-wounds",
+   "ensnaring-strike"
+  ],
+  "spellbook": [],
+  "magicInitiate": null,
+  "asi": [],
+  "hpRolls": {},
+  "inventory": [
+   {
+    "id": "studded-leather",
+    "qty": 1,
+    "equipped": true
+   },
+   {
+    "id": "scimitar",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "shortsword",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "longbow",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "arrows",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "quiver",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "druidic-focus",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "explorers-pack",
+    "qty": 1,
+    "equipped": false
+   }
+  ],
+  "gp": 57,
+  "languages": [
+   "Common",
+   "Elvish",
+   "Sylvan"
+  ],
+  "alignment": "Neutral Good",
+  "appearance": "เอลฟ์ป่าผิวสีแทน ผมยาวสีเขียวเข้มถักใบไม้แห้ง สวมชุดหนังลายพราง ถือธนูยาวที่แกะสลักลายเถาวัลย์",
+  "backstory": "เฟลานเคยเป็นทหารพรานเฝ้าป่าเกรย์วูดให้กับราชินีเอลฟ์ จนกองทัพก็อบลินบุกเผาหมู่บ้านริมป่า เขาตามรอยพวกมันไปจนพบว่ามีคนสวมผ้าคลุมสีม่วงคอยสั่งการอยู่เบื้องหลัง ตั้งแต่นั้นเขาออกจากหน่วยมาล่าคนกลุ่มนั้นด้วยตัวเอง เขาเงียบ เชื่อใจคนยาก แต่ถ้าใครได้เป็นเพื่อนเขาแล้ว เขาจะยิงธนูให้จนลูกสุดท้าย",
+  "portrait": "",
+  "state": {
+   "hp": null,
+   "tempHp": 0,
+   "slotsUsed": [],
+   "resUsed": {},
+   "deathSaves": {
+    "ok": 0,
+    "fail": 0
+   },
+   "conditions": []
+  },
+  "tagline": "นักธนูระยะไกล ตามรอยเก่ง ล่าเป้าหมายเดียว",
+  "portraitPrompt": "Fantasy portrait of a male wood elf ranger, tan skin, long dark green hair braided with dry leaves, camouflaged leather armor, carved longbow with vine patterns, misty ancient forest background, painterly D&D character art, upper body, soft green dappled light"
+ },
+ {
+  "v": 1,
+  "id": "pre-wizard",
+  "name": "Tibbly Cogsworth",
+  "player": "",
+  "level": 1,
+  "xp": 0,
+  "classId": "wizard",
+  "subclassId": "",
+  "speciesId": "gnome",
+  "speciesChoice": "Forest Gnome",
+  "backgroundId": "sage",
+  "bgBonus": {
+   "INT": 2,
+   "CON": 1
+  },
+  "abilityMethod": "standard",
+  "baseScores": {
+   "STR": 8,
+   "DEX": 12,
+   "CON": 13,
+   "INT": 15,
+   "WIS": 14,
+   "CHA": 10
+  },
+  "skills": [
+   "Investigation",
+   "Insight"
+  ],
+  "speciesSkills": [],
+  "skilledPicks": [],
+  "expertise": [],
+  "humanFeat": "",
+  "fightingStyle": "",
+  "divineOrder": "",
+  "huntersPrey": "",
+  "masteries": [],
+  "cantrips": [
+   "fire-bolt",
+   "mage-hand",
+   "light"
+  ],
+  "spells": [
+   "mage-armor",
+   "magic-missile",
+   "sleep",
+   "thunderwave"
+  ],
+  "spellbook": [
+   "detect-magic",
+   "feather-fall",
+   "mage-armor",
+   "magic-missile",
+   "sleep",
+   "thunderwave"
+  ],
+  "magicInitiate": {
+   "list": "Wizard",
+   "ability": "INT",
+   "cantrips": [
+    "ray-of-frost",
+    "prestidigitation"
+   ],
+   "spell": "shield"
+  },
+  "asi": [],
+  "hpRolls": {},
+  "inventory": [
+   {
+    "id": "dagger",
+    "qty": 2,
+    "equipped": false
+   },
+   {
+    "id": "quarterstaff",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "robe",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "spellbook",
+    "qty": 1,
+    "equipped": false
+   },
+   {
+    "id": "scholars-pack",
+    "qty": 1,
+    "equipped": false
+   }
+  ],
+  "gp": 55,
+  "languages": [
+   "Common",
+   "Gnomish",
+   "Draconic"
+  ],
+  "alignment": "Chaotic Good",
+  "appearance": "โนมตัวจิ๋ว ผมขาวฟูชี้ฟ้า สวมแว่นกลมหนาเตอะ เสื้อคลุมสีน้ำเงินเต็มไปด้วยรอยไหม้ กอดสมุดเวทเล่มใหญ่กว่าตัว",
+  "backstory": "ทิบบลีเป็นผู้ช่วยบรรณารักษ์ในหอสมุดหอคอยเวทแห่งเมืองหลวง จนวันหนึ่งเขาเปิดหนังสือต้องห้ามเล่มหนึ่งโดยไม่ได้ตั้งใจ หน้ากระดาษครึ่งเล่มหลุดปลิวหายไปทั่วแผ่นดิน อาจารย์ใหญ่ไม่ได้ไล่เขาออก แต่ให้เขาออกไปตามเก็บทุกหน้ากลับมา เขาตื่นเต้นกับทุกสิ่ง จดโน้ตไม่หยุด และมีนิสัยชอบลองเวทใหม่ในจังหวะที่ไม่ควรลองที่สุด",
+  "portrait": "",
+  "state": {
+   "hp": null,
+   "tempHp": 0,
+   "slotsUsed": [],
+   "resUsed": {},
+   "deathSaves": {
+    "ok": 0,
+    "fail": 0
+   },
+   "conditions": []
+  },
+  "tagline": "จอมเวทสายระเบิด คุมพื้นที่ ตัวบางมาก",
+  "portraitPrompt": "Fantasy portrait of a tiny gnome wizard, fluffy white hair sticking up, thick round glasses, singed blue robe, hugging an oversized spellbook, small blue flame floating above his palm, cluttered magic library background, painterly D&D character art, upper body, whimsical warm candle lighting"
+ }
+]
