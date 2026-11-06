@@ -1,0 +1,225 @@
+// Builds data/campaign.json: the first campaign "Ember Vale" (levels 1-5).
+// Maps are ASCII: # wall, . floor, , rubble/brush (difficult), ~ water (difficult), T tree (blocks),
+// S party start, D door, C chest, ? clue, E exit, lowercase letters = monster spawn cells of encounter a/b/c...,
+// uppercase B = the boss cell of the boss encounter (listed in "boss").
+// Run: node tools/make_campaign.mjs   (validates every map: sizes, reachability, monster ids)
+import { readFileSync, writeFileSync } from "node:fs";
+
+const M = Object.fromEntries(JSON.parse(readFileSync(new URL("../data/monsters.json", import.meta.url))).map((m) => [m.id, m]));
+
+const maps = {
+  hollow: {
+    name: "Thornback Hollow", th: "โพรงหนามดำ", theme: "cave", level: "1–2",
+    intro: "ป่าหนามทึบปิดทางเข้าถ้ำหินปูน กลิ่นควันไฟและเนื้อย่างลอยออกมา มีรอยเท้าเล็ก ๆ หลายสิบรอยกับรอยหมาป่าขนาดใหญ่",
+    rows: [
+      "##########################",
+      "#S....,,..####......#....#",
+      "#..TT.....####..a...#.c..#",
+      "#..T......#.....a...D..c.#",
+      "#.....,,..#.........#.c..#",
+      "###..######.####..###....#",
+      "#.....?...#.#..#..#......#",
+      "#.b.......#.#..####...C..#",
+      "#..b...~~.....,,.........#",
+      "#......~~~#.###.....######",
+      "#.....b...#.#.#.....#....#",
+      "####.######.#.#.##..D..e.#",
+      "#.......#...#.....#.#.eBe#",
+      "#..C....#.,,......#.#..e.#",
+      "#.......D.........#......#",
+      "##########################",
+    ],
+    encounters: {
+      a: { th: "หมาป่าเฝ้าทาง", monsters: [["wolf"], ["wolf", "normal", 3]] },
+      b: { th: "ลูกน้องก็อบลิน", monsters: [["goblin-minion"], ["goblin-minion"], ["goblin-minion", "normal", 3]] },
+      c: { th: "หน่วยธนูก็อบลิน", monsters: [["goblin-warrior"], ["goblin-minion"], ["goblin-warrior", "normal", 4]] },
+      e: { th: "ห้องหัวหน้าก็อบลิน", boss: true, monsters: [["goblin-boss", "boss"], ["goblin-minion"], ["goblin-minion"], ["goblin-minion", "normal", 3], ["wolf", "normal", 4]] },
+    },
+    chests: [{ gp: 25, items: [["potion-healing", 1]] }, { gp: 40, items: [["potion-healing", 1]], note: "จดหมายเปื้อนเถ้า สั่งให้ก็อบลินจับคนไปส่งที่ 'หอแดง'" }],
+    clues: ["กองกระดูกสัตว์ปนกับเศษผ้าคลุมสีเทาเถ้า มีตราเปลวไฟสามแฉก (สัญลักษณ์ของคณะ Ashen Choir)"],
+    milestone: 300,
+    dm: "หัวหน้าก็อบลินชื่อ Grikka ได้ทองจากคนคลุมผ้าเทาให้ลักพาชาวบ้าน Grikka ขี้ขลาด ถ้าเลือดต่ำจะยอมเจรจาและบอกว่าคนคลุมผ้าไปทาง Gravewatch Crypt ชาวบ้านที่ถูกจับ (ช่างไม้ชื่อ Tamsin) ถูกขังอยู่ห้องท้ายสุด",
+  },
+  crypt: {
+    name: "Gravewatch Crypt", th: "สุสานเฝ้าหลุม", theme: "crypt", level: "2–3",
+    intro: "ประตูหินของสุสานเก่าเปิดแง้มอยู่ ข้างในเย็นเฉียบ เทียนสีดำถูกจุดไว้เป็นทางยาวลงไปใต้ดิน",
+    rows: [
+      "##########################",
+      "#S...#.......#...........#",
+      "#....#..a.a..#...b...b...#",
+      "#....D.......D...........#",
+      "#....#...a...#####D#######",
+      "##D###.......#.....,.....#",
+      "#....#####D###..c..,..?..#",
+      "#.?..#.........c.c.......#",
+      "#....#.,,......######D####",
+      "#....#.,,......#.........#",
+      "#....D.........#..e.e....#",
+      "######.....C...#....B....#",
+      "#..............D...e.e...#",
+      "#.C..######....#.........#",
+      "#....#    #....#.........#",
+      "##########################",
+    ],
+    encounters: {
+      a: { th: "โครงกระดูกยาม", monsters: [["skeleton"], ["skeleton"], ["skeleton", "normal", 3]] },
+      b: { th: "ศพเดินได้", monsters: [["zombie"], ["swarm-of-rats", "normal", 3]] },
+      c: { th: "กูลเฝ้าห้องเก็บศพ", monsters: [["ghoul", "subboss"], ["skeleton"], ["skeleton", "normal", 3]] },
+      e: { th: "ห้องบูชาของ Ghast", boss: true, monsters: [["ghast", "boss"], ["zombie"], ["zombie"], ["skeleton", "normal", 3], ["skeleton", "normal", 4]] },
+    },
+    chests: [{ gp: 60, items: [["potion-healing", 1]] }, { gp: 30, items: [["potion-healing", 2]], note: "แผนที่หยาบ ๆ วาดหอคอยบนหน้าผาสีแดงทางตะวันออก" }],
+    clues: ["จารึกบนผนัง: 'เมื่อเถ้าร้องเพลง มังกรที่หลับใต้ยอดเขาจะตื่น'", "ศพที่ถูกปลุกสวมผ้าคลุมเทาเหมือนพวกที่จ้างก็อบลิน"],
+    milestone: 900,
+    dm: "นักบวชตกยุคถูก Ashen Choir จ้างให้ปลุกศพเป็นกองทัพ เขากลายเป็น Ghast ไปแล้ว ถ้าผู้เล่นใช้เวทแสงหรือ Radiant ให้บรรยายว่ามันเจ็บปวดมาก กุญแจในห้องบูชาเปิดคุกที่หอแดง",
+  },
+  tower: {
+    name: "Redcliff Tower", th: "หอแดงริมผา", theme: "ruins", level: "3–4",
+    intro: "หอคอยหินแดงพังครึ่งหนึ่งตั้งอยู่บนหน้าผา ธงผ้าเทาโบกสะบัด มีโจรเดินยามบนกำแพง",
+    rows: [
+      "##########################",
+      "#S.,,....TT.......,,.....#",
+      "#..,,.....T...a.....a....#",
+      "#.........,...a....a....T#",
+      "#TT......#####D#####.....#",
+      "#T.......#.........#..TT.#",
+      "#........#..b...b..#.....#",
+      "#...?....D.........#.c...#",
+      "#........#.........#..c..#",
+      "#..,,....#####D#####.....#",
+      "#..,,.........,......c...#",
+      "#......####D######.......#",
+      "#..T...#....e.....#..C...#",
+      "#......#..e.B.e...#......#",
+      "#.C....#....e.....#......#",
+      "##########################",
+    ],
+    encounters: {
+      a: { th: "โจรเฝ้าลาน", monsters: [["bandit"], ["bandit"], ["scout"], ["bandit", "normal", 3]] },
+      b: { th: "นักเลงในหอ", monsters: [["tough"], ["tough", "normal", 3]] },
+      c: { th: "พลธนูบนเนิน", monsters: [["scout", "subboss"], ["bandit"], ["bandit", "normal", 3]] },
+      e: { th: "กัปตันโจร", boss: true, monsters: [["bandit-captain", "boss"], ["bandit"], ["bandit"], ["tough", "normal", 3], ["bandit", "normal", 4]] },
+    },
+    chests: [{ gp: 120, items: [["potion-healing", 2]] }, { gp: 80, items: [["potion-healing", 1]], note: "จดหมายของ Ashen Choir: 'พิธีปลุกจะเริ่มที่ยอด Ashen Spire ในคืนเดือนมืด'" }],
+    clues: ["รอยลากโซ่ไปทางห้องใต้ดิน มีเสียงคนร้องขอความช่วยเหลือ"],
+    milestone: 2700,
+    dm: "กัปตันโจร Vessa Redhand รับจ้าง Ashen Choir คุมเชลยไว้ใช้ในพิธี Vessa ฉลาด ถ้าแพ้แน่จะพยายามต่อรองแลกชีวิตกับข้อมูลเรื่องทางลับขึ้นยอด Spire",
+  },
+  spire: {
+    name: "Ashen Spire · Lower Halls", th: "หอเถ้าถ่าน ชั้นล่าง", theme: "volcanic", level: "4–5",
+    intro: "หอหินดำผุดขึ้นจากลาวาที่เย็นตัวแล้ว อากาศร้อนจนหายใจลำบาก เสียงสวดของคนหลายสิบดังก้องลงมาจากข้างบน",
+    rows: [
+      "##########################",
+      "#S....~~~......#.........#",
+      "#.....~~~..a.a.#..b...b..#",
+      "#..............D....b....#",
+      "#....a....a....#.........#",
+      "######D#########D#########",
+      "#........#.......#.......#",
+      "#..?.....#..c.c..#...d...#",
+      "#........D...c...D.......#",
+      "#........#.......#...C...#",
+      "######D###########D#######",
+      "#.....,,,.......,,,......#",
+      "#..C..,~,.......,~,....E.#",
+      "#.....,,,.......,,,......#",
+      "#........................#",
+      "##########################",
+    ],
+    encounters: {
+      a: { th: "สาวกเถ้า", monsters: [["cultist"], ["cultist"], ["cultist"], ["cultist", "normal", 3]] },
+      b: { th: "ภูตลาวา", monsters: [["magma-mephit"], ["magma-mephit"], ["magma-mephit", "normal", 3]] },
+      c: { th: "ผู้คลั่งศรัทธา", monsters: [["cultist-fanatic", "subboss"], ["cultist"], ["cultist", "normal", 3]] },
+      d: { th: "สุนัขนรก", monsters: [["hell-hound"]] },
+    },
+    chests: [{ gp: 150, items: [["potion-healing", 2]] }, { gp: 100, items: [["potion-healing", 1]] }],
+    clues: ["แท่นบูชามีแผ่นหินจารึกชื่อมังกร: 'Cindrathax ผู้หลับใหล'"],
+    milestone: 6500,
+    next: "summit",
+    dm: "ทางออก (E) ขึ้นไปยอดหอ ถ้าผู้เล่นปลดปล่อยเชลยระหว่างทาง ให้เชลยบอกว่ามังกรยังอ่อนแอเพราะเพิ่งตื่น",
+  },
+  summit: {
+    name: "Ashen Spire · Summit", th: "ยอดหอเถ้าถ่าน", theme: "volcanic", level: "5",
+    intro: "ยอดหอเปิดโล่งรับลมร้อน วงเวทสีแดงลุกโชนกลางลาน มังกรสีแดงตัวเล็กกำลังสะบัดเถ้าออกจากเกล็ด",
+    rows: [
+      "########################",
+      "#S.....,,.....,,.......#",
+      "#......,,.....,,.......#",
+      "#....~~..........~~....#",
+      "#....~~....e.....~~....#",
+      "#.........e.B.e........#",
+      "#..........e...........#",
+      "#....~~..........~~....#",
+      "#....~~..........~~....#",
+      "#......,,.....,,.......#",
+      "#......,,.....,,.......#",
+      "########################",
+    ],
+    encounters: {
+      e: { th: "Cindrathax ผู้ตื่นจากเถ้า", boss: true, monsters: [["red-dragon-wyrmling", "boss"], ["cultist"], ["cultist"], ["cultist-fanatic", "normal", 3], ["cultist", "normal", 4]] },
+    },
+    chests: [],
+    clues: [],
+    milestone: 0,
+    final: true,
+    dm: "นี่คือบทสุดท้าย ถ้าชนะ บรรยายว่าวงเวทดับ เถ้าหยุดร้องเพลง ชาวเมือง Brindlemoor จัดงานเลี้ยงฉลอง จบแคมเปญแรก",
+  },
+};
+
+const campaign = {
+  id: "ember-vale",
+  name: "Ember Vale",
+  th: "หุบเขาถ่านคุ",
+  summary: "หมู่บ้าน Brindlemoor ชายขอบหุบเขา Ember Vale ถูกก็อบลินปล้นและชาวบ้านหายตัว เบื้องหลังคือคณะลัทธิ Ashen Choir ที่จะปลุกมังกรแดงซึ่งหลับอยู่ใต้หอเถ้าถ่าน",
+  start: "brindlemoor",
+  world: {
+    // percent coordinates on the world map
+    locations: [
+      { id: "brindlemoor", name: "Brindlemoor", th: "หมู่บ้านบรินเดิลมัวร์", type: "town", x: 30, y: 58, level: "ปลอดภัย" },
+      { id: "hollow", name: "Thornback Hollow", th: "โพรงหนามดำ", type: "dungeon", x: 52, y: 30, level: "1–2" },
+      { id: "crypt", name: "Gravewatch Crypt", th: "สุสานเฝ้าหลุม", type: "dungeon", x: 22, y: 82, level: "2–3" },
+      { id: "tower", name: "Redcliff Tower", th: "หอแดงริมผา", type: "dungeon", x: 78, y: 62, level: "3–4" },
+      { id: "spire", name: "Ashen Spire", th: "หอเถ้าถ่าน", type: "dungeon", x: 70, y: 14, level: "4–5" },
+    ],
+    roads: [["brindlemoor", "hollow"], ["brindlemoor", "crypt"], ["brindlemoor", "tower"], ["hollow", "spire"], ["tower", "spire"]],
+  },
+  town: {
+    id: "brindlemoor",
+    intro: "หมู่บ้านไม้ซุงริมลำธาร ควันจากโรงตีเหล็กลอยขึ้นฟ้า ชาวบ้านมองนักผจญภัยด้วยความหวัง",
+    places: [
+      { id: "inn", name: "The Copper Kettle", th: "โรงเตี๊ยมกาน้ำทองแดง", desc: "พักยาวคืนละ 1 GP ต่อคน มีข่าวลือให้ฟัง", rest: 1 },
+      { id: "temple", name: "Temple of the Dawn", th: "วิหารรุ่งอรุณ", desc: "ชุบชีวิตเพื่อนที่ตาย (100 GP × เลเวล) รักษาสภาพผิดปกติ 10 GP", reviveCost: 100 },
+      { id: "market", name: "Brindle Market", th: "ตลาดบรินเดิล", desc: "ซื้อขายอาวุธ เกราะ ยา และของใช้", shop: true },
+      { id: "board", name: "Notice Board", th: "กระดานประกาศ", desc: "งานและค่าหัว" },
+    ],
+    npcs: "Mayor Oswin Hale (นายกหมู่บ้าน ใจดีแต่กังวล ให้รางวัล 50 GP ต่อคนเมื่อพาชาวบ้านกลับมา) · Sister Maren (นักบวชวิหารรุ่งอรุณ) · Bram (เจ้าของร้านค้า ขี้บ่น ต่อราคาได้) · Old Pell (นักเล่าเรื่องในโรงเตี๊ยม รู้ตำนานมังกร)",
+    rumors: ["ก็อบลินมาจากทางป่าหนามทางเหนือ", "มีคนเห็นแสงเทียนสีดำที่สุสานเก่า", "โจรยึดหอแดงริมผาตะวันออกได้แล้ว", "ตำนานเล่าว่ามีมังกรหลับใต้หอเถ้าถ่าน"],
+  },
+  maps,
+  dmNotes: "เรียงเนื้อเรื่องแนะนำ: Thornback Hollow → Gravewatch Crypt → Redcliff Tower → Ashen Spire (ชั้นล่าง แล้วยอดหอ) ผู้เล่นไปที่ไหนก่อนก็ได้ แต่เตือนเรื่องความอันตรายตามเลเวล เมื่อจบดันเจี้ยน ผู้เล่นได้ EXP ขั้นต่ำตาม milestone เพื่ออัปเลเวล",
+};
+
+// ---------- validation ----------
+let ok = true;
+for (const [id, m] of Object.entries(maps)) {
+  const w = m.rows[0].length;
+  m.rows.forEach((r, i) => { if (r.length !== w) { ok = false; console.log(id, "row", i, "length", r.length, "!=", w); } });
+  m.w = w; m.h = m.rows.length;
+  const find = (ch) => { const out = []; m.rows.forEach((r, y) => [...r].forEach((c, x) => { if (c === ch) out.push({ x, y }); })); return out; };
+  const start = find("S")[0];
+  if (!start) { ok = false; console.log(id, "no start"); continue; }
+  const seen = new Set([start.x + "," + start.y]); const q = [start];
+  while (q.length) { const { x, y } = q.shift(); for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy; const c = (m.rows[ny] || "")[nx]; if (!c || c === "#" || c === "T" || c === " " || seen.has(nx + "," + ny)) continue; seen.add(nx + "," + ny); q.push({ x: nx, y: ny }); } }
+  for (const [L, enc] of Object.entries(m.encounters)) {
+    const cells = [...find(L), ...(enc.boss ? find("B") : [])];
+    const need = enc.monsters.length;
+    if (cells.length < need) { ok = false; console.log(id, "encounter", L, "has", cells.length, "cells for", need, "monsters"); }
+    for (const c of cells) if (!seen.has(c.x + "," + c.y)) { ok = false; console.log(id, L, "unreachable", c); }
+    for (const [mid] of enc.monsters) if (!M[mid]) { ok = false; console.log(id, "unknown monster", mid); }
+  }
+  if (find("C").length !== m.chests.length) { ok = false; console.log(id, "chests", find("C").length, "vs", m.chests.length); }
+  if (find("?").length !== m.clues.length) { ok = false; console.log(id, "clues", find("?").length, "vs", m.clues.length); }
+  for (const c of [...find("C"), ...find("?"), ...find("E")]) if (!seen.has(c.x + "," + c.y)) { ok = false; console.log(id, "unreachable item", c); }
+}
+if (!ok) process.exit(1);
+writeFileSync(new URL("../data/campaign.json", import.meta.url), JSON.stringify(campaign, null, 1));
+console.log("campaign ok:", Object.keys(maps).length, "maps");

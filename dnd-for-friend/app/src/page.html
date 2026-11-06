@@ -171,6 +171,90 @@ footer { max-width: 1280px; margin: 0 auto; padding-block: 18px 30px; font-size:
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
 footer a { color: inherit }
 
+
+/* play: header + stage (board, overlay panels, action bar) + side panel (DM chat / party / log) */
+.play { display: flex; flex-direction: column; gap: 12px }
+.play-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap }
+.play-head .btn.small, .btn.small { padding: 5px 10px; font-size: .85rem }
+.btn.tiny { padding: 2px 8px; font-size: .78rem; border-radius: 6px }
+.btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft) }
+.play-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start }
+.stage { min-width: 0; display: flex; flex-direction: column; gap: 10px }
+.stage-box { position: relative; min-height: 120px }
+.board-wrap { overflow: auto; max-height: 76vh; border-radius: var(--r); background: #0b0d0e; border: 1px solid var(--line) }
+.board { display: block; margin: 0 auto; cursor: pointer; touch-action: manipulation }
+.stage-ov:not([hidden]) { position: relative; z-index: 2 }
+.board-wrap:not([hidden]) + .stage-ov:not([hidden]) { position: absolute; inset: 12px; overflow: auto; display: flex; justify-content: center; align-items: flex-start; pointer-events: none }
+.board-wrap:not([hidden]) + .stage-ov:not([hidden]) > * { pointer-events: auto; max-width: 720px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.45) }
+.ov-panel.editor { max-width: 400px !important; margin-left: auto; max-height: 100%; overflow: auto; opacity: .97 }
+.editor select { max-width: 100%; width: auto; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface) }
+.board-wrap:not([hidden]) + .stage-ov:not([hidden]):has(.editor) { justify-content: flex-end }
+.ticker { position: absolute; left: 10px; bottom: 10px; right: 10px; pointer-events: none; display: flex; flex-direction: column; gap: 2px; align-items: flex-start }
+.ticker div { background: rgba(10,12,14,.78); color: #f1f3ef; font-size: .8rem; padding: 2px 8px; border-radius: 6px; max-width: 100% }
+.ticker div:last-child { font-weight: 600 }
+.actbar { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 48px }
+.actbar > .row, .actbar > span, .actbar > b { min-width: 0 }
+.actbar select { padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); max-width: 100% }
+.init-strip { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px }
+.init-chip { flex: none; font-size: .75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-family: var(--f-mono) }
+.init-chip.pc { background: var(--accent-soft) }
+.init-chip.foe { background: var(--danger-soft) }
+.init-chip.now { outline: 2px solid var(--gold); font-weight: 600 }
+.init-chip.down { opacity: .4; text-decoration: line-through }
+.pip { font-size: .75rem; padding: 1px 8px; border-radius: 999px; background: var(--sunk); color: var(--muted) }
+.pip.on { background: var(--accent); color: var(--accent-ink) }
+.side { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; height: min(82vh, 760px); position: sticky; top: calc(env(safe-area-inset-top, 0px) + 70px); min-width: 0 }
+.side-tabs { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line) }
+.side-body { flex: 1; overflow: auto; padding: 10px 12px; min-height: 0 }
+.chat-form { display: flex; gap: 8px; padding: 8px; border-top: 1px solid var(--line) }
+.chat-form textarea { flex: 1; min-width: 0; resize: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg) }
+.chat { display: flex; flex-direction: column; gap: 10px }
+.msg { position: relative; border-radius: 10px; padding: 8px 10px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere }
+.msg.dm { background: var(--accent-soft); border-left: 3px solid var(--accent) }
+.msg.player { margin-left: 22px }
+.msg.system { background: none; color: var(--muted); font-size: .85rem; padding: 2px 4px }
+.msg.event { font-style: italic }
+.msg .who { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600 }
+.msg .chips { margin-top: 8px; white-space: normal }
+.msg .btn.tiny { position: absolute; top: 4px; right: 4px; opacity: .6 }
+.party { display: flex; flex-direction: column; gap: 10px }
+.member { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border-radius: 10px; border: 1px solid var(--line) }
+.member.me { border-color: var(--accent) }
+.member .portrait { width: 44px; height: 44px; font-size: 1rem; flex: none }
+.member .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block }
+.member .dot.on { background: var(--ok) }
+.hpbar { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; margin: 4px 0 }
+.hpbar i { display: block; height: 100%; background: var(--ok) }
+.mon-card { padding: 10px; gap: 6px }
+.log { display: flex; flex-direction: column; gap: 3px; font-size: .82rem }
+.logl.round { color: var(--gold); font-weight: 600; margin-top: 6px }
+.logl.death { color: var(--danger) }
+.logl.heal { color: var(--ok) }
+.logl.say { font-style: italic }
+.town .place .nm { font-family: var(--f-display); font-size: 1.25rem }
+.tbl { overflow-x: auto }
+.shop table { width: 100%; border-collapse: collapse; font-size: .88rem }
+.shop td { padding: 5px 6px; border-top: 1px solid var(--line); vertical-align: middle }
+.lobby input[type=text] { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); min-width: 0 }
+.camp .portrait { font-size: 1.8rem }
+.fld input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+body.playing footer { display: none }
+/* TV mode: big board, no top bar, side shows the story only */
+body.tv .top { display: none }
+body.tv main { max-width: none; padding-top: 10px }
+body.tv .play-grid { grid-template-columns: minmax(0, 1fr) 380px }
+body.tv .board-wrap { max-height: 86vh }
+body.tv .side { height: 92vh; top: 10px }
+body.tv .msg { font-size: 1.1rem }
+body.tv .play-head h2 { font-size: 1.8rem }
+@media (max-width: 1080px) {
+  .play-grid, body.tv .play-grid { grid-template-columns: minmax(0, 1fr) }
+  .side { position: static; height: 60vh }
+}
+@media (max-width: 760px) {
+  .board-wrap:not([hidden]) + .stage-ov:not([hidden]) { position: static; inset: auto; pointer-events: auto; margin-top: 10px }
+  .board-wrap { max-height: 60vh }
+}
 @media (max-width: 1080px) {
   .builder { grid-template-columns: 170px minmax(0, 1fr) }
   .summary { position: static; grid-column: 1 / -1 }
@@ -200,7 +284,7 @@ footer a { color: inherit }
 <main id="app"></main>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 <footer>
-  <p>หน้าสร้างตัวละคร เฟส 1: คลาส Fighter, Rogue, Cleric, Ranger, Wizard เลเวล 1–5 · ระบบเกมคำนวณกติกาทั้งหมดในหน้านี้ ส่วน Claude เป็น DM เล่าเรื่อง</p>
+  <p>DnD for friend: คลาส Fighter, Rogue, Cleric, Ranger, Wizard เลเวล 1–5 · ระบบเกมคำนวณกติกาทั้งหมดในหน้านี้ ส่วน Claude เป็น DM เล่าเรื่อง</p>
   <p>This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at <a href="https://www.dndbeyond.com/srd" target="_blank" rel="noopener">https://www.dndbeyond.com/srd</a>. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener">https://creativecommons.org/licenses/by/4.0/legalcode</a>.</p>
 </footer>
 <div class="toast" id="toast" hidden></div>

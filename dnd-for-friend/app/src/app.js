@@ -64,11 +64,12 @@ async function initStore() {
     const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
     const uid = user && (await user.id());
     if (!db || !uid) return useLocal("ยังไม่ได้ล็อกอิน: เก็บการ์ดในเบราว์เซอร์นี้");
+    NET.db = db; NET.uid = uid; NET.user = user;
     col = db.collection("data/users/" + uid);
     S.store = "db"; setPill("เซฟการ์ดในบัญชีของคุณ");
     col.onSnapshot((snap) => {
       S.cards = snap.docs.map((d) => d.data()).sort((a, b) => (b.updated || 0) - (a.updated || 0));
-      if (S.view === "shelf") render();
+      if (S.view === "shelf" || (S.view === "play" && (!P.cid || !myParty().length))) render();
       if (S.view === "sheet" && S.sheet && !S.sheet.premade) {
         const fresh = S.cards.find((c) => c.id === S.sheet.id);
         if (fresh && fresh !== S.sheet) { S.sheet = fresh; render(); }
@@ -113,13 +114,15 @@ async function adoptPremade(p) {
 function renderTabs() {
   const t = document.getElementById("tabs"); t.replaceChildren();
   const tab = (id, label, dis) => h("button", { class: "tab", "aria-current": S.view === id ? "true" : "false", disabled: dis, onclick: () => go(id) }, label);
-  t.append(tab("shelf", "การ์ดตัวละคร"), tab("build", S.draft ? "หน้าสร้าง/แก้ไข" : "สร้างตัวละคร", false), tab("sheet", "ชีตตัวละคร", !S.sheet));
+  t.append(tab("shelf", "การ์ดตัวละคร"), tab("build", S.draft ? "หน้าสร้าง/แก้ไข" : "สร้างตัวละคร", false), tab("sheet", "ชีตตัวละคร", !S.sheet), tab("play", "⚔ เล่น", false));
 }
 function render() {
   renderTabs();
   const app = document.getElementById("app");
   if (S.view === "build" && !S.draft) S.draft = newCard();
-  const v = S.view === "build" ? viewBuild() : S.view === "sheet" && S.sheet ? viewSheet(S.sheet) : viewShelf();
+  document.body.classList.toggle("tv", S.view === "play" && !!P.tv);
+  document.body.classList.toggle("playing", S.view === "play");
+  const v = S.view === "play" ? viewPlay() : S.view === "build" ? viewBuild() : S.view === "sheet" && S.sheet ? viewSheet(S.sheet) : viewShelf();
   app.replaceChildren(v);
 }
 
@@ -806,5 +809,3 @@ async function downloadCard(card) {
   S.exportText = text; render();
 }
 
-render();
-initStore();

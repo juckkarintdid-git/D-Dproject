@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DnD for friend · Image Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almendra+SC&family=Mitr:wght@500&family=IBM+Plex+Sans+Thai:wght@400;600&family=IBM+Plex+Mono&display=swap">
+<style>
+/* Layout: settings strip, then one card per image group (portraits, tokens, world, battle maps) with tiles. */
+:root {
+  --bg: #e9ede8; --panel: #f8faf6; --panel-2: #dfe5df; --line: #c4cec7; --ink: #1c2522; --muted: #56655f;
+  --accent: #2a7564; --accent-ink: #f4fbf8; --ok: #2f7a3d; --warn: #9a6a12; --bad: #a33b33;
+  --font-display: "Almendra SC", "Mitr", serif; --font-body: "IBM Plex Sans Thai", system-ui, sans-serif; --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root { --bg: #111816; --panel: #19221f; --panel-2: #0d1311; --line: #2e3b37; --ink: #e2e9e5; --muted: #95a59f; --accent: #5cbfa6; --accent-ink: #0b1714; --ok: #7fcf8b; --warn: #e3b860; --bad: #e78378; color-scheme: dark } }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font-body); padding: 20px max(16px, env(safe-area-inset-left)) 60px }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px }
+h1 { margin: 0; font: 400 2rem/1.1 var(--font-display) }
+h2 { margin: 0; font: 500 1.1rem "Mitr", var(--font-body) }
+p { margin: 0 }
+.muted { color: var(--muted) }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0 }
+.settings { display: grid; grid-template-columns: 2fr 1.4fr .8fr; gap: 12px }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: var(--muted); min-width: 0 }
+input, select, textarea { font: 400 .95rem var(--font-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100% }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap }
+.check { display: flex; gap: 6px; align-items: center; font-size: .85rem; color: var(--muted) }
+.check input { width: auto }
+button, .put { font: 600 .88rem var(--font-body); border-radius: 8px; padding: 7px 12px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); text-align: center }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent }
+button:disabled { opacity: .5; cursor: default }
+.status { font-size: .88rem } .status.ok { color: var(--ok) } .status.warn { color: var(--warn) } .status.bad { color: var(--bad) }
+.head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px }
+.tile { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); min-width: 0 }
+.tile.drop { outline: 2px dashed var(--accent); outline-offset: -2px }
+.thumb { position: relative; aspect-ratio: 3 / 2; background: var(--panel-2); display: grid; place-items: center; color: var(--muted); font-size: .8rem; overflow: hidden }
+.thumb.sq { aspect-ratio: 1 }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover }
+.tile .body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px }
+.name { font: 600 .85rem var(--font-mono); overflow-wrap: anywhere }
+.pill { font-size: .72rem; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted) }
+.pill.have { color: var(--ok); border-color: var(--ok) } .pill.busy { color: var(--warn); border-color: var(--warn) } .pill.err { color: var(--bad); border-color: var(--bad) }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px }
+.btns > * { font-size: .8rem; padding: 6px 6px; border-color: var(--accent); background: transparent; color: var(--accent) }
+details summary { cursor: pointer; font-size: .8rem; color: var(--muted) }
+details textarea { font: .76rem/1.5 var(--font-mono); min-height: 120px; margin-top: 6px }
+.log { font: .8rem/1.5 var(--font-mono); max-height: 180px; overflow-y: auto; white-space: pre-wrap; color: var(--muted) }
+ol { margin: 0; padding-left: 1.3em }
+code { font-family: var(--font-mono); font-size: .85em }
+@media (max-width: 760px) { .settings { grid-template-columns: 1fr } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>DnD for friend · Image Maker</h1>
+    <p class="muted">สร้างรูปตัวละคร โทเคนมอนสเตอร์ แผนที่โลก และแผนที่ต่อสู้ของแคมเปญ Ember Vale แล้วเซฟลงโฟลเดอร์ <code>images</code></p>
+  </header>
+
+  <section class="card">
+    <h2>1 · ตั้งค่า</h2>
+    <p class="muted" style="font-size:.88rem"><b>มี 2 วิธี</b> · <b>แอป Gemini</b> (ไม่เสียเงินเพิ่ม): กด 📋 คัดลอก Prompt ไปวางในแอป (แผนที่ต่อสู้ให้กด 🧭 โหลดภาพโครง แล้วแนบไปด้วย) ดาวน์โหลดรูป แล้วกด 📥 ใส่รูป หรือลากรูปมาวาง · <b>API</b>: ใส่ key แล้วกดสร้าง เสียเงินต่อรูป</p>
+    <div class="settings">
+      <label class="f" for="key">Gemini API key (ไม่ใส่ก็ได้)
+        <input id="key" type="password" autocomplete="off" placeholder="วาง API key ที่นี่">
+      </label>
+      <label class="f" for="model">รุ่นที่ใช้วาด
+        <select id="model">
+          <option value="gemini-nano-banana-2.1">Nano Banana 2.1 · แนะนำ</option>
+          <option value="gemini-3.1-flash-image">Nano Banana 2</option>
+          <option value="gemini-3-pro-image">Nano Banana Pro · สวยสุด แพงสุด</option>
+        </select>
+      </label>
+      <label class="f" for="size">ความละเอียด
+        <select id="size"><option selected>1K</option><option>2K</option></select>
+      </label>
+    </div>
+    <label class="f" for="style">สไตล์ที่ต่อท้ายทุก Prompt
+      <textarea id="style" rows="2"></textarea>
+    </label>
+    <div class="row"><label class="check"><input type="checkbox" id="remember"> จำ API key ไว้ในเบราว์เซอร์เครื่องนี้</label><span class="muted" id="price" style="font-size:.85rem"></span></div>
+  </section>
+
+  <section class="card">
+    <h2>2 · เลือกโฟลเดอร์ DND for friend</h2>
+    <div class="row">
+      <button class="primary" id="again" hidden>📂 ใช้โฟลเดอร์เดิม</button>
+      <button class="primary" id="pick">📂 เลือกโฟลเดอร์</button>
+      <button id="all">🎨 สร้างรูปที่ยังไม่มีทั้งหมดด้วย API</button>
+    </div>
+    <p class="status" id="msg">เปิดไฟล์นี้ด้วย Chrome หรือ Edge แล้วเลือกโฟลเดอร์ <code>D:\claude\D&amp;Dproject\DND for friend</code> รูปจะเซฟที่ <code>images\</code> ถ้าไม่เลือกโฟลเดอร์ รูปจะถูกดาวน์โหลดแทน</p>
+  </section>
+
+  <div id="groups" class="wrap" style="gap:16px"></div>
+
+  <section class="card">
+    <h2>3 · เอารูปเข้าเกม</h2>
+    <ol>
+      <li><b>รูปตัวละคร</b>: หน้าสร้างตัวละคร ขั้น “ชื่อและตัวตน” กด “เลือกรูป…” (หรือให้เพื่อนใส่เองในการ์ดของตัวเอง)</li>
+      <li><b>โทเคนมอนสเตอร์ + แผนที่</b>: ในเกม host กด “ตั้งค่า Map” แล้วกด “นำเข้ารูปหลายไฟล์” เลือกไฟล์ <code>token-*.png</code> และ <code>map-*.png</code> ทั้งหมดในครั้งเดียว ระบบจับคู่จากชื่อไฟล์ให้เอง</li>
+      <li>แผนที่ต่อสู้วาดตามภาพโครง กำแพงจึงตรงกับช่องในเกม ถ้ารูปเพี้ยนเล็กน้อยไม่เป็นไร เกมยังใช้กำแพงจากข้อมูล Map เสมอ</li>
+    </ol>
+  </section>
+
+  <section class="card"><h2>บันทึกการทำงาน</h2><div class="log" id="log">ยังไม่มีอะไร</div></section>
+</div>
+
+<script>
+const IMAGES = /*__IMAGES__*/[];
+const MAPS = /*__MAPS__*/{};
+const DEFAULT_STYLE = "Style: painted high-fantasy tabletop RPG illustration, rich colors, soft dramatic lighting, crisp details, no text, no letters, no watermark, no border.";
+const PRICE = { "gemini-nano-banana-2.1": { "1K": 0.0336, "2K": 0.0504 }, "gemini-3.1-flash-image": { "1K": 0.067, "2K": 0.101 }, "gemini-3-pro-image": { "1K": 0.134, "2K": 0.134 } };
+const BAHT = 36;
+const $ = (id) => document.getElementById(id);
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+const log = (t) => { const l = $("log"); if (l.textContent === "ยังไม่มีอะไร") l.textContent = ""; l.textContent = `${new Date().toLocaleTimeString()}  ${t}\n` + l.textContent; };
+const msg = (t, cls = "") => { const m = $("msg"); m.textContent = t; m.className = "status " + cls; };
+const keyEl = $("key"), modelEl = $("model"), sizeEl = $("size"), remEl = $("remember"), styleEl = $("style");
+keyEl.value = store.get("dnd4f.key") || ""; remEl.checked = !!keyEl.value;
+modelEl.value = store.get("dnd4f.model") || modelEl.value; sizeEl.value = store.get("dnd4f.size") || sizeEl.value;
+styleEl.value = store.get("dnd4f.style") || DEFAULT_STYLE;
+const money = (usd) => usd == null ? "-" : `$${usd.toFixed(3)} (~${Math.round(usd * BAHT * 10) / 10} บาท)`;
+const unitPrice = () => (PRICE[modelEl.value] || {})[sizeEl.value] ?? null;
+function saveSettings() { store.set("dnd4f.key", remEl.checked ? keyEl.value.trim() : null); store.set("dnd4f.model", modelEl.value); store.set("dnd4f.size", sizeEl.value); store.set("dnd4f.style", styleEl.value); $("price").textContent = `ราคาประมาณ ${money(unitPrice())} ต่อรูป`; render(); }
+[keyEl, modelEl, sizeEl, remEl, styleEl].forEach((e) => e.addEventListener("change", saveSettings));
+const fullPrompt = (im) => `${im.prompt}\n\n${styleEl.value}`.trim();
+const EXT = ["png", "jpg", "jpeg", "webp"];
+
+// ---------- layout guide for battle maps (drawn from the game's own map rows) ----------
+function guideCanvas(mapId) {
+  const rows = MAPS[mapId]; const W = rows[0].length, H = rows.length, c = 40;
+  const cv = document.createElement("canvas"); cv.width = W * c; cv.height = H * c; const g = cv.getContext("2d");
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const ch = rows[y][x];
+    g.fillStyle = ch === "#" || ch === " " ? "#000" : ch === "," ? "#7fb86a" : ch === "~" ? "#4a8fd0" : ch === "D" ? "#8a5a2b" : "#f2f2f2";
+    g.fillRect(x * c, y * c, c, c);
+    if (ch === "T") { g.fillStyle = "#245c2a"; g.beginPath(); g.arc(x * c + c / 2, y * c + c / 2, c * 0.45, 0, 7); g.fill(); }
+  }
+  return cv;
+}
+const GUIDE_NOTE = "Use the attached layout image as the exact floor plan: black = solid rock or stone walls, light gray = walkable floor, green = brush and tall grass, blue = water (or lava if the place is volcanic), dark green circles = trees, brown = doors. Keep every wall, room and corridor in exactly the same position and proportion. Strict top-down orthographic view like a tabletop battle map, no perspective, no grid lines, no tokens, no characters.";
+
+// ---------- folder ----------
+let root = null;
+const files = {}; // name -> object URL of an existing image
+async function imgDir(create) { let d = await root.getDirectoryHandle("images", { create }); return d; }
+async function scan() {
+  if (!root) return;
+  let d; try { d = await imgDir(false); } catch { d = null; }
+  for (const im of IMAGES) { im.url = null; if (!d) continue; for (const e of EXT) { try { const fh = await d.getFileHandle(`${im.name}.${e}`); im.url = URL.createObjectURL(await fh.getFile()); break; } catch {} } }
+  const missing = IMAGES.filter((i) => !i.url).length;
+  msg(`โฟลเดอร์ ${root.name} · รูปทั้งหมด ${IMAGES.length} รูป · ยังไม่มี ${missing} รูป`, "ok");
+  render();
+}
+async function save(im, img) {
+  const ext = /jpe?g/.test(img.mime) ? "jpg" : /webp/.test(img.mime) ? "webp" : "png";
+  const bytes = Uint8Array.from(atob(img.data), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: img.mime });
+  if (root) {
+    const d = await imgDir(true);
+    for (const e of EXT) if (e !== ext) { try { await d.removeEntry(`${im.name}.${e}`); } catch {} }
+    const fh = await d.getFileHandle(`${im.name}.${ext}`, { create: true });
+    const w = await fh.createWritable(); await w.write(blob); await w.close();
+  } else {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${im.name}.${ext}`; a.click();
+  }
+  return URL.createObjectURL(blob);
+}
+
+// ---------- Gemini ----------
+const API = "https://generativelanguage.googleapis.com/v1beta";
+function findImage(node, found = []) {
+  if (!node || typeof node !== "object") return found;
+  if (Array.isArray(node)) { node.forEach((n) => findImage(n, found)); return found; }
+  const inl = node.inlineData || node.inline_data;
+  if (inl && inl.data) found.push({ data: inl.data, mime: inl.mimeType || inl.mime_type || "image/png" });
+  else if (typeof node.data === "string" && node.data.length > 500 && (node.type === "image" || node.mime_type || node.mimeType)) found.push({ data: node.data, mime: node.mime_type || node.mimeType || "image/png" });
+  for (const k in node) if (k !== "data") findImage(node[k], found);
+  return found;
+}
+async function readError(res) { try { const j = await res.json(); return j.error?.message || JSON.stringify(j).slice(0, 300); } catch { return res.statusText; } }
+async function generate(im) {
+  const key = keyEl.value.trim(); if (!key) throw new Error("ยังไม่ได้ใส่ API key");
+  const parts = [];
+  let prompt = fullPrompt(im);
+  if (im.map && MAPS[im.map]) { parts.push({ inline_data: { mime_type: "image/png", data: guideCanvas(im.map).toDataURL("image/png").split(",")[1] } }); prompt = GUIDE_NOTE + "\n\n" + prompt; }
+  parts.push({ text: prompt });
+  const body = { contents: [{ role: "user", parts }], generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: im.ratio, imageSize: sizeEl.value } } };
+  const res = await fetch(`${API}/models/${encodeURIComponent(modelEl.value)}:generateContent`, { method: "POST", headers: { "x-goog-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) { const e = await readError(res); throw new Error((res.status === 401 || res.status === 403 ? "API key ใช้ไม่ได้: " : `Gemini ตอบกลับ ${res.status}: `) + e); }
+  const imgs = findImage(await res.json());
+  if (!imgs.length) throw new Error("Gemini ไม่ส่งรูปกลับมา อาจโดนตัวกรองเนื้อหา ลองแก้ Prompt");
+  return imgs.at(-1);
+}
+let running = false;
+async function runQueue(list) {
+  if (running) return msg("รอให้รอบที่กำลังวาดเสร็จก่อน", "warn");
+  if (!keyEl.value.trim()) { msg("ปุ่มนี้ต้องใช้ API key ถ้าใช้แอป Gemini ให้กด 📋 คัดลอก Prompt แล้วนำรูปมาใส่ด้วย 📥 ใส่รูป", "warn"); keyEl.focus(); return; }
+  running = true; let ok = 0;
+  for (const im of list) {
+    im.state = "busy"; render(); msg(`กำลังวาด ${im.name} (${ok + 1}/${list.length})…`, "warn");
+    try { im.url = await save(im, await generate(im)); im.state = ""; ok++; log(`✓ images/${im.name}`); }
+    catch (err) { im.state = "err"; log(`✕ ${im.name}: ${err.message}`); msg(err.message, "bad"); if (/API key/.test(err.message)) break; }
+    render();
+  }
+  running = false;
+  if (ok) msg(`วาดเสร็จ ${ok} รูป · ใช้ไปประมาณ ${money(ok * unitPrice())}`, "ok");
+}
+
+// ---------- UI ----------
+const GROUPS = [["portrait", "รูปตัวละครสำเร็จรูป (ใส่ในการ์ด)"], ["token", "โทเคนมอนสเตอร์ (แคมเปญ Ember Vale)"], ["world", "แผนที่โลก"], ["map", "แผนที่ต่อสู้ (วาดตามภาพโครงของเกม)"]];
+function render() {
+  const box = $("groups"); box.replaceChildren();
+  for (const [g, title] of GROUPS) {
+    const list = IMAGES.filter((i) => i.group === g); if (!list.length) continue;
+    const missing = list.filter((i) => !i.url);
+    const card = document.createElement("section"); card.className = "card";
+    card.innerHTML = `<div class="head"><h2></h2><button class="primary" ${missing.length ? "" : "disabled"}>🎨 สร้างที่ยังไม่มี (${missing.length} รูป · ${money(missing.length * (unitPrice() || 0))})</button></div><div class="tiles"></div>`;
+    card.querySelector("h2").textContent = title;
+    card.querySelector("button").addEventListener("click", () => runQueue(missing));
+    const tiles = card.querySelector(".tiles");
+    for (const im of list) tiles.appendChild(tile(im));
+    box.appendChild(card);
+  }
+}
+function tile(im) {
+  const t = document.createElement("div"); t.className = "tile";
+  const pill = im.state === "busy" ? '<span class="pill busy">กำลังวาด…</span>' : im.state === "err" ? '<span class="pill err">ไม่สำเร็จ</span>' : im.url ? '<span class="pill have">มีแล้ว</span>' : '<span class="pill">ยังไม่มี</span>';
+  t.innerHTML = `<div class="thumb${im.ratio === "1:1" ? " sq" : ""}">${im.url ? "<img alt=''>" : "<span></span>"}</div>
+    <div class="body"><div class="row" style="justify-content:space-between"><span class="name"></span>${pill}</div>
+    <span class="muted" style="font-size:.8rem" data-l></span>
+    <details><summary>ดู/แก้ Prompt</summary><textarea></textarea></details>
+    <div class="btns"><button class="copyp">📋 คัดลอก Prompt</button><label class="put">📥 ใส่รูป<input type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+    ${im.map ? '<button class="guide">🧭 โหลดภาพโครง</button>' : ""}<button class="gen" ${im.state === "busy" ? "disabled" : ""}>${im.url ? "🔁 วาดใหม่ (API)" : "🎨 สร้าง (API)"}</button></div></div>`;
+  if (im.url) t.querySelector("img").src = im.url;
+  else if (im.map) { const cv = guideCanvas(im.map); cv.style.cssText = "width:100%;height:100%;object-fit:contain;opacity:.6"; t.querySelector(".thumb span").replaceWith(cv); }
+  else t.querySelector(".thumb span").textContent = "ยังไม่มีรูป";
+  t.querySelector(".name").textContent = im.name;
+  t.querySelector("[data-l]").textContent = im.label + " · " + im.ratio;
+  const ta = t.querySelector("textarea"); ta.value = im.map ? GUIDE_NOTE + "\n\n" + fullPrompt(im) : fullPrompt(im);
+  ta.addEventListener("change", () => { im.prompt = ta.value.replace(GUIDE_NOTE, "").replace(styleEl.value, "").trim(); });
+  t.querySelector(".gen").addEventListener("click", () => runQueue([im]));
+  const cp = t.querySelector(".copyp");
+  cp.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(ta.value); cp.textContent = "✓ คัดลอกแล้ว"; } catch { t.querySelector("details").open = true; ta.select(); cp.textContent = "กด Ctrl+C"; }
+    setTimeout(() => (cp.textContent = "📋 คัดลอก Prompt"), 2000);
+  });
+  const g = t.querySelector(".guide");
+  if (g) g.addEventListener("click", () => { const a = document.createElement("a"); a.href = guideCanvas(im.map).toDataURL("image/png"); a.download = `guide-${im.map}.png`; a.click(); });
+  const putFile = async (file) => {
+    if (!file || !/^image\//.test(file.type)) return msg("ไฟล์นี้ไม่ใช่รูป", "bad");
+    try {
+      const b64 = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1]); fr.onerror = no; fr.readAsDataURL(file); });
+      im.url = await save(im, { data: b64, mime: file.type }); im.state = ""; log(`✓ images/${im.name} (ใส่เอง)`); msg(`เซฟ ${im.name} แล้ว`, "ok"); render();
+    } catch (err) { msg(`เซฟรูปไม่ได้: ${err.message}`, "bad"); }
+  };
+  t.querySelector(".put input").addEventListener("change", (ev) => putFile(ev.target.files[0]));
+  t.addEventListener("dragover", (ev) => { ev.preventDefault(); t.classList.add("drop"); });
+  t.addEventListener("dragleave", () => t.classList.remove("drop"));
+  t.addEventListener("drop", (ev) => { ev.preventDefault(); t.classList.remove("drop"); putFile(ev.dataTransfer.files[0]); });
+  return t;
+}
+
+// remember the chosen folder in IndexedDB (browsers can't open a fixed path by themselves)
+function folderStore(mode) { return new Promise((res, rej) => { const rq = indexedDB.open("dnd4f-gen", 1); rq.onupgradeneeded = () => rq.result.createObjectStore("h"); rq.onsuccess = () => res(rq.result.transaction("h", mode).objectStore("h")); rq.onerror = () => rej(rq.error); }); }
+const saveFolder = (h) => folderStore("readwrite").then((st) => st.put(h, "root")).catch(() => {});
+const loadFolder = () => folderStore("readonly").then((st) => new Promise((res) => { const g = st.get("root"); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); })).catch(() => null);
+async function useFolder(h, ask) {
+  let p = await h.queryPermission({ mode: "readwrite" });
+  if (p !== "granted" && ask) p = await h.requestPermission({ mode: "readwrite" });
+  if (p !== "granted") return false;
+  root = h; $("again").hidden = true; await scan(); return true;
+}
+$("pick").addEventListener("click", async () => {
+  if (!window.showDirectoryPicker) return msg("เบราว์เซอร์นี้เลือกโฟลเดอร์ไม่ได้ รูปจะถูกดาวน์โหลดแทน (หรือเปิดด้วย Chrome/Edge บนคอมพิวเตอร์)", "warn");
+  try { const saved = await loadFolder(); root = await window.showDirectoryPicker({ id: "dnd4f", mode: "readwrite", startIn: saved || "documents" }); saveFolder(root); $("again").hidden = true; await scan(); }
+  catch (err) { if (err.name !== "AbortError") msg(`เปิดโฟลเดอร์ไม่ได้: ${err.message}`, "bad"); }
+});
+$("again").addEventListener("click", async () => { const h = await loadFolder(); if (!h) return ($("again").hidden = true); try { if (!(await useFolder(h, true))) msg("ไม่ได้รับสิทธิ์ กดเลือกโฟลเดอร์ใหม่", "warn"); } catch { $("again").hidden = true; } });
+if (window.showDirectoryPicker) loadFolder().then(async (h) => { if (!h) return; $("again").hidden = false; $("again").textContent = `📂 ใช้โฟลเดอร์เดิม: ${h.name}`; try { await useFolder(h, false); } catch {} });
+$("all").addEventListener("click", () => runQueue(IMAGES.filter((i) => !i.url)));
+saveSettings();
+</script>
+</body>
+</html>
