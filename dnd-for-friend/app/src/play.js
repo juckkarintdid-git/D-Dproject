@@ -475,12 +475,22 @@ function speakLatest() {
   if (P.lastSpoken == null) { P.lastSpoken = last.id; return; } // do not read history on open
   P.lastSpoken = last.id; speak(last.text);
 }
+// voice: เปรมวดี (Microsoft Premwadee, Edge/Windows) by default; phones use their own Thai voice
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+function pickVoice() {
+  const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+  const th = vs.filter((v) => /^th/i.test(v.lang));
+  const prem = th.find((v) => /Premwadee|เปรมวดี/i.test(v.name));
+  if (!IS_MOBILE && prem) return prem;
+  return th.find((v) => !/Premwadee|Niwat/i.test(v.name)) || prem || th[0] || null;
+}
+try { if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices(); } catch (e) {}
 function speak(text) {
   try {
     const synth = window.speechSynthesis; if (!synth) return;
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text.replace(/[*_#>]/g, ""));
-    const v = synth.getVoices().find((x) => /^th/i.test(x.lang));
+    const v = pickVoice();
     if (v) u.voice = v; u.lang = "th-TH"; u.rate = 1.02;
     synth.speak(u);
   } catch (e) {}
