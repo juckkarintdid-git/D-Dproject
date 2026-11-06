@@ -413,9 +413,24 @@ export function exportCard(card) {
 }
 
 export function importCard(text, data) {
-  const obj = JSON.parse(text);
+  // accepts a raw card file or an AI answer with a ```json block / extra prose around it
+  let src = String(text).trim();
+  const fence = src.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) src = fence[1];
+  const a = src.indexOf("{"), b = src.lastIndexOf("}");
+  if (a < 0 || b < a) throw new Error("ไม่พบข้อมูลการ์ด");
+  const obj = JSON.parse(src.slice(a, b + 1));
   if (obj.format !== "dnd-for-friend/card") throw new Error("ไม่ใช่การ์ดตัวละคร DnD for friend");
   delete obj.format;
   const card = { ...newCard(), ...obj };
+  if (!obj.id) card.id = newCard().id;
+  card.state = { ...newCard().state, ...(obj.state || {}) };
+  for (const k of ["skills", "speciesSkills", "skilledPicks", "expertise", "masteries", "cantrips", "spells", "spellbook", "asi", "inventory", "languages"])
+    if (!Array.isArray(card[k])) card[k] = [];
+  const I = index(data);
+  if (!card.inventory.length && I.cls[card.classId] && I.bg[card.backgroundId]) {
+    const pick = card.equipPick || { cls: "A", bg: "A" };
+    Object.assign(card, startingInventory(card, data, pick.cls, pick.bg));
+  }
   return { card, errors: validate(card, data) };
 }

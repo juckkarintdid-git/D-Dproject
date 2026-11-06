@@ -141,3 +141,12 @@ test("every spell/item id referenced in data exists", () => {
     for (const id of Object.values(o.spells || {})) assert.ok(I.spell[id], sp.id + " " + id);
   }
 });
+
+test("example card in the AI template imports cleanly", () => {
+  const md = readFileSync(new URL("../character-template.md", import.meta.url), "utf8");
+  const block = md.slice(md.indexOf("```json"));
+  const { card, errors } = R.importCard("Here is your card:\n" + block.slice(0, block.indexOf("```", 7) + 3) + "\nEnjoy!", data);
+  assert.deepEqual(errors, []);
+  assert.ok(card.inventory.some((x) => x.id === "longbow"));
+  assert.ok(card.id);
+});

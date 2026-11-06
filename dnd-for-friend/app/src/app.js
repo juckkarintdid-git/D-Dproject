@@ -97,7 +97,12 @@ async function deleteCard(id) {
 function go(view) { S.view = view; S.confirmDel = false; S.exportText = null; S.xpEdit = false; render(); window.scrollTo(0, 0); }
 function openSheet(card) { S.sheet = card; go("sheet"); }
 function startNew() { S.draft = newCard(); S.step = 0; S.banner = null; go("build"); }
-function editCard(card) { S.draft = clone(card); delete S.draft.premade; S.step = 0; S.banner = null; go("build"); }
+function editCard(card) {
+  S.draft = clone(card); delete S.draft.premade; S.step = 0;
+  const errs = validate(card, D);
+  S.banner = errs.length && S.importErrs ? h("div", null, h("b", null, "การ์ดจาก AI ยังมีจุดที่ต้องแก้ "), "ดูขั้นที่ขึ้นสีแดงด้านซ้าย แก้แล้วกดเซฟการ์ด") : null;
+  S.importErrs = null; go("build");
+}
 async function adoptPremade(p) {
   const c = clone(p); delete c.premade;
   c.id = newCard().id; c.state.hp = null;
@@ -147,7 +152,9 @@ function viewShelf() {
       h("div", null, h("div", { class: "eyebrow" }, "การ์ดของฉัน"), h("h2", null, "เลือกการ์ดแล้วเข้าเล่นได้เลย")),
       h("div", { class: "row" },
         h("button", { class: "btn primary", onclick: startNew }, "+ สร้างตัวละครใหม่"),
-        h("button", { class: "btn", onclick: () => document.getElementById("fileIn").click() }, "โหลดการ์ดจากไฟล์"))),
+        h("button", { class: "btn", onclick: () => document.getElementById("fileIn").click() }, "โหลดการ์ดจากไฟล์"),
+        h("button", { class: "btn", onclick: () => { S.aiOpen = !S.aiOpen; render(); } }, "ให้ AI ช่วยคิดตัวละคร"))),
+    S.aiOpen && aiPanel(),
     S.importErrs && h("div", { class: "banner", style: "margin-bottom:14px" },
       h("b", null, "โหลดการ์ดแล้ว แต่ยังมีจุดที่ต้องแก้: "), S.importErrs.join(" · ")),
     h("div", { class: "cards" },
@@ -157,6 +164,38 @@ function viewShelf() {
     h("div", { class: "shelf-head" },
       h("div", null, h("div", { class: "eyebrow" }, "ตัวสำเร็จรูป 5 ตัว"), h("h2", null, "หยิบไปเล่นได้ทันที หรือเอาไปแก้ต่อ"))),
     h("div", { class: "cards" }, PREMADES.map((p) => cardTile(p, true))));
+}
+function aiPanel() {
+  return h("div", { class: "panel", style: "margin-bottom:18px" },
+    h("div", null, h("div", { class: "eyebrow" }, "สร้างตัวละครกับ AI ของคุณเอง"), h("h2", null, "คัดลอก template ไปให้ AI แล้ววางการ์ดกลับมา")),
+    h("ol", { class: "small", style: "margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px" },
+      h("li", null, "กด “คัดลอก template” แล้ววางในแชต ChatGPT, Gemini หรือ Claude ของคุณ"),
+      h("li", null, "คุยกับ AI บอกว่าอยากเล่นแบบไหน ชื่ออะไร ประวัติยังไง จนมันส่งการ์ดเป็นโค้ด JSON ให้"),
+      h("li", null, "คัดลอกคำตอบของ AI มาวางในช่องด้านล่าง แล้วกด “เพิ่มการ์ด” เกมจะตรวจกติกาให้ ถ้ามีจุดผิดจะบอกให้แก้")),
+    h("div", { class: "row" },
+      h("button", { class: "btn primary", onclick: async () => {
+        try { await navigator.clipboard.writeText(TEMPLATE); toast("คัดลอก template แล้ว ไปวางในแชต AI ได้เลย"); }
+        catch (e) { S.showTpl = true; render(); toast("คัดลอกอัตโนมัติไม่ได้ เลือกข้อความในกล่องแล้วกด Ctrl+C"); }
+      } }, "คัดลอก template"),
+      h("button", { class: "btn", onclick: async () => {
+        let dl = null; try { dl = await window.claude.use("downloads"); } catch (e) {}
+        if (dl) { try { await dl.save({ filename: "dnd-for-friend-character-template.md", data: TEMPLATE }); toast("บันทึกไฟล์แล้ว"); return; } catch (e) { if (e && e.code === "declined") return; } }
+        S.showTpl = true; render();
+      } }, "ดาวน์โหลดเป็นไฟล์"),
+      h("button", { class: "btn ghost", onclick: () => { S.showTpl = !S.showTpl; render(); } }, S.showTpl ? "ซ่อน template" : "ดู template")),
+    S.showTpl && h("textarea", { class: "json", id: "tpl-text", readonly: true, style: "min-height:220px" }, TEMPLATE),
+    h("label", { class: "fld" }, "วางคำตอบของ AI ตรงนี้ (มีข้อความอื่นปนได้ เกมจะหาโค้ดการ์ดเอง)",
+      h("textarea", { class: "json", id: "ai-paste", placeholder: "```json\n{ \"format\": \"dnd-for-friend/card\", ... }\n```" })),
+    h("div", { class: "row" }, h("button", { class: "btn primary", onclick: async () => {
+      const txt = document.getElementById("ai-paste").value;
+      try {
+        const { card, errors } = importCard(txt, D);
+        const saved = await saveCard(card);
+        S.importErrs = errors.length ? errors : null; S.aiOpen = false;
+        toast("เพิ่มการ์ด " + saved.name + " แล้ว");
+        if (errors.length) editCard(saved); else openSheet(saved);
+      } catch (e) { toast("อ่านการ์ดไม่ได้: ให้ AI ส่งเป็นโค้ด JSON ตามรูปแบบใน template อีกครั้ง"); }
+    } }, "เพิ่มการ์ด")));
 }
 document.getElementById("fileIn").addEventListener("change", async (ev) => {
   const f = ev.target.files[0]; ev.target.value = "";
