@@ -191,6 +191,7 @@ export function startTurn(state, u) {
   if (hasCond(u, "Dodging")) delCond(u, "Dodging");
   // effects that end at start of own turn
   u.effects = u.effects.filter((e) => !(e.until === "startOfTurn" && e.src === u.id));
+  for (const e of [...u.effects]) if (e.endRound && state.round >= e.endRound) { removeEffect(state, u, e); log(state, "ฤทธิ์ " + e.name + " ของ " + u.name + " หมดแล้ว"); }
   for (const o of Object.values(state.units)) o.effects = o.effects.filter((e) => !(e.until === "startOfSourceTurn" && e.src === u.id));
   if (u.kind === "monster") {
     for (const a of u.actions) if (a.recharge && u.recharge[a.name] === false) { const r = d(6); if (r >= a.recharge) { u.recharge[a.name] = true; log(state, u.name + " ชาร์จ " + a.name + " คืน (ทอย " + r + ")"); } }
@@ -278,6 +279,7 @@ export function savingThrow(u, ab, dc, opts = {}) {
   const r = d20(Math.sign(adv));
   let bonus = u.saves[ab] ?? (u.mods ? u.mods[ab] || 0 : 0);
   for (const e of u.effects) if (e.saveDie) bonus += (e.saveDie > 0 ? 1 : -1) * roll("1d" + Math.abs(e.saveDie)).total;
+  for (const e of u.effects) { if (e.saveFlat && e.saveFlat[ab]) bonus += e.saveFlat[ab]; if (e.oneShot === "save") { bonus += roll("1d4").total; e.oneShot = null; } }
   const total = r.v + bonus;
   let ok = total >= dc;
   if (!ok && u.legRes > 0 && opts.allowLegRes !== false && u.kind === "monster") { u.legRes--; ok = true; return { total, ok, legRes: true, ab, dc, roll: r }; }
@@ -291,6 +293,7 @@ export function damage(state, u, amount, dtype, src, opts = {}) {
   if (u.resist && dtype && listHas(u.resist, dtype)) amt = Math.floor(amt / 2);
   if (u.vuln && dtype && listHas(u.vuln, dtype)) amt *= 2;
   for (const e of u.effects) if (e.resistAll) amt = Math.floor(amt / 2);
+  if (dtype && u.effects.some((e) => e.resist === dtype) && !(u.resist && listHas(u.resist, dtype))) amt = Math.floor(amt / 2);
   if (u.tempHp) { const t = Math.min(u.tempHp, amt); u.tempHp -= t; amt -= t; }
   if (u.kind === "pc" && u.hp <= 0) {
     // damage while down = failed death save(s)
@@ -385,6 +388,10 @@ export function resolveAttack(state, a, t, atk, opts = {}) {
   let bonus = atk.hit + (a.hitBonus || 0);
   let blessTxt = "";
   for (const e of a.effects) if (e.attackDie) { const b = roll("1d" + Math.abs(e.attackDie)).total * Math.sign(e.attackDie); bonus += b; blessTxt += (b >= 0 ? " +" : " ") + b + " (" + e.name + ")"; }
+  for (const e of a.effects) {
+    if (e.atkFlat) { bonus += e.atkFlat; blessTxt += (e.atkFlat >= 0 ? " +" : " ") + e.atkFlat + " (ยา)"; }
+    if (e.oneShot === "attack") { const b = roll("1d4").total; bonus += b; blessTxt += " +" + b + " (ยา d4)"; e.oneShot = null; }
+  }
   const total = r.v + bonus;
   const autoCrit = (hasCond(t, "Paralyzed") || hasCond(t, "Unconscious")) && dist(a, t) <= 5;
   const critRange = a.subclassId === "champion" && !atk.spell ? 19 : 20;
@@ -728,6 +735,52 @@ export function offhandAttack(state, u, t) {
   const tw = u.fightingStyle === "two-weapon-fighting";
   const atk = { ...a, dmg: tw ? a.dmg : a.dmg.replace(/[+-]\d+$/, "") };
   return resolveAttack(state, u, t, { ...atk, verb: "ฟันมือรอง" });
+}
+
+// ---------- homebrew: Controlled Chaos Potion V2.1 (Fizz Bubblewick) ----------
+// recipe -> [effect A (d6 1-3), effect B (d6 4-6)]; effects last 1 minute (10 rounds), no concentration, one at a time
+export const CHAOS = {
+  "001": { name: "Unstable Enhancement Serum", th: "เซรุ่มเสริมพลังไม่เสถียร", A: { atkFlat: 2, ac: -1, txt: "Attack +2, AC −1" }, B: { ac: 2, atkFlat: -1, txt: "AC +2, Attack −1" } },
+  "002": { name: "Emergency Recovery Fluid", th: "น้ำยาฟื้นฟูฉุกเฉิน", A: { heal: "1d6+2", speed: -5, txt: "ฟื้น 1d6+2 HP, Speed −5 ft" }, B: { heal: "1d4+2", temp: 2, atkFlat: -1, txt: "ฟื้น 1d4+2 HP + Temp HP 2, Attack −1" } },
+  "003": { name: "Hyperactive Mobility Tonic", th: "ยาเร่งการเคลื่อนไหว", A: { speed: 10, ac: -1, txt: "Speed +10 ft, AC −1" }, B: { saveFlat: { DEX: 2 }, speed: -5, txt: "DEX Save +2, Speed −5 ft" } },
+  "004": { name: "Cognitive Instability Solution", th: "สารเพิ่มสมองไม่เสถียร", A: { oneShot: "check", ac: -1, txt: "+1d4 Ability Check ครั้งถัดไป, AC −1" }, B: { saveFlat: { WIS: 2 }, atkFlat: -1, txt: "WIS Save +2, Attack −1" } },
+  "005": { name: "Emergency Survival Compound", th: "สารเอาตัวรอดฉุกเฉิน", A: { temp: 5, speed: -5, txt: "Temp HP 5, Speed −5 ft" }, B: { resist: "ELEMENT", atkFlat: -1, txt: "Resistance ELEMENT, Attack −1" } },
+  "006": { name: "Tactical Fortune Extract", th: "สารสกัดโชคสนามรบ", A: { oneShot: "attack", ac: -1, txt: "+1d4 Attack ครั้งถัดไป, AC −1" }, B: { oneShot: "save", atkFlat: -1, txt: "+1d4 Saving Throw ครั้งถัดไป, Attack −1" } },
+};
+// item ids: chaos-001 … chaos-006, with chaos-005f / chaos-005c for the Fire / Cold survival compound
+export function chaosRecipe(itemId) {
+  const m = /^chaos-(\d{3})([fc])?$/.exec(itemId || ""); if (!m || !CHAOS[m[1]]) return null;
+  return { id: m[1], element: m[2] === "c" ? "Cold" : m[2] === "f" ? "Fire" : null, ...CHAOS[m[1]] };
+}
+export function chaosItemName(itemId) {
+  const r = chaosRecipe(itemId); if (!r) return itemId;
+  return "ยาปรุง No." + r.id + " " + r.name + (r.element ? " (" + r.element + ")" : "");
+}
+// a = the one spending the Action (drinker or helper feeding within 5 ft), t = drinker. Does not touch inventory.
+export function chaosPotion(state, a, t, itemId, opts = {}) {
+  const r = chaosRecipe(itemId); if (!r) return { error: "ไม่รู้จักยานี้" };
+  if (!opts.free) { if (!a.turn || !a.turn.action) return { error: "ใช้ Action ไปแล้ว" }; }
+  if (a.id !== t.id && dist(a, t) > 5) return { error: "ป้อนยาได้เฉพาะเพื่อนที่ยืนติดกัน (5 ฟุต)" };
+  if (t.dead) return { error: "เป้าหมายเสียชีวิตแล้ว" };
+  if (!opts.free) a.turn.action = 0;
+  const die = opts.die || d(6);
+  const side = die <= 3 ? "A" : "B";
+  const fx = { ...r[side] };
+  const txt = fx.txt.replace("ELEMENT", r.element || "Fire");
+  for (const e of [...t.effects]) if (e.potion) removeEffect(state, t, e);
+  log(state, (a.id === t.id ? a.name + " ดื่ม " : a.name + " ป้อน ") + "ยาปรุง No." + r.id + " " + r.name + (a.id === t.id ? "" : " ให้ " + t.name) + " · 🎲 d6 = " + die + " → ผล " + side + ": " + txt, { kind: "potion" });
+  if (fx.heal) { const h = roll(fx.heal); const got = heal(state, t, h.total, a); log(state, t.name + " ฟื้น " + h.text + " (ได้จริง " + got + ")", { kind: "heal" }); }
+  if (fx.temp) t.tempHp = Math.max(t.tempHp || 0, fx.temp);
+  const eff = { name: "ยาปรุง " + r.id + side, potion: r.id + side, src: t.id, endRound: (state.round || 1) + 10, txt };
+  if (fx.ac) eff.ac = fx.ac;
+  if (fx.atkFlat) eff.atkFlat = fx.atkFlat;
+  if (fx.speed) eff.speed = fx.speed;
+  if (fx.saveFlat) eff.saveFlat = fx.saveFlat;
+  if (fx.oneShot) eff.oneShot = fx.oneShot;
+  if (fx.resist) eff.resist = r.element || "Fire";
+  addEffect(state, t, eff);
+  if (fx.speed && t.turn) t.turn.move = Math.max(t.turn.moved, t.turn.move + fx.speed);
+  return { ok: true, side, die, txt };
 }
 
 // ---------- movement ----------

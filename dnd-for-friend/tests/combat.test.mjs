@@ -166,3 +166,28 @@ test("encounter difficulty", () => {
   assert.equal(C.difficulty(xp, [1, 1, 1, 1]), "อันตรายมาก");
   assert.equal(C.difficulty(xp, [2, 2, 2, 2]), "ปานกลาง");
 });
+
+test("homebrew chaos potions: A/B sides, replace, feed range, resist, one-shot, expiry", () => {
+  C.setRng(C.makeRng(7));
+  const u = C.pcUnit(pre("wizard"), data); u.x = 1; u.y = 1;
+  const ally = C.pcUnit({ ...pre("fighter"), id: "f2" }, data); ally.x = 2; ally.y = 1;
+  const far = C.pcUnit({ ...pre("cleric"), id: "c2" }, data); far.x = 8; far.y = 8;
+  const st = C.newCombat(openMap(), [u, ally, far], data);
+  st.round = 1; C.startTurn(st, u);
+  const ac0 = u.ac;
+  const r = C.chaosPotion(st, u, u, "chaos-001", { die: 2 });
+  assert.equal(r.side, "A"); assert.equal(u.ac, ac0 - 1);
+  assert.ok(C.chaosPotion(st, u, u, "chaos-001").error, "action already used");
+  C.chaosPotion(st, u, u, "chaos-001", { die: 5, free: true });
+  assert.equal(u.ac, ac0 + 2, "new potion replaces the old one");
+  assert.equal(u.effects.filter((e) => e.potion).length, 1);
+  assert.ok(C.chaosPotion(st, u, far, "chaos-002", { free: true }).error, "feeding needs 5 ft");
+  ally.hp = 3; C.chaosPotion(st, u, ally, "chaos-002", { die: 6, free: true });
+  assert.ok(ally.hp > 3); assert.equal(ally.tempHp, 2);
+  C.chaosPotion(st, u, ally, "chaos-005c", { die: 4, free: true });
+  ally.tempHp = 0; const hp = ally.hp; C.damage(st, ally, 10, "Cold", u); assert.equal(hp - ally.hp, 5, "cold halved");
+  C.chaosPotion(st, u, ally, "chaos-006", { die: 5, free: true });
+  C.savingThrow(ally, "DEX", 10); assert.equal(ally.effects.find((e) => e.potion).oneShot, null, "one-shot used");
+  st.round = 11; C.startTurn(st, ally); assert.equal(ally.effects.filter((e) => e.potion).length, 0, "expires after 10 rounds");
+  assert.equal(C.chaosItemName("chaos-005f"), "ยาปรุง No.005 Emergency Survival Compound (Fire)");
+});

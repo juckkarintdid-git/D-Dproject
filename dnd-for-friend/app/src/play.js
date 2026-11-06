@@ -6,6 +6,12 @@ const NET = { db: null, uid: null, user: null, sample: undefined, assets: undefi
 const P = { cid: null, meta: null, scene: null, party: {}, chat: [], unsub: [], myCardId: null, mode: "move", pending: null, hover: null,
   spellSel: null, attackSel: null, busy: false, tv: false, panel: "dm", tts: false, mapEdit: null, lastSpoken: null, anim: null, maps: {} };
 try { P.tts = localStorage.getItem("dnd4f-tts") === "1"; } catch (e) {}
+// homebrew Controlled Chaos potions show up as inventory items everywhere (market, party, DM)
+const CHAOS_IDS = ["chaos-001", "chaos-002", "chaos-003", "chaos-004", "chaos-005f", "chaos-005c", "chaos-006"];
+for (const id of CHAOS_IDS) IX.items[id] = { id, name: chaosItemName(id), kind: "gear", cost: 0, chaos: true };
+const homebrewOn = () => !P.meta || P.meta.homebrew !== false;
+const canBrew = (p) => !!p && (p.card.homebrew || []).includes("chaos-potions") && homebrewOn();
+const chaosBottles = (card) => (card.inventory || []).filter((x) => chaosRecipe(x.id) && x.qty > 0);
 
 // ---------- tiny local database (same shape as the db capability) for offline / signed-out play ----------
 function localDB() {
@@ -63,7 +69,7 @@ function watchCampaigns() {
 async function createCampaign(name) {
   const id = "c" + Date.now().toString(36);
   const meta = { id, name: name || CAMP.name, preset: CAMP.id, owner: myUid(), hostUid: myUid(), createdAt: Date.now(), updated: Date.now(),
-    cleared: {}, done: {}, opened: {}, found: {}, flags: {}, day: 1, dmBusy: false, log: [] };
+    cleared: {}, done: {}, opened: {}, found: {}, flags: {}, day: 1, dmBusy: false, log: [], homebrew: true };
   await dbx().doc("campaigns/" + id).set(meta);
   await dbx().doc("campaigns/" + id + "/scene/main").set({ rev: 1, mode: "town", loc: CAMP.start, combat: null, updated: Date.now() });
   await dbx().collection("campaigns/" + id + "/chat").add({ ts: Date.now(), kind: "dm", text: "ยินดีต้อนรับสู่ " + CAMP.name + " · " + CAMP.th + "\n\n" + CAMP.summary + "\n\n" + CAMP.town.intro, who: "DM" });
@@ -142,7 +148,7 @@ async function joinWith(card) {
   const sh = computeSheet(c, D);
   const def = P.scene && mapDef(P.scene.loc);
   const start = def && def.rows ? freeStart(def) : { x: 1, y: 1 };
-  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level }, pos: start, revealed: {}, seen: Date.now() });
+  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level, brewsLeft: 2 }, pos: start, revealed: {}, seen: Date.now() });
   P.myCardId = c.id; P.forceJoin = false;
   await say("system", c.name + " (" + classLine(c) + " Lv" + c.level + ") เข้าร่วมทีม");
   render();
@@ -284,7 +290,7 @@ async function finalizeCombat(st) {
     for (const u of pcs) {
       const p = P.party[u.cardId]; if (!p) continue;
       const card = { ...p.card, xp: Math.max((p.card.xp || 0) + share, milestone) };
-      await writeParty(u.cardId, { card, live: liveOf(u) });
+      await writeParty(u.cardId, { card, live: { ...p.live, ...liveOf(u) } });
     }
     const cleared = { ...(P.meta.cleared || {}), [clearedKey(st.mapId, st.encounter)]: true };
     const done = st.boss ? { ...(P.meta.done || {}), [st.mapId]: true } : P.meta.done || {};
@@ -297,7 +303,7 @@ async function finalizeCombat(st) {
       const p = P.party[u.cardId]; if (!p) continue;
       const fee = Math.min(p.card.gp || 0, 50 * p.card.level);
       const sh = computeSheet(p.card, D);
-      await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
+      await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...p.live, ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
     }
     await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, lastCombat: { result: "lose" } });
     await say("system", "💀 ทีมพ่ายแพ้… ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
@@ -353,6 +359,7 @@ function dmContext() {
   lines.push("ดันเจี้ยนที่จบแล้ว: " + (Object.keys(P.meta.done || {}).join(", ") || "ยังไม่มี"));
   lines.push("สถานที่บนแผนที่โลก: " + CAMP.world.locations.map((l) => l.id + "=" + l.name + " (Lv " + l.level + ")").join(", "));
   lines.push("ทีม:\n" + partySummary());
+  if (homebrewOn() && Object.values(P.party).some(canBrew)) lines.push("Homebrew ที่อนุญาต: ระบบปรุงยา Controlled Chaos V2.1 ของ " + Object.values(P.party).filter(canBrew).map((p) => p.card.name).join(", ") + " ปรุงได้ 2 ขวด/พักยาว สูตร 001–006 ดื่มแล้วทอย d6 ได้ผล A หรือ B (มีทั้งข้อดีและข้อเสีย) นาน 1 นาที หน้าเว็บคิดผลให้ คุณแค่เล่าฉากให้สนุกตามบุคลิกนักปรุงยาที่ไม่ยอมลองยากับตัวเอง");
   if (P.meta.flags && Object.keys(P.meta.flags).length) lines.push("ธงเนื้อเรื่อง: " + JSON.stringify(P.meta.flags));
   return lines.join("\n");
 }
@@ -396,10 +403,12 @@ function rollCheck(c) {
   const sh = computeSheet(p.card, D);
   const sk = sh.skills.find((s) => s.name.toLowerCase() === String(c.skill).toLowerCase());
   const ab = ABILITIES.includes(String(c.skill).toUpperCase()) ? String(c.skill).toUpperCase() : null;
-  const bonus = sk ? sk.bonus : ab ? sh.saves.find((s) => s.ab === ab).bonus : 0;
+  let bonus = sk ? sk.bonus : ab ? sh.saves.find((s) => s.ab === ab).bonus : 0;
   const r = d(20);
+  let potion = 0;
+  if (p.live.checkBonus && sk) { potion = d(4); bonus += potion; writeParty(p.cardId, { live: { ...p.live, checkBonus: false } }).catch(() => {}); }
   const total = r + bonus; const dc = +c.dc || 10;
-  return p.card.name + " " + (sk ? sk.name : ab ? ab + " save" : c.skill) + ": " + r + (bonus >= 0 ? "+" : "") + bonus + " = " + total + " vs DC " + dc + (total >= dc ? " ✅ สำเร็จ" : " ❌ ไม่สำเร็จ");
+  return p.card.name + " " + (sk ? sk.name : ab ? ab + " save" : c.skill) + ": " + r + (bonus >= 0 ? "+" : "") + bonus + " = " + total + " vs DC " + dc + (potion ? " (รวมยาปรุง +" + potion + ")" : "") + (total >= dc ? " ✅ สำเร็จ" : " ❌ ไม่สำเร็จ");
 }
 async function dmAction(a) {
   try {
@@ -442,9 +451,11 @@ async function restParty(kind, quiet) {
   for (const p of Object.values(P.party)) {
     const u = pcUnit(p.card, D, p.live);
     if (kind === "long") longRestUnit(u); else shortRestUnit(u, u.hp < u.maxHp ? Math.ceil((u.maxHp - u.hp) / (u.hitDie / 2 + 1 + u.mods.CON || 1)) : 0);
-    await writeParty(p.cardId, { live: { ...liveOf(u), dead: p.live.dead } });
+    const patch = { live: { ...liveOf(u), dead: p.live.dead, brewsLeft: kind === "long" ? 2 : p.live.brewsLeft ?? 2, checkBonus: kind === "long" ? false : !!p.live.checkBonus } };
+    if (kind === "long" && chaosBottles(p.card).length) patch.card = { ...p.card, inventory: p.card.inventory.filter((x) => !chaosRecipe(x.id)) };
+    await writeParty(p.cardId, patch);
   }
-  await say("system", kind === "long" ? "🌙 ทีมพักยาว: HP เต็ม ช่องเวทและความสามารถคืนครบ" : "☕ ทีมพักสั้น 1 ชั่วโมง: ใช้ Hit Dice ฟื้น HP และคืน Second Wind/Action Surge");
+  await say("system", kind === "long" ? "🌙 ทีมพักยาว: HP เต็ม ช่องเวทและความสามารถคืนครบ" + (Object.values(P.party).some(canBrew) ? " · นักปรุงยาปรุงได้อีก 2 ขวด (ขวดเก่าหมดฤทธิ์)" : "") : "☕ ทีมพักสั้น 1 ชั่วโมง: ใช้ Hit Dice ฟื้น HP และคืน Second Wind/Action Surge");
   if (!quiet) requestDM({ event: kind === "long" ? "ทีมพักค้างคืน" : "ทีมพักสั้น" });
 }
 

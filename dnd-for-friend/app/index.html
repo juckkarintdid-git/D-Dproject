@@ -194,7 +194,7 @@ footer a { color: inherit }
 .ticker div:last-child { font-weight: 600 }
 .actbar { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 48px }
 .actbar > .row, .actbar > span, .actbar > b { min-width: 0 }
-.actbar select { padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); max-width: 100% }
+.actbar select { width: auto; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); max-width: 100% }
 .init-strip { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px }
 .init-chip { flex: none; font-size: .75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-family: var(--f-mono) }
 .init-chip.pc { background: var(--accent-soft) }
@@ -226,6 +226,8 @@ footer a { color: inherit }
 .hpbar { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; margin: 4px 0 }
 .hpbar i { display: block; height: 100%; background: var(--ok) }
 .mon-card { padding: 10px; gap: 6px }
+.brew { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: var(--sunk); display: flex; flex-direction: column; gap: 4px }
+.brew select { max-width: 100%; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface) }
 .log { display: flex; flex-direction: column; gap: 3px; font-size: .82rem }
 .logl.round { color: var(--gold); font-weight: 600; margin-top: 6px }
 .logl.death { color: var(--danger) }
@@ -926,6 +928,7 @@ function startTurn(state, u) {
   if (hasCond(u, "Dodging")) delCond(u, "Dodging");
   // effects that end at start of own turn
   u.effects = u.effects.filter((e) => !(e.until === "startOfTurn" && e.src === u.id));
+  for (const e of [...u.effects]) if (e.endRound && state.round >= e.endRound) { removeEffect(state, u, e); log(state, "ฤทธิ์ " + e.name + " ของ " + u.name + " หมดแล้ว"); }
   for (const o of Object.values(state.units)) o.effects = o.effects.filter((e) => !(e.until === "startOfSourceTurn" && e.src === u.id));
   if (u.kind === "monster") {
     for (const a of u.actions) if (a.recharge && u.recharge[a.name] === false) { const r = d(6); if (r >= a.recharge) { u.recharge[a.name] = true; log(state, u.name + " ชาร์จ " + a.name + " คืน (ทอย " + r + ")"); } }
@@ -1013,6 +1016,7 @@ function savingThrow(u, ab, dc, opts = {}) {
   const r = d20(Math.sign(adv));
   let bonus = u.saves[ab] ?? (u.mods ? u.mods[ab] || 0 : 0);
   for (const e of u.effects) if (e.saveDie) bonus += (e.saveDie > 0 ? 1 : -1) * roll("1d" + Math.abs(e.saveDie)).total;
+  for (const e of u.effects) { if (e.saveFlat && e.saveFlat[ab]) bonus += e.saveFlat[ab]; if (e.oneShot === "save") { bonus += roll("1d4").total; e.oneShot = null; } }
   const total = r.v + bonus;
   let ok = total >= dc;
   if (!ok && u.legRes > 0 && opts.allowLegRes !== false && u.kind === "monster") { u.legRes--; ok = true; return { total, ok, legRes: true, ab, dc, roll: r }; }
@@ -1026,6 +1030,7 @@ function damage(state, u, amount, dtype, src, opts = {}) {
   if (u.resist && dtype && listHas(u.resist, dtype)) amt = Math.floor(amt / 2);
   if (u.vuln && dtype && listHas(u.vuln, dtype)) amt *= 2;
   for (const e of u.effects) if (e.resistAll) amt = Math.floor(amt / 2);
+  if (dtype && u.effects.some((e) => e.resist === dtype) && !(u.resist && listHas(u.resist, dtype))) amt = Math.floor(amt / 2);
   if (u.tempHp) { const t = Math.min(u.tempHp, amt); u.tempHp -= t; amt -= t; }
   if (u.kind === "pc" && u.hp <= 0) {
     // damage while down = failed death save(s)
@@ -1120,6 +1125,10 @@ function resolveAttack(state, a, t, atk, opts = {}) {
   let bonus = atk.hit + (a.hitBonus || 0);
   let blessTxt = "";
   for (const e of a.effects) if (e.attackDie) { const b = roll("1d" + Math.abs(e.attackDie)).total * Math.sign(e.attackDie); bonus += b; blessTxt += (b >= 0 ? " +" : " ") + b + " (" + e.name + ")"; }
+  for (const e of a.effects) {
+    if (e.atkFlat) { bonus += e.atkFlat; blessTxt += (e.atkFlat >= 0 ? " +" : " ") + e.atkFlat + " (ยา)"; }
+    if (e.oneShot === "attack") { const b = roll("1d4").total; bonus += b; blessTxt += " +" + b + " (ยา d4)"; e.oneShot = null; }
+  }
   const total = r.v + bonus;
   const autoCrit = (hasCond(t, "Paralyzed") || hasCond(t, "Unconscious")) && dist(a, t) <= 5;
   const critRange = a.subclassId === "champion" && !atk.spell ? 19 : 20;
@@ -1463,6 +1472,52 @@ function offhandAttack(state, u, t) {
   const tw = u.fightingStyle === "two-weapon-fighting";
   const atk = { ...a, dmg: tw ? a.dmg : a.dmg.replace(/[+-]\d+$/, "") };
   return resolveAttack(state, u, t, { ...atk, verb: "ฟันมือรอง" });
+}
+
+// ---------- homebrew: Controlled Chaos Potion V2.1 (Fizz Bubblewick) ----------
+// recipe -> [effect A (d6 1-3), effect B (d6 4-6)]; effects last 1 minute (10 rounds), no concentration, one at a time
+const CHAOS = {
+  "001": { name: "Unstable Enhancement Serum", th: "เซรุ่มเสริมพลังไม่เสถียร", A: { atkFlat: 2, ac: -1, txt: "Attack +2, AC −1" }, B: { ac: 2, atkFlat: -1, txt: "AC +2, Attack −1" } },
+  "002": { name: "Emergency Recovery Fluid", th: "น้ำยาฟื้นฟูฉุกเฉิน", A: { heal: "1d6+2", speed: -5, txt: "ฟื้น 1d6+2 HP, Speed −5 ft" }, B: { heal: "1d4+2", temp: 2, atkFlat: -1, txt: "ฟื้น 1d4+2 HP + Temp HP 2, Attack −1" } },
+  "003": { name: "Hyperactive Mobility Tonic", th: "ยาเร่งการเคลื่อนไหว", A: { speed: 10, ac: -1, txt: "Speed +10 ft, AC −1" }, B: { saveFlat: { DEX: 2 }, speed: -5, txt: "DEX Save +2, Speed −5 ft" } },
+  "004": { name: "Cognitive Instability Solution", th: "สารเพิ่มสมองไม่เสถียร", A: { oneShot: "check", ac: -1, txt: "+1d4 Ability Check ครั้งถัดไป, AC −1" }, B: { saveFlat: { WIS: 2 }, atkFlat: -1, txt: "WIS Save +2, Attack −1" } },
+  "005": { name: "Emergency Survival Compound", th: "สารเอาตัวรอดฉุกเฉิน", A: { temp: 5, speed: -5, txt: "Temp HP 5, Speed −5 ft" }, B: { resist: "ELEMENT", atkFlat: -1, txt: "Resistance ELEMENT, Attack −1" } },
+  "006": { name: "Tactical Fortune Extract", th: "สารสกัดโชคสนามรบ", A: { oneShot: "attack", ac: -1, txt: "+1d4 Attack ครั้งถัดไป, AC −1" }, B: { oneShot: "save", atkFlat: -1, txt: "+1d4 Saving Throw ครั้งถัดไป, Attack −1" } },
+};
+// item ids: chaos-001 … chaos-006, with chaos-005f / chaos-005c for the Fire / Cold survival compound
+function chaosRecipe(itemId) {
+  const m = /^chaos-(\d{3})([fc])?$/.exec(itemId || ""); if (!m || !CHAOS[m[1]]) return null;
+  return { id: m[1], element: m[2] === "c" ? "Cold" : m[2] === "f" ? "Fire" : null, ...CHAOS[m[1]] };
+}
+function chaosItemName(itemId) {
+  const r = chaosRecipe(itemId); if (!r) return itemId;
+  return "ยาปรุง No." + r.id + " " + r.name + (r.element ? " (" + r.element + ")" : "");
+}
+// a = the one spending the Action (drinker or helper feeding within 5 ft), t = drinker. Does not touch inventory.
+function chaosPotion(state, a, t, itemId, opts = {}) {
+  const r = chaosRecipe(itemId); if (!r) return { error: "ไม่รู้จักยานี้" };
+  if (!opts.free) { if (!a.turn || !a.turn.action) return { error: "ใช้ Action ไปแล้ว" }; }
+  if (a.id !== t.id && dist(a, t) > 5) return { error: "ป้อนยาได้เฉพาะเพื่อนที่ยืนติดกัน (5 ฟุต)" };
+  if (t.dead) return { error: "เป้าหมายเสียชีวิตแล้ว" };
+  if (!opts.free) a.turn.action = 0;
+  const die = opts.die || d(6);
+  const side = die <= 3 ? "A" : "B";
+  const fx = { ...r[side] };
+  const txt = fx.txt.replace("ELEMENT", r.element || "Fire");
+  for (const e of [...t.effects]) if (e.potion) removeEffect(state, t, e);
+  log(state, (a.id === t.id ? a.name + " ดื่ม " : a.name + " ป้อน ") + "ยาปรุง No." + r.id + " " + r.name + (a.id === t.id ? "" : " ให้ " + t.name) + " · 🎲 d6 = " + die + " → ผล " + side + ": " + txt, { kind: "potion" });
+  if (fx.heal) { const h = roll(fx.heal); const got = heal(state, t, h.total, a); log(state, t.name + " ฟื้น " + h.text + " (ได้จริง " + got + ")", { kind: "heal" }); }
+  if (fx.temp) t.tempHp = Math.max(t.tempHp || 0, fx.temp);
+  const eff = { name: "ยาปรุง " + r.id + side, potion: r.id + side, src: t.id, endRound: (state.round || 1) + 10, txt };
+  if (fx.ac) eff.ac = fx.ac;
+  if (fx.atkFlat) eff.atkFlat = fx.atkFlat;
+  if (fx.speed) eff.speed = fx.speed;
+  if (fx.saveFlat) eff.saveFlat = fx.saveFlat;
+  if (fx.oneShot) eff.oneShot = fx.oneShot;
+  if (fx.resist) eff.resist = r.element || "Fire";
+  addEffect(state, t, eff);
+  if (fx.speed && t.turn) t.turn.move = Math.max(t.turn.moved, t.turn.move + fx.speed);
+  return { ok: true, side, die, txt };
 }
 
 // ---------- movement ----------
@@ -2663,6 +2718,12 @@ const NET = { db: null, uid: null, user: null, sample: undefined, assets: undefi
 const P = { cid: null, meta: null, scene: null, party: {}, chat: [], unsub: [], myCardId: null, mode: "move", pending: null, hover: null,
   spellSel: null, attackSel: null, busy: false, tv: false, panel: "dm", tts: false, mapEdit: null, lastSpoken: null, anim: null, maps: {} };
 try { P.tts = localStorage.getItem("dnd4f-tts") === "1"; } catch (e) {}
+// homebrew Controlled Chaos potions show up as inventory items everywhere (market, party, DM)
+const CHAOS_IDS = ["chaos-001", "chaos-002", "chaos-003", "chaos-004", "chaos-005f", "chaos-005c", "chaos-006"];
+for (const id of CHAOS_IDS) IX.items[id] = { id, name: chaosItemName(id), kind: "gear", cost: 0, chaos: true };
+const homebrewOn = () => !P.meta || P.meta.homebrew !== false;
+const canBrew = (p) => !!p && (p.card.homebrew || []).includes("chaos-potions") && homebrewOn();
+const chaosBottles = (card) => (card.inventory || []).filter((x) => chaosRecipe(x.id) && x.qty > 0);
 
 // ---------- tiny local database (same shape as the db capability) for offline / signed-out play ----------
 function localDB() {
@@ -2720,7 +2781,7 @@ function watchCampaigns() {
 async function createCampaign(name) {
   const id = "c" + Date.now().toString(36);
   const meta = { id, name: name || CAMP.name, preset: CAMP.id, owner: myUid(), hostUid: myUid(), createdAt: Date.now(), updated: Date.now(),
-    cleared: {}, done: {}, opened: {}, found: {}, flags: {}, day: 1, dmBusy: false, log: [] };
+    cleared: {}, done: {}, opened: {}, found: {}, flags: {}, day: 1, dmBusy: false, log: [], homebrew: true };
   await dbx().doc("campaigns/" + id).set(meta);
   await dbx().doc("campaigns/" + id + "/scene/main").set({ rev: 1, mode: "town", loc: CAMP.start, combat: null, updated: Date.now() });
   await dbx().collection("campaigns/" + id + "/chat").add({ ts: Date.now(), kind: "dm", text: "ยินดีต้อนรับสู่ " + CAMP.name + " · " + CAMP.th + "\n\n" + CAMP.summary + "\n\n" + CAMP.town.intro, who: "DM" });
@@ -2799,7 +2860,7 @@ async function joinWith(card) {
   const sh = computeSheet(c, D);
   const def = P.scene && mapDef(P.scene.loc);
   const start = def && def.rows ? freeStart(def) : { x: 1, y: 1 };
-  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level }, pos: start, revealed: {}, seen: Date.now() });
+  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level, brewsLeft: 2 }, pos: start, revealed: {}, seen: Date.now() });
   P.myCardId = c.id; P.forceJoin = false;
   await say("system", c.name + " (" + classLine(c) + " Lv" + c.level + ") เข้าร่วมทีม");
   render();
@@ -2941,7 +3002,7 @@ async function finalizeCombat(st) {
     for (const u of pcs) {
       const p = P.party[u.cardId]; if (!p) continue;
       const card = { ...p.card, xp: Math.max((p.card.xp || 0) + share, milestone) };
-      await writeParty(u.cardId, { card, live: liveOf(u) });
+      await writeParty(u.cardId, { card, live: { ...p.live, ...liveOf(u) } });
     }
     const cleared = { ...(P.meta.cleared || {}), [clearedKey(st.mapId, st.encounter)]: true };
     const done = st.boss ? { ...(P.meta.done || {}), [st.mapId]: true } : P.meta.done || {};
@@ -2954,7 +3015,7 @@ async function finalizeCombat(st) {
       const p = P.party[u.cardId]; if (!p) continue;
       const fee = Math.min(p.card.gp || 0, 50 * p.card.level);
       const sh = computeSheet(p.card, D);
-      await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
+      await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...p.live, ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
     }
     await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, lastCombat: { result: "lose" } });
     await say("system", "💀 ทีมพ่ายแพ้… ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
@@ -3010,6 +3071,7 @@ function dmContext() {
   lines.push("ดันเจี้ยนที่จบแล้ว: " + (Object.keys(P.meta.done || {}).join(", ") || "ยังไม่มี"));
   lines.push("สถานที่บนแผนที่โลก: " + CAMP.world.locations.map((l) => l.id + "=" + l.name + " (Lv " + l.level + ")").join(", "));
   lines.push("ทีม:\n" + partySummary());
+  if (homebrewOn() && Object.values(P.party).some(canBrew)) lines.push("Homebrew ที่อนุญาต: ระบบปรุงยา Controlled Chaos V2.1 ของ " + Object.values(P.party).filter(canBrew).map((p) => p.card.name).join(", ") + " ปรุงได้ 2 ขวด/พักยาว สูตร 001–006 ดื่มแล้วทอย d6 ได้ผล A หรือ B (มีทั้งข้อดีและข้อเสีย) นาน 1 นาที หน้าเว็บคิดผลให้ คุณแค่เล่าฉากให้สนุกตามบุคลิกนักปรุงยาที่ไม่ยอมลองยากับตัวเอง");
   if (P.meta.flags && Object.keys(P.meta.flags).length) lines.push("ธงเนื้อเรื่อง: " + JSON.stringify(P.meta.flags));
   return lines.join("\n");
 }
@@ -3053,10 +3115,12 @@ function rollCheck(c) {
   const sh = computeSheet(p.card, D);
   const sk = sh.skills.find((s) => s.name.toLowerCase() === String(c.skill).toLowerCase());
   const ab = ABILITIES.includes(String(c.skill).toUpperCase()) ? String(c.skill).toUpperCase() : null;
-  const bonus = sk ? sk.bonus : ab ? sh.saves.find((s) => s.ab === ab).bonus : 0;
+  let bonus = sk ? sk.bonus : ab ? sh.saves.find((s) => s.ab === ab).bonus : 0;
   const r = d(20);
+  let potion = 0;
+  if (p.live.checkBonus && sk) { potion = d(4); bonus += potion; writeParty(p.cardId, { live: { ...p.live, checkBonus: false } }).catch(() => {}); }
   const total = r + bonus; const dc = +c.dc || 10;
-  return p.card.name + " " + (sk ? sk.name : ab ? ab + " save" : c.skill) + ": " + r + (bonus >= 0 ? "+" : "") + bonus + " = " + total + " vs DC " + dc + (total >= dc ? " ✅ สำเร็จ" : " ❌ ไม่สำเร็จ");
+  return p.card.name + " " + (sk ? sk.name : ab ? ab + " save" : c.skill) + ": " + r + (bonus >= 0 ? "+" : "") + bonus + " = " + total + " vs DC " + dc + (potion ? " (รวมยาปรุง +" + potion + ")" : "") + (total >= dc ? " ✅ สำเร็จ" : " ❌ ไม่สำเร็จ");
 }
 async function dmAction(a) {
   try {
@@ -3099,9 +3163,11 @@ async function restParty(kind, quiet) {
   for (const p of Object.values(P.party)) {
     const u = pcUnit(p.card, D, p.live);
     if (kind === "long") longRestUnit(u); else shortRestUnit(u, u.hp < u.maxHp ? Math.ceil((u.maxHp - u.hp) / (u.hitDie / 2 + 1 + u.mods.CON || 1)) : 0);
-    await writeParty(p.cardId, { live: { ...liveOf(u), dead: p.live.dead } });
+    const patch = { live: { ...liveOf(u), dead: p.live.dead, brewsLeft: kind === "long" ? 2 : p.live.brewsLeft ?? 2, checkBonus: kind === "long" ? false : !!p.live.checkBonus } };
+    if (kind === "long" && chaosBottles(p.card).length) patch.card = { ...p.card, inventory: p.card.inventory.filter((x) => !chaosRecipe(x.id)) };
+    await writeParty(p.cardId, patch);
   }
-  await say("system", kind === "long" ? "🌙 ทีมพักยาว: HP เต็ม ช่องเวทและความสามารถคืนครบ" : "☕ ทีมพักสั้น 1 ชั่วโมง: ใช้ Hit Dice ฟื้น HP และคืน Second Wind/Action Surge");
+  await say("system", kind === "long" ? "🌙 ทีมพักยาว: HP เต็ม ช่องเวทและความสามารถคืนครบ" + (Object.values(P.party).some(canBrew) ? " · นักปรุงยาปรุงได้อีก 2 ขวด (ขวดเก่าหมดฤทธิ์)" : "") : "☕ ทีมพักสั้น 1 ชั่วโมง: ใช้ Hit Dice ฟื้น HP และคืน Second Wind/Action Surge");
   if (!quiet) requestDM({ event: kind === "long" ? "ทีมพักค้างคืน" : "ทีมพักสั้น" });
 }
 
@@ -3525,6 +3591,7 @@ function drawToken(ctx, t, c, st, cur) {
     ctx.fillStyle = pct > 0.5 ? "#5fcf7b" : pct > 0.25 ? "#e3b341" : "#e05a4f"; ctx.fillRect(cx - bw / 2, py + s - 6, bw * pct, 5);
   }
   if (u.conditions && u.conditions.length) { ctx.fillStyle = "#c58af9"; ctx.beginPath(); ctx.arc(px + s - 5, py + 5, 4, 0, 7); ctx.fill(); }
+  if (u.effects && u.effects.some((e) => e.potion)) { ctx.font = `${Math.round(c * 0.38)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🧪", px + s - 6, py + s - 12); }
   if (u.conc) { ctx.fillStyle = "#7ab8ff"; ctx.beginPath(); ctx.arc(px + 5, py + 5, 4, 0, 7); ctx.fill(); }
   if (P.spellSel && P.spellSel.targets && P.spellSel.targets.includes(u.id)) { ctx.strokeStyle = "#f4d27a"; ctx.lineWidth = 3; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
   ctx.restore();
@@ -3643,6 +3710,7 @@ async function combatClick(c) {
     }
     return;
   }
+  if (P.mode === "chaos" && P.chaosSel) { if (t && t.side === "pc") { const id = P.chaosSel; P.mode = "move"; P.chaosSel = null; return useChaos(t.id, id); } return; }
   if (P.mode === "help") { if (t && t.side === "pc" && t.id !== u.id) { P.mode = "move"; return act((s, a) => doHelp(s, a, s.units[t.id])); } return; }
   if (P.mode === "offhand") { if (t && t.side === "foe") { P.mode = "move"; return act((s, a) => offhandAttack(s, a, s.units[t.id])); } return; }
   if (P.mode === "spiritual") { if (t && t.side === "foe") { P.mode = "move"; return act((s, a) => spiritualAttack(s, a, s.units[t.id])); } return; }
@@ -3689,6 +3757,61 @@ async function drinkPotion() {
   e.qty--; if (!e.qty) inv.splice(inv.indexOf(e), 1);
   await commitCombat(st);
   await writeParty(u.cardId, { card: { ...p.card, inventory: inv } });
+}
+
+// ---------- homebrew: Controlled Chaos potions ----------
+function chaosBar(u, T) {
+  const p = P.party[u.cardId]; if (!p || !homebrewOn()) return [];
+  const bottles = chaosBottles(p.card); if (!bottles.length) return [];
+  const sel = h("select", { "aria-label": "เลือกยาปรุง" }, bottles.map((x) => h("option", { value: x.id, selected: P.chaosSel === x.id }, iname(x.id) + " ×" + x.qty)));
+  return [h("span", { class: "row", style: "gap:6px" }, sel,
+    h("button", { class: "btn small" + (P.mode === "chaos" ? " primary" : ""), disabled: !T.action, onclick: () => {
+      if (P.mode === "chaos") { P.mode = "move"; P.chaosSel = null; } else { P.mode = "chaos"; P.chaosSel = sel.value; toast("แตะตัวเองเพื่อดื่ม หรือแตะเพื่อนที่ยืนติดเพื่อป้อน"); }
+      renderBar(); } }, P.mode === "chaos" ? "ยกเลิกยาปรุง" : "🧪 ยาปรุง (Action)"))];
+}
+async function useChaos(targetId, itemId) {
+  const st = combatState(); const u = current(st); const p = P.party[u.cardId];
+  const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === itemId && x.qty > 0);
+  if (!e) return toast("ไม่มียาขวดนี้แล้ว");
+  const res = chaosPotion(st, u, st.units[targetId], itemId);
+  if (res.error) return toast(res.error);
+  e.qty--; if (!e.qty) inv.splice(inv.indexOf(e), 1);
+  await commitCombat(st);
+  await writeParty(u.cardId, { card: { ...P.party[u.cardId].card, inventory: inv } });
+  toast("🎲 d6 = " + res.die + " → ผล " + res.side + ": " + res.txt);
+}
+function brewBox(p) {
+  const bottles = chaosBottles(p.card);
+  const brewer = canBrew(p);
+  if (!brewer && !bottles.length) return null;
+  const inCombat = P.scene.mode === "combat";
+  const left = p.live.brewsLeft ?? 2;
+  const recipeSel = h("select", { "aria-label": "สูตรยา" }, CHAOS_IDS.map((id) => h("option", { value: id }, iname(id))));
+  return h("div", { class: "brew" },
+    brewer && h("div", { class: "row", style: "gap:6px" }, h("span", { class: "small" }, "⚗️ ปรุงยา (เหลือ " + left + "/2 ขวด)"), recipeSel,
+      h("button", { class: "btn tiny", disabled: inCombat || left <= 0, onclick: async () => {
+        const cur = P.party[p.cardId]; const inv = clone(cur.card.inventory || []); const id = recipeSel.value;
+        const ex = inv.find((x) => x.id === id); if (ex) ex.qty++; else inv.push({ id, qty: 1, equipped: false });
+        await writeParty(p.cardId, { card: { ...cur.card, inventory: inv }, live: { ...cur.live, brewsLeft: left - 1 } });
+        await say("system", "⚗️ " + cur.card.name + " ปรุง " + iname(id) + " สำเร็จ (ผลจะสุ่ม A/B ตอนดื่ม)");
+      } }, "ปรุง")),
+    bottles.map((x) => h("div", { class: "row small", style: "gap:6px" }, "🧪 " + iname(x.id) + " ×" + x.qty,
+      h("button", { class: "btn tiny ghost", title: "ดูผล", onclick: () => { const r = chaosRecipe(x.id); toast("ผล A: " + r.A.txt.replace("ELEMENT", r.element || "") + " · ผล B: " + r.B.txt.replace("ELEMENT", r.element || "")); } }, "ดูผล"),
+      !inCombat && h("button", { class: "btn tiny", onclick: () => drinkChaosOutside(p.cardId, x.id) }, "ดื่มตอนนี้"))),
+    brewer && h("div", { class: "small muted" }, "Homebrew: Controlled Chaos Potion V2.1 · ในการต่อสู้ใช้ปุ่ม 🧪 ยาปรุง (ดื่มเองหรือป้อนเพื่อนที่ยืนติด)"));
+}
+// outside combat only the instant parts matter: healing, temp HP, and the one-shot ability check bonus
+async function drinkChaosOutside(cardId, itemId) {
+  const p = P.party[cardId]; const r = chaosRecipe(itemId); if (!p || !r) return;
+  const die = d(6); const side = die <= 3 ? "A" : "B"; const fx = r[side];
+  const sh = computeSheet(p.card, D); const live = { ...p.live }; let extra = "";
+  if (fx.heal) { const hh = roll(fx.heal); live.hp = Math.min(sh.hpMax, (live.hp ?? sh.hpMax) + hh.total); extra += " ฟื้น " + hh.text; }
+  if (fx.temp) live.tempHp = Math.max(live.tempHp || 0, fx.temp);
+  if (fx.oneShot === "check") live.checkBonus = true;
+  const inv = clone(p.card.inventory); const e = inv.find((x) => x.id === itemId); e.qty--; if (!e.qty) inv.splice(inv.indexOf(e), 1);
+  await writeParty(cardId, { card: { ...p.card, inventory: inv }, live });
+  await say("system", "🧪 " + p.card.name + " ดื่ม " + iname(itemId) + " · 🎲 d6 = " + die + " → ผล " + side + ": " + fx.txt.replace("ELEMENT", r.element || "") + extra + (fx.oneShot === "check" ? " (ใช้กับการทอยทักษะครั้งถัดไป)" : ""));
+  requestDM({ event: p.card.name + " ดื่มยาปรุง " + r.name + " ได้ผล " + side + " (" + fx.txt.replace("ELEMENT", r.element || "") + ")" });
 }
 
 // ---------- action bar ----------
@@ -3768,6 +3891,7 @@ function myTurnBar(st, u) {
     u.spiritualWeapon && u.effects.some((e) => e.spiritual) && h("button", { class: "btn small" + (P.mode === "spiritual" ? " primary" : ""), disabled: !T.bonus, onclick: () => { P.mode = P.mode === "spiritual" ? "move" : "spiritual"; renderBar(); } }, "Spiritual Weapon"),
     hasCond(u, "Prone") && h("button", { class: "btn small", onclick: () => act(standUp) }, "ลุกขึ้น"),
     hasPotion && h("button", { class: "btn small", disabled: !T.bonus, onclick: drinkPotion }, "🧪 ดื่มยา"),
+    ...chaosBar(u, T),
     h("button", { class: "btn primary", onclick: () => { P.mode = "move"; P.attackSel = null; act((s) => finishTurn(s)); } }, "จบตา ⏎")));
   return out;
 }
@@ -3825,12 +3949,14 @@ function partyPanel() {
           h("div", { class: "hpbar" }, h("i", { style: "width:" + Math.max(0, Math.min(100, (hp / sh.hpMax) * 100)) + "%" })),
           h("div", { class: "small num" }, (p.live.dead || (u && u.dead) ? "💀 เสียชีวิต · " : "") + "HP " + hp + "/" + sh.hpMax + " · AC " + sh.ac + " · " + fmtGp(p.card.gp || 0) + " · " + p.card.xp + " EXP"),
           canLv && h("div", { class: "small", style: "color:var(--gold)" }, "EXP ครบ เลเวลอัปได้! ไปเลเวลอัปที่ชีตตัวละคร แล้วกด “อัปเดตการ์ด”"),
+          mine && brewBox(p),
           mine && h("div", { class: "row", style: "gap:6px;margin-top:4px" },
             NET.local && p.cardId !== P.myCardId && h("button", { class: "btn tiny", onclick: () => { P.myCardId = p.cardId; renderPlay(); } }, "คุมตัวนี้"),
             h("button", { class: "btn tiny", disabled: P.scene.mode === "combat", onclick: () => refreshCardFromShelf(p.cardId) }, "อัปเดตการ์ดจากชั้นของฉัน"),
             h("button", { class: "btn tiny ghost", disabled: P.scene.mode === "combat", onclick: async () => { await dbx().doc("campaigns/" + P.cid + "/party/" + p.cardId).delete(); if (P.myCardId === p.cardId) P.myCardId = null; say("system", p.card.name + " ออกจากทีม"); } }, "ออกจากทีม"))));
     }),
     myParty().length > 0 && NET.local && h("button", { class: "btn small", onclick: () => { P.forceJoin = true; renderPlay(); } }, "+ เพิ่มตัวละคร"),
+    isHost() && h("label", { class: "row small", style: "gap:6px" }, h("input", { type: "checkbox", checked: homebrewOn(), onchange: (e) => writeMeta({ homebrew: e.target.checked }) }), "อนุญาต Homebrew ในห้องนี้ (เช่น ระบบปรุงยาของ Fizz)"),
     !NET.local && myParty().length === 0 && h("p", { class: "small muted" }, "เลือกการ์ดบนกระดานเพื่อเข้าร่วม"));
 }
 function logPanel() {

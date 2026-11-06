@@ -194,7 +194,7 @@ footer a { color: inherit }
 .ticker div:last-child { font-weight: 600 }
 .actbar { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 48px }
 .actbar > .row, .actbar > span, .actbar > b { min-width: 0 }
-.actbar select { padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); max-width: 100% }
+.actbar select { width: auto; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); max-width: 100% }
 .init-strip { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px }
 .init-chip { flex: none; font-size: .75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-family: var(--f-mono) }
 .init-chip.pc { background: var(--accent-soft) }
@@ -226,6 +226,8 @@ footer a { color: inherit }
 .hpbar { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; margin: 4px 0 }
 .hpbar i { display: block; height: 100%; background: var(--ok) }
 .mon-card { padding: 10px; gap: 6px }
+.brew { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: var(--sunk); display: flex; flex-direction: column; gap: 4px }
+.brew select { max-width: 100%; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface) }
 .log { display: flex; flex-direction: column; gap: 3px; font-size: .82rem }
 .logl.round { color: var(--gold); font-weight: 600; margin-top: 6px }
 .logl.death { color: var(--danger) }
