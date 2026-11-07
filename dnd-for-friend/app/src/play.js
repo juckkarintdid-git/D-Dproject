@@ -514,6 +514,7 @@ function dmContext() {
     const enc = Object.entries(def.encounters || {}).map(([L, e]) => L + "=" + e.th + (P.meta.cleared && P.meta.cleared[clearedKey(loc, L)] ? " (ชนะแล้ว)" : "")).join(", ");
     lines.push("ตอนนี้อยู่: " + def.name + " (" + def.th + ", เลเวลแนะนำ " + def.level + ")\nบรรยากาศ: " + def.intro + "\nความลับ DM: " + (def.dm || "") + "\nการต่อสู้ในแผนที่: " + enc);
   }
+  lines.push("เวลาในเกม: " + clockText());
   if (P.meta.story) lines.push("เรื่องที่ผ่านมา (สรุป): " + P.meta.story);
   lines.push("ดันเจี้ยนที่จบแล้ว: " + (Object.keys(P.meta.done || {}).join(", ") || "ยังไม่มี"));
   lines.push("สถานที่บนแผนที่โลก: " + CAMP.world.locations.map((l) => l.id + "=" + l.name + " (Lv " + l.level + ")").join(", "));
@@ -593,6 +594,71 @@ async function dmAction(a) {
   } catch (e) { /* ignore a malformed action */ }
 }
 
+// ---------- traps: scattered fresh each time a party enters a dungeon; found by Passive Perception ----------
+const TRAP_KINDS = [
+  { k: "spike", th: "หลุมหนาม", ab: "DEX", dmg: "1d10", dtype: "Piercing" },
+  { k: "dart", th: "ลูกดอกอาบยาพิษ", ab: "DEX", dmg: "1d6", dtype: "Poison", extra: "2d4" },
+  { k: "rune", th: "อักขระไฟ", ab: "DEX", dmg: "2d6", dtype: "Fire" },
+  { k: "net", th: "ตาข่ายร่วงจากเพดาน", ab: "DEX", dmg: "", dtype: "", stop: true },
+  { k: "blade", th: "ใบมีดเหวี่ยงจากผนัง", ab: "DEX", dmg: "1d8", dtype: "Slashing", extra: "1d8" },
+];
+const mapLevel = (def) => parseInt(String((def && def.level) || "1"), 10) || 1;
+function genTraps(def) {
+  const lv = mapLevel(def); const grid = gridOf(def); const s = cellsOf(def, "S")[0] || { x: 1, y: 1 };
+  const cells = [];
+  def.rows.forEach((r, y) => [...r].forEach((ch, x) => { if ((ch === "." || ch === ",") && !grid.walls[x + "," + y] && Math.abs(x - s.x) + Math.abs(y - s.y) > 4) cells.push({ x, y }); }));
+  const n = Math.min(cells.length, 2 + Math.floor(Math.random() * 2) + (lv >= 3 ? 1 : 0));
+  const out = [];
+  for (let i = 0; i < n && cells.length; i++) {
+    const c = cells.splice(Math.floor(Math.random() * cells.length), 1)[0];
+    if (out.some((t) => Math.abs(t.x - c.x) + Math.abs(t.y - c.y) < 4)) { i--; if (cells.length < 3) break; continue; }
+    const K = TRAP_KINDS[Math.floor(Math.random() * TRAP_KINDS.length)];
+    out.push({ x: c.x, y: c.y, k: K.k, dc: 10 + lv + Math.floor(Math.random() * 3), found: false, sprung: false });
+  }
+  return out;
+}
+const trapsHere = () => (P.scene && P.scene.trapLoc === P.scene.loc ? P.scene.traps || [] : []);
+const trapKind = (t) => TRAP_KINDS.find((k) => k.k === t.k) || TRAP_KINDS[0];
+function passiveOf(p) { const sh = safeSheet(p.card); return sh ? sh.passivePerception : 10; }
+// someone with a sharp eye spots traps within 2 squares they can see
+function spotTraps(traps, at, watchers, grid) {
+  const best = watchers.map((p) => [p, passiveOf(p)]).sort((a, b) => b[1] - a[1])[0]; if (!best) return [];
+  const seen = [];
+  for (const t of traps) if (!t.found && !t.sprung && dist(at, t) <= 10 && hasLOS({ map: grid }, at, t) && best[1] >= t.dc) { t.found = true; seen.push([t, best[0]]); }
+  return seen;
+}
+// stepping on a trap: DEX save (from the sheet), damage straight to HP, never below 1 outside a fight
+async function springTrap(t, p) {
+  const K = trapKind(t); const sh = safeSheet(p.card);
+  const so = sh && sh.saves.find((x) => x.ab === K.ab); const sv = so ? so.bonus : 0;
+  const r = d20(0); const total = r.v + sv; const ok = r.v !== 1 && total >= t.dc;
+  let dmg = 0; if (K.dmg) { const d = roll(K.dmg + (K.extra && mapLevel(mapDef(P.scene.loc)) >= 3 ? "+" + K.extra : "")); dmg = ok ? Math.floor(d.total / 2) : d.total; }
+  const hp0 = p.live.hp ?? (sh ? sh.hpMax : 1); const hp = Math.max(1, hp0 - dmg);
+  t.sprung = true; t.found = true;
+  await writeParty(p.cardId, { live: { ...p.live, hp } });
+  await say("system", "🪤 " + p.card.name + " เหยียบ" + K.th + "! เซฟ " + K.ab + " " + total + " vs DC " + t.dc + (ok ? " · หลบได้บางส่วน" : " · ไม่ทัน") + (dmg ? " · โดน " + dmg + " " + K.dtype + " (HP " + hp + ")" : "") + (K.stop && !ok ? " · ติดตาข่าย เดินต่อไม่ได้ในตานี้" : "") + (hp0 - dmg < 1 ? " · ล้มลงแต่รอดหวุดหวิด" : ""),
+    { rolls: [{ who: p.card.name, label: K.ab + " save · " + K.th, roll: r.v, bonus: sv, total, dc: t.dc, ok }] });
+  return { stop: !!K.stop && !ok };
+}
+// disarm a trap you can see from an adjacent square: Sleight of Hand (thieves' tools) vs the trap DC
+async function disarmTrap(t, p) {
+  const sh = safeSheet(p.card); const sk = sh && sh.skills.find((s) => s.name === "Sleight of Hand"); const bonus = sk ? sk.bonus : 0;
+  const r = d20(0); const total = r.v + bonus; const ok = total >= t.dc;
+  await say("system", "🔧 " + p.card.name + " ลองปลด" + trapKind(t).th + " · Sleight of Hand " + total + " vs DC " + t.dc + (ok ? " · ปลดสำเร็จ" : " · พลาด!"), { rolls: [{ who: p.card.name, label: "ปลดกับดัก", roll: r.v, bonus, total, dc: t.dc, ok }] });
+  if (ok) { t.sprung = true; return null; }
+  return springTrap(t, p);
+}
+
+// ---------- in-game clock: hours pass with travel and rest; night is darker and riskier on the road ----------
+const gameHour = () => (P.meta && P.meta.hour != null ? P.meta.hour : 8);
+const isNight = () => { const h = gameHour(); return h >= 19 || h < 6; };
+function clockText() { const h = gameHour(); return (isNight() ? "🌙 กลางคืน " : "☀️ กลางวัน ") + String(Math.floor(h)).padStart(2, "0") + ":00 · วันที่ " + ((P.meta && P.meta.day) || 1); }
+async function passTime(hours) {
+  let h = gameHour() + hours, day = (P.meta && P.meta.day) || 1;
+  while (h >= 24) { h -= 24; day++; }
+  await writeMeta({ hour: h, day });
+}
+
 // small table of road happenings: the code picks, the DM tells it (and may ask for a check)
 const TRAVEL_EVENTS = [
   "พ่อค้าเร่ถูกล้อเกวียนติดหล่ม ขอความช่วยเหลือ (ช่วยแล้วอาจได้ของเล็กน้อย)",
@@ -610,7 +676,9 @@ async function travelTo(loc, quiet) {
   const L0 = CAMP.world.locations.find((l) => l.id === loc) || (CAMP.maps[loc] ? CAMP.maps[loc] : null);
   await say("system", "🧭 ทีมเดินทางไป " + (L0 ? L0.name + " · " + L0.th : loc));
   P.arriving = true;
-  await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false } });
+  await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false },
+    ...(!isTown && def && def.rows ? { traps: genTraps(def), trapLoc: loc } : {}) });
+  if (!quiet) await passTime(loc === "summit" ? 1 : 4);
   if (!isTown && P.meta.discount) await writeMeta({ discount: null });
   if (isTown) for (const p of Object.values(P.party)) if (p.townPlace || p.ready) await writeParty(p.cardId, { townPlace: null, ready: 0 });
   if (!isTown && def) {
@@ -623,8 +691,8 @@ async function travelTo(loc, quiet) {
   }
   P.arriving = false;
   const L = L0;
-  const ev = !quiet && !isTown && Math.random() < 1 / 3 ? TRAVEL_EVENTS[Math.floor(Math.random() * TRAVEL_EVENTS.length)] : null;
-  if (!quiet) requestDM({ event: (ev ? "ระหว่างทางเกิดเหตุการณ์ (ระบบสุ่มได้): " + ev + " · เล่าสั้น ๆ แล้ว " : "") + "ทีมเดินทางมาถึง " + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
+  const ev = !quiet && !isTown && Math.random() < (isNight() ? 1 / 2 : 1 / 3) ? TRAVEL_EVENTS[Math.floor(Math.random() * TRAVEL_EVENTS.length)] : null;
+  if (!quiet) requestDM({ event: "[" + clockText() + "] " + (ev ? "ระหว่างทางเกิดเหตุการณ์ (ระบบสุ่มได้): " + ev + " · เล่าสั้น ๆ แล้ว " : "") + "ทีมเดินทางมาถึง " + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
 }
 async function restParty(kind, quiet) {
   for (const p of Object.values(P.party)) {
@@ -635,7 +703,8 @@ async function restParty(kind, quiet) {
     await writeParty(p.cardId, patch);
   }
   await say("system", kind === "long" ? "🌙 ทีมพักยาว: HP เต็ม ช่องเวทและความสามารถคืนครบ" + (Object.values(P.party).some(canBrew) ? " · นักปรุงยาปรุงได้อีก 2 ขวด (ขวดเก่าหมดฤทธิ์)" : "") : "☕ ทีมพักสั้น 1 ชั่วโมง: ใช้ Hit Dice ฟื้น HP และคืน Second Wind/Action Surge");
-  if (!quiet) requestDM({ event: kind === "long" ? "ทีมพักค้างคืน" : "ทีมพักสั้น" });
+  if (kind === "long") { const h = gameHour(); await writeMeta({ hour: 8, day: ((P.meta && P.meta.day) || 1) + (h >= 8 ? 1 : 0) }); } else await passTime(1);
+  if (!quiet) requestDM({ event: (kind === "long" ? "ทีมพักค้างคืน ตื่นมาตอนเช้า" : "ทีมพักสั้น 1 ชั่วโมง") + " [" + clockText() + "]" });
 }
 
 // ---------- exploration turns: solo (each walks 30 ft) or group (the leader walks, everyone follows) ----------

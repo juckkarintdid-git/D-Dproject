@@ -255,7 +255,7 @@ function renderPlate() {
   pl.className = "g-plate";
   const L = sc.mode === "world" ? { name: CAMP.name, th: "แผนที่โลก · " + CAMP.th } : locInfo(sc.loc);
   const lv = sc.mode === "explore" && L.level ? " · Lv " + L.level : "";
-  fill(pl, h("div", { class: "g-loc" }, L.name), h("div", { class: "g-th" }, (L.th || "") + lv));
+  fill(pl, h("div", { class: "g-loc" }, L.name), h("div", { class: "g-th" }, (L.th || "") + lv + (P.meta ? " · " + clockText() : "")));
 }
 function renderHint() {
   const sc = P.scene; const hn = P.dom.hint;
@@ -591,6 +591,7 @@ function drawStage(t) {
   P.geo = g;
   const now = t || performance.now();
   if (g.kind === "world") drawWorld(ctx, g); else if (g.kind === "town") drawTown(ctx, g, now); else drawGrid(ctx, g, now);
+  if (g.kind !== "grid" && !P.mapEdit && typeof isNight === "function" && isNight()) { ctx.save(); ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = "rgba(70,90,150,1)"; ctx.fillRect(0, 0, g.w, g.h); ctx.restore(); }
   kick();
 }
 let smoke = [];
@@ -672,6 +673,12 @@ function drawGrid(ctx, g, t) {
     if (ch === "?") { const k = def.id + ":?" + qi++; if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140," + (edit ? 0.9 : glowA) + ")"; ctx.font = "bold " + Math.round(c * 0.6) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
     if (edit && /[a-zSBE]/.test(ch)) { ctx.fillStyle = ch === "B" ? "rgba(214,179,102,.85)" : ch === "S" ? "rgba(92,191,166,.85)" : "rgba(231,131,120,.8)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4); ctx.fillStyle = "#111"; ctx.font = "bold " + Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, px + c / 2, py + c / 2); }
     if (edit && bg && (wall || ch === "T")) { ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(px, py, c, c); }
+    if (!edit) for (const tr of trapsHere()) if (tr.x === x && tr.y === y && (tr.found || tr.sprung)) {
+      ctx.save(); ctx.globalAlpha = tr.sprung ? 0.35 : 0.85 + 0.15 * glowA;
+      ctx.fillStyle = tr.sprung ? "rgba(60,40,30,.6)" : "rgba(200,50,40,.35)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4);
+      ctx.strokeStyle = tr.sprung ? "#6b5a4a" : "#ff6a4a"; ctx.lineWidth = Math.max(1.5, c / 18); ctx.strokeRect(px + 3, py + 3, c - 6, c - 6);
+      ctx.font = Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tr.sprung ? "✕" : "⚠", px + c / 2, py + c / 2 + 1); ctx.restore();
+    }
     if (ch === "E" && !edit) { ctx.fillStyle = "rgba(99,176,156," + (0.3 + 0.25 * glowA) + ")"; ctx.fillRect(px + 3, py + 3, c - 6, c - 6); ctx.fillStyle = "#fff"; ctx.font = "bold " + Math.round(c * 0.45) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⇧", px + c / 2, py + c / 2); }
   }
   ctx.strokeStyle = "rgba(0,0,0,.2)"; ctx.lineWidth = 1;
@@ -830,8 +837,20 @@ async function exploreClick(c) {
   const ch = def.rows[c.y][c.x];
   if (grid.walls[c.x + "," + c.y]) return;
   const start = me.pos || freeStart(def);
+  const traps = clone(trapsHere());
+  const known = traps.find((t) => t.found && !t.sprung && t.x === c.x && t.y === c.y);
+  if (known) {
+    if (Math.max(Math.abs(start.x - c.x), Math.abs(start.y - c.y)) > 1) return toast("กับดัก! เดินไปยืนข้าง ๆ แล้วแตะอีกครั้งเพื่อลองปลด");
+    if (ex.acted) return toast("ใช้การกระทำไปแล้วในตานี้ ไว้ตาหน้าค่อยปลด");
+    P.busy = true;
+    try { const res = await disarmTrap(known, me); await writeScene({ traps, ex: { group: ex.group, turn: me.cardId, acted: true, moved: res && res.stop ? EX_FT : ex.moved } }); }
+    finally { P.busy = false; }
+    return;
+  }
+  const tgrid = { ...grid, walls: { ...grid.walls } };
+  for (const t of traps) if (t.found && !t.sprung) tgrid.walls[t.x + "," + t.y] = 1;
   const here = c.x === start.x && c.y === start.y;
-  const path = here ? [] : findPath({ map: grid, units: {} }, { id: "me", side: "pc", x: start.x, y: start.y }, c, {});
+  const path = here ? [] : findPath({ map: tgrid, units: {} }, { id: "me", side: "pc", x: start.x, y: start.y }, c, {});
   if (!path) return toast("ไปตรงนั้นไม่ได้");
   const left = EX_FT - ex.moved; const steps = []; let budget = 0;
   for (const s of path) { const k = stepCost(grid, s); if (budget + k > left) break; budget += k; steps.push(s); }
@@ -839,27 +858,37 @@ async function exploreClick(c) {
   const bits = revealedBits(def);
   const reveal = (p) => { for (const k of visibleCells(grid, p, 8)) { const [x, y] = k.split(",").map(Number); bits[y * grid.w + x] = 1; } };
   const enc = Object.keys(def.encounters || {}).filter((L) => !(P.meta.cleared || {})[clearedKey(def.id, L)]).flatMap((L) => encounterSpawns(def, L, Math.max(1, Object.keys(P.party).length)));
-  let end = { x: start.x, y: start.y }; let stopped = false; let used = 0;
+  let end = { x: start.x, y: start.y }; let stopped = false; let used = 0; let sprung = null; let spotted = [];
+  const watchers = ex.group ? ex.list : [me];
   reveal(end);
+  spotted = spotTraps(traps, end, watchers, grid);
   for (const s of steps) {
+    if (spotted.length) break;
     end = { x: s.x, y: s.y }; used += stepCost(grid, s); reveal(end);
+    const hit = traps.find((t) => !t.sprung && !t.found && t.x === end.x && t.y === end.y);
+    if (hit) { sprung = hit; break; }
+    spotted = spotTraps(traps, end, watchers, grid);
+    if (spotted.length) break;
     if (enc.some((m) => dist(end, m) <= 40 && hasLOS({ map: grid }, end, m))) { stopped = true; break; }
   }
   const moves = [];
   if (ex.group) { const others = ex.list.filter((p) => p.cardId !== me.cardId); const spots = formation(grid, end, others.length); others.forEach((p, i) => { const sp = spots[i] || end; reveal(sp); moves.push([p.cardId, sp]); }); }
-  const reached = end.x === c.x && end.y === c.y && !stopped;
+  const reached = end.x === c.x && end.y === c.y && !stopped && !sprung && !spotted.length;
   const search = reached && (ch === "C" || ch === "?");
   if (search && ex.acted) toast("ค้นไปแล้วในตานี้ ไว้ตาหน้าค่อยค้นต่อ");
   const acted = ex.acted || (search && !ex.acted);
   const moved = ex.moved + used;
-  const pass = !stopped && (ex.group || moved >= EX_FT);
+  const pass = !stopped && !sprung && !spotted.length && (ex.group || moved >= EX_FT);
   const nextTurn = () => { const i = ex.list.findIndex((p) => p.cardId === me.cardId); const nx = ex.list[(i + 1) % Math.max(1, ex.list.length)]; return nx ? nx.cardId : me.cardId; };
   P.busy = true;
   try {
     // the scene goes first so a combat started by the host can never be overwritten by this turn's bookkeeping
-    await writeScene({ ex: pass ? { group: ex.group, turn: nextTurn(), moved: 0, acted: false } : { group: ex.group, turn: me.cardId, moved, acted } });
+    const trapPatch = sprung || spotted.length ? { traps } : {};
+    await writeScene({ ...trapPatch, ex: pass ? { group: ex.group, turn: nextTurn(), moved: 0, acted: false } : { group: ex.group, turn: me.cardId, moved, acted } });
     await writeParty(me.cardId, { pos: end, revealed: { ...(me.revealed || {}), [def.id]: bitsToStr(bits) } });
     for (const [id, sp] of moves) await writeParty(id, { pos: { x: sp.x, y: sp.y } });
+    if (spotted.length) { const [t, who] = spotted[0]; await say("system", "👁 " + who.card.name + " สังเกตเห็น" + trapKind(t).th + " (Passive Perception " + passiveOf(who) + ") · ทีมเดินอ้อมได้ หรือยืนข้าง ๆ แล้วแตะเพื่อลองปลด"); return; }
+    if (sprung) { const res = await springTrap(sprung, P.party[me.cardId] || me); await writeScene({ traps, ...(res.stop ? { ex: { group: ex.group, turn: me.cardId, moved: EX_FT, acted } } : {}) }); return; }
     if (stopped) { toast("⚠️ เจอศัตรู!"); return; }
     if (reached && ch === "E") await interact(def, c, ch);
     else if (search && !ex.acted) await interact(def, c, ch);
@@ -1154,6 +1183,76 @@ let fxChain = Promise.resolve();
 // effects that fall more than a few seconds behind are skipped so the screen never lags behind the game
 function fxQueue(fn) { const t = Date.now(); fxChain = fxChain.then(() => (Date.now() - t > 4500 ? null : fn())).catch(() => {}); }
 const D20 = '<svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="#efe3c8" stroke="#2a1d12" stroke-width="2.5"/><polygon points="50,22 78,68 22,68" fill="#e2d2b0" stroke="#2a1d12" stroke-width="1.5"/><path d="M50 3 50 22M93 27 78 68M7 27 22 68M50 97 22 68M50 97 78 68M7 73 22 68M93 73 78 68M7 27 50 22 93 27" stroke="#2a1d12" stroke-width="1.3" fill="none"/></svg>';
+// ---------- 3D d20 (three.js): tumbles, then settles with the rolled face toward the camera ----------
+const DIE3 = { r: null, scene: null, cam: null, mesh: null, normals: [], ups: [], failed: false };
+function die3Init() {
+  if (DIE3.r || DIE3.failed) return DIE3.r;
+  try {
+    if (!window.THREE) throw new Error("no three");
+    const T = window.THREE;
+    const r = new T.WebGLRenderer({ antialias: true, alpha: true }); r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(190, 190, false);
+    const scene = new T.Scene(); const cam = new T.PerspectiveCamera(32, 1, 0.1, 50); cam.position.set(0, 0, 5.2);
+    scene.add(new T.AmbientLight(0xfff1d6, 0.55));
+    const key = new T.DirectionalLight(0xffe2a8, 0.9); key.position.set(2, 3, 4); scene.add(key);
+    const rim = new T.DirectionalLight(0x6fb0c8, 0.35); rim.position.set(-3, -2, 2); scene.add(rim);
+    // atlas: 5x4 cells, one numbered triangle per face
+    const cv = document.createElement("canvas"); cv.width = 1000; cv.height = 800; const g = cv.getContext("2d");
+    const geo = new T.IcosahedronGeometry(1.25, 0); const pos = geo.attributes.position; const uv = new Float32Array(pos.count * 2);
+    // standard d20 numbering: opposite faces add up to 21
+    const order = [20, 2, 14, 8, 18, 4, 12, 16, 10, 6, 1, 19, 7, 13, 3, 17, 9, 5, 15, 11];
+    const v = (i) => new T.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+    const normals = [], ups = [], values = [];
+    const faces = []; for (let f = 0; f < pos.count / 3; f++) { const a = v(f * 3), b = v(f * 3 + 1), c = v(f * 3 + 2); const n = new T.Vector3().crossVectors(b.clone().sub(a), c.clone().sub(a)).normalize(); faces.push({ f, a, b, c, n }); }
+    // give each face a value so opposites sum to 21
+    const used = new Array(faces.length).fill(0); let k = 0;
+    for (const F of faces) { if (used[F.f]) continue; const opp = faces.find((G) => !used[G.f] && G.f !== F.f && G.n.dot(F.n) < -0.99); const val = order[k++] <= 10 ? order[k - 1] : order[k - 1]; values[F.f] = val; used[F.f] = 1; if (opp) { values[opp.f] = 21 - val; used[opp.f] = 1; } }
+    for (const F of faces) {
+      const col = F.f % 5, row = Math.floor(F.f / 5); const u0 = col / 5, v0 = 1 - (row + 1) / 4, du = 1 / 5, dv = 1 / 4;
+      const A = [u0 + du * 0.5, v0 + dv * 0.94], B = [u0 + du * 0.04, v0 + dv * 0.08], C = [u0 + du * 0.96, v0 + dv * 0.08];
+      uv.set([...A, ...B, ...C], F.f * 6);
+      const px = (p) => [p[0] * cv.width, (1 - p[1]) * cv.height];
+      g.beginPath(); g.moveTo(...px(A)); g.lineTo(...px(B)); g.lineTo(...px(C)); g.closePath();
+      const grd = g.createLinearGradient(...px(A), ...px([(B[0] + C[0]) / 2, B[1]])); grd.addColorStop(0, "#f6ead0"); grd.addColorStop(1, "#d9c49a");
+      g.fillStyle = grd; g.fill(); g.lineWidth = 5; g.strokeStyle = "#7a5a2e"; g.stroke();
+      const cx = (A[0] + B[0] + C[0]) / 3, cy = (A[1] + B[1] + C[1]) / 3; const [tx, ty] = px([cx, cy]);
+      const val = values[F.f]; g.fillStyle = val === 20 ? "#9b2a1a" : val === 1 ? "#3a3a3a" : "#2a1d12";
+      g.font = "700 " + (val >= 10 ? 62 : 70) + "px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(val), tx, ty + 6);
+      if (val === 6 || val === 9) g.fillRect(tx - 16, ty + 38, 32, 5);
+      const cen = F.a.clone().add(F.b).add(F.c).multiplyScalar(1 / 3);
+      normals[val] = F.n.clone(); ups[val] = F.a.clone().sub(cen).normalize();
+    }
+    geo.setAttribute("uv", new T.BufferAttribute(uv, 2));
+    const tex = new T.CanvasTexture(cv); tex.anisotropy = 4;
+    const mat = new T.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.05, flatShading: true });
+    const mesh = new T.Mesh(geo, mat); scene.add(mesh);
+    Object.assign(DIE3, { r, scene, cam, mesh, normals, ups });
+    return r;
+  } catch (e) { DIE3.failed = true; return null; }
+}
+// quaternion that turns face `val` toward the camera with its number upright
+function die3Target(val) {
+  const T = window.THREE; const n = DIE3.normals[val], up = DIE3.ups[val]; if (!n) return new T.Quaternion();
+  const q1 = new T.Quaternion().setFromUnitVectors(n, new T.Vector3(0, 0, 1));
+  const u = up.clone().applyQuaternion(q1); const ang = Math.atan2(u.x, u.y);
+  const q2 = new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 0, 1), ang);
+  return q2.multiply(q1);
+}
+function die3Roll(host, val, ms) {
+  return new Promise((done) => {
+    const r = die3Init(); if (!r) return done(false);
+    const T = window.THREE; host.append(r.domElement);
+    const m = DIE3.mesh; m.quaternion.setFromEuler(new T.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
+    const axis = new T.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+    const target = die3Target(val); const t0 = performance.now(); const spinEnd = ms * 0.62; let from = null;
+    (function frame(now) {
+      const t = now - t0;
+      if (t < spinEnd) { const speed = 0.42 * (1 - t / spinEnd) + 0.05; m.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(axis, speed)); m.position.y = Math.abs(Math.sin(t / 120)) * 0.35 * (1 - t / spinEnd); }
+      else { if (!from) from = m.quaternion.clone(); const k = Math.min(1, (t - spinEnd) / (ms - spinEnd)); const e = 1 - Math.pow(1 - k, 3); m.quaternion.copy(from).slerp(target, e); m.position.y = 0; }
+      r.render(DIE3.scene, DIE3.cam);
+      if (t < ms) requestAnimationFrame(frame); else done(true);
+    })(t0);
+  });
+}
 function diceAnim({ label, roll, bonus, total, vs, verdict, fast }) {
   return new Promise((done) => {
     const fx = P.dom && P.dom.fx; if (!fx) return done();
@@ -1162,9 +1261,16 @@ function diceAnim({ label, roll, bonus, total, vs, verdict, fast }) {
     box.querySelector(".g-dlabel").textContent = label;
     fx.append(box); requestAnimationFrame(() => box.classList.add("show"));
     const b = box.querySelector("b"); let n = 0;
-    const spin = setInterval(() => { b.textContent = 1 + Math.floor(Math.random() * 20); if (++n > (fast ? 5 : 9)) { clearInterval(spin); land(); } }, 70);
-    function land() {
-      b.textContent = roll;
+    const holder = box.querySelector(".g-d20");
+    if (die3Init() && roll >= 1 && roll <= 20) {
+      holder.classList.remove("roll"); holder.classList.add("d3"); holder.innerHTML = "";
+      die3Roll(holder, roll, fast ? 700 : 1100).then((ok) => { if (!ok) { holder.innerHTML = D20 + "<b>" + roll + "</b>"; } land3(); });
+    } else {
+      const spin = setInterval(() => { b.textContent = 1 + Math.floor(Math.random() * 20); if (++n > (fast ? 5 : 9)) { clearInterval(spin); land(); } }, 70);
+    }
+    function land3() { land(true); }
+    function land(is3d) {
+      if (!is3d) b.textContent = roll;
       box.querySelector(".g-math").textContent = roll + (bonus >= 0 ? " + " + bonus : " − " + -bonus) + " = " + total + "   vs   " + vs;
       const v = box.querySelector(".g-verdict");
       v.textContent = { crit: "คริติคอล!", hit: "โดน!", miss: "พลาด", ok: "สำเร็จ!", fail: "ไม่สำเร็จ" }[verdict] || "";

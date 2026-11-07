@@ -357,6 +357,8 @@ body.ingame main { max-width: none; padding: 0 }
 .g-d20 svg { position: absolute; inset: 0; width: 100%; height: 100% }
 .g-d20 b { position: relative; font: 600 clamp(1.6rem, 4vw, 2.8rem) var(--f-mono); color: #2a1d12 }
 .g-d20.roll { animation: g-tumble .8s cubic-bezier(.2,.7,.3,1) }
+.g-d20.d3 { animation: none; width: clamp(130px, 18vw, 190px) }
+.g-d20.d3 canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 10px 18px rgba(0,0,0,.6)) }
 @keyframes g-tumble { 0% { transform: translateY(-60px) rotate(-200deg) scale(.6) } 70% { transform: translateY(6px) rotate(18deg) scale(1.05) } 100% { transform: none } }
 .g-math { font: 600 clamp(.9rem, 2vw, 1.3rem) var(--f-mono); background: rgba(20,15,11,.92); border: 1px solid var(--edge); padding: 6px 16px; border-radius: 10px; opacity: 0; transition: opacity .25s; white-space: pre }
 .g-verdict { font: 400 clamp(1.5rem, 3.6vw, 2.6rem)/1 var(--f-name); opacity: 0; transform: scale(1.6); transition: opacity .25s, transform .25s }
@@ -367,6 +369,7 @@ body.ingame main { max-width: none; padding: 0 }
 @keyframes g-rise { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6) } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.2) } 100% { opacity: 0; transform: translate(-50%, -60px) } }
 .g-banner { position: absolute; top: 34%; left: 0; right: 0; text-align: center; font: 400 clamp(1.5rem, 4vw, 3rem)/1 var(--f-name); color: var(--candle); text-shadow: 0 4px 20px #000; pointer-events: none; opacity: 0 }
 .g-banner.foe { color: #ff8a6a }
+.g-clock { font-size: .75rem; color: var(--candle); opacity: .9; margin-top: 2px }
 .g-flavor { position: absolute; left: 50%; top: 18%; transform: translate(-50%, -6px); width: max-content; max-width: min(calc(100% - 32px), 560px); padding: 10px 16px; border-radius: 12px; background: color-mix(in srgb, var(--leather) 94%, transparent); border: 1px solid var(--edge); color: var(--ink); font: 400 1rem/1.5 var(--f-thai-display, sans-serif); text-align: center; box-shadow: 0 8px 28px #0008; pointer-events: none; opacity: 0; transition: opacity .3s, transform .3s }
 .g-flavor.dm { border-color: var(--candle) }
 .g-flavor.show { opacity: 1; transform: translate(-50%, 0) }
@@ -539,6 +542,7 @@ body.tv .g-hint { font-size: 1rem }
 </footer>
 <div class="toast" id="toast" hidden></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /*__DATA__*/
 /*__ENGINE__*/

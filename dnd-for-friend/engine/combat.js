@@ -241,11 +241,35 @@ export function endTurn(state) {
   }
   return nextTurn(state);
 }
+// Lair actions: a boss's lair strikes at the start of every round (initiative 20), one hazard per boss
+const LAIR = {
+  "red-dragon-wyrmling": { name: "แมกมาปะทุจากพื้นรัง", n: 2, ab: "DEX", dc: 13, dmg: "2d6", dtype: "Fire" },
+  "cultist-fanatic": { name: "เปลวไฟพุ่งจากแท่นบูชา", n: 2, ab: "DEX", dc: 13, dmg: "2d6", dtype: "Fire" },
+  "goblin-boss": { name: "หินถล่มจากเพดานถ้ำ", n: 1, ab: "DEX", dc: 12, dmg: "1d10", dtype: "Bludgeoning" },
+  "ghast": { name: "มือคนตายโผล่จากพื้นกระชากขา", n: 1, ab: "STR", dc: 12, dmg: "1d8", dtype: "Necrotic", cond: "Prone" },
+  "bandit-captain": { name: "ลูกน้องบนกำแพงยิงธนูลงมา", n: 1, ab: "DEX", dc: 12, dmg: "1d8", dtype: "Piercing" },
+};
+export function lairActions(state) {
+  for (const b of Object.values(state.units)) {
+    if (b.tier !== "boss" || b.kind !== "monster" || b.hp <= 0) continue;
+    const L = LAIR[b.monId] || { name: "พลังมืดของรังระเบิดออก", n: 1, ab: "DEX", dc: 12, dmg: "1d10", dtype: "Force" };
+    const pcs = Object.values(state.units).filter((u) => u.side !== b.side && !u.dead && u.hp > 0);
+    if (!pcs.length) return;
+    const picks = [...pcs].sort(() => Math.random() - 0.5).slice(0, L.n);
+    log(state, "🌋 Lair Action: " + L.name + "!", { kind: "lair" });
+    for (const t of picks) {
+      const s = savingThrow(t, L.ab, L.dc); const r = roll(L.dmg); const amt = s.ok ? Math.floor(r.total / 2) : r.total;
+      log(state, t.name + " เซฟ " + L.ab + " " + s.total + " vs DC " + L.dc + (s.ok ? " ผ่าน (โดนครึ่งเดียว)" : " ไม่ผ่าน") + " · " + amt + " " + L.dtype, { kind: "check", who: t.name, label: L.ab + " save", roll: s.roll ? s.roll.v : s.total, total: s.total, dc: L.dc, ok: s.ok });
+      if (amt > 0) damage(state, t, amt, L.dtype, b);
+      if (!s.ok && L.cond && t.hp > 0) addCond(t, L.cond);
+    }
+  }
+}
 export function nextTurn(state) {
   if (checkOver(state)) return null;
   for (let guard = 0; guard < state.order.length * 2 + 2; guard++) {
     state.turn++;
-    if (state.turn >= state.order.length) { state.turn = 0; state.round++; log(state, "— รอบที่ " + state.round + " —", { kind: "round" }); }
+    if (state.turn >= state.order.length) { state.turn = 0; state.round++; log(state, "— รอบที่ " + state.round + " —", { kind: "round" }); lairActions(state); if (checkOver(state)) return null; }
     const u = current(state);
     if (!u || u.dead || (u.kind === "monster" && u.hp <= 0)) continue;
     startTurn(state, u);
