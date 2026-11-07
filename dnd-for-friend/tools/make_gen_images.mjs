@@ -11,7 +11,7 @@ const LOOK = {
   "goblin-warrior": "a goblin warrior with a scimitar, small round shield and leather armor", "goblin-boss": "a hulking goblin chieftain with a crown of bones, chain shirt and heavy scimitar",
   "skeleton": "an animated human skeleton with a notched shortsword and glowing blue eye sockets", "zombie": "a shambling rotting zombie in torn burial clothes",
   "swarm-of-rats": "a writhing swarm of dozens of black rats", "ghoul": "a gaunt gray ghoul with long claws and a hungry grin",
-  "ghast": "a ghast in tattered priest robes with ashen skin, sharp claws and a putrid green aura", "bandit": "a hooded human bandit with a scimitar and light crossbow",
+  "ghast": "a ghast in tattered priest robes with ashen skin, sharp claws and a putrid green aura", "bandit": "a rough unshaven human bandit with no hood, a dirty red-brown scarf over the lower face, patched brown leather jerkin, scimitar in hand and a light crossbow on the back (NOT green, NOT a cloak, must look different from a scout)",
   "scout": "a sharp-eyed scout in a green cloak with a longbow", "tough": "a burly thug with a mace and studded leather armor",
   "bandit-captain": "a scarred bandit captain with a red bandana, scimitar and dagger, fine but dirty coat",
   "cultist": "a cultist in an ash-gray robe with a three-pronged flame symbol", "magma-mephit": "a small impish creature of molten rock and dripping magma",
@@ -45,6 +45,16 @@ const THEME = {
 for (const [id, m] of Object.entries({})) images.push({ group: "map", name: "map-" + id, label: m.name + " · " + m.th, ratio: "3:2", map: id,
   prompt: `Top-down tabletop battle map of ${THEME[m.theme] || m.theme}: ${m.name}. ${m.final ? "A huge circular lair at the summit with a dragon hoard of gold. " : ""}Readable floor texture, clear contrast between walls and floor.` });
 const maps = Object.fromEntries(Object.entries(camp.maps).map(([id, m]) => [id, m.rows]));
+// Map objects drawn on battle maps
+images.push({ group: "object", name: "obj-chest", label: "หีบสมบัติบนแผนที่", ratio: "1:1",
+  prompt: "A single small closed wooden treasure chest with iron bands and a gold lock, seen from directly above at a slight angle like a tabletop map prop, centered, filling most of the frame, plain flat dark brown background, soft warm light, no shadow outside the chest." });
+// Review status per image (what is already in the game, what to redo)
+const NOTE = {
+  "token-bandit": ["redo", "ทำใหม่: ตอนนี้หน้าตาเหมือน Scout (ผ้าคลุมเขียว) ในเกมแยกไม่ออก Prompt แก้แล้ว"],
+  "token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
+  "obj-chest": ["new", "ยังไม่มี: ตอนนี้เกมวาดเป็นกล่องสีน้ำตาลเฉย ๆ ทำแล้วใส่ในโฟลเดอร์ images ส่งให้ Claude"],
+};
+for (const im of images) { const n = NOTE[im.name]; im.note = n ? n[0] : "ok"; im.noteText = n ? n[1] : "อยู่ในเกมแล้ว"; }
 const html = r("tools/gen-images.template.html").replace("/*__IMAGES__*/[]", JSON.stringify(images)).replace("/*__MAPS__*/{}", JSON.stringify(maps));
 writeFileSync(new URL("../gen-images.html", import.meta.url), html);
 console.log("gen-images.html", images.length, "images");

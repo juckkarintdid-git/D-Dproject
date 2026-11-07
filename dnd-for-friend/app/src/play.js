@@ -145,6 +145,7 @@ async function say(kind, text, extra = {}) { await dbx().collection("campaigns/"
 // ---------- join / sync cards ----------
 async function joinWith(card) {
   const c = clone(card); delete c.premade; c.owner = myUid();
+  if (!c.portrait) c.portrait = premadePortrait(c);
   const sh = computeSheet(c, D);
   const def = P.scene && mapDef(P.scene.loc);
   const start = def && def.rows ? freeStart(def) : { x: 1, y: 1 };

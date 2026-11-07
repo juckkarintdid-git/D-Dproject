@@ -89,8 +89,10 @@ function svg(name) { const s = document.createElement("span"); s.className = "sv
 const pct = (a, b) => Math.max(0, Math.min(100, (a / Math.max(1, b)) * 100));
 const shortName = (n) => String(n || "").replace(/ \(.*\)/, "");
 const canControlCard = (p) => !!p && (NET.local || p.uid === myUid());
-function face(src, name, cls) { return h("span", { class: cls, style: src ? "background-image:url(" + JSON.stringify(src) + ")" : null }, src ? "" : initials(shortName(name))); }
-const unitImg = (u) => u.portrait || (u.monId && P.maps.tokens && P.maps.tokens[u.monId]) || "";
+function face(src, name, cls) { src = src || premadePortrait({ name: String(name || "") }); return h("span", { class: cls, style: src ? "background-image:url(" + JSON.stringify(src) + ")" : null }, src ? "" : initials(shortName(name))); }
+// built-in art ships in assets/; a host can still override a monster token from the map editor
+const monImg = (id) => (id ? (P.maps.tokens && P.maps.tokens[id]) || "assets/token-" + id + ".webp" : "");
+const unitImg = (u) => u.portrait || (u.side === "pc" ? premadePortrait({ name: u.name }) : monImg(u.monId)) || "";
 
 // ---------- persistent game screen: canvas + HUD layers (typed text survives re-renders) ----------
 function buildPlayDom() {
@@ -499,7 +501,7 @@ function camFocus(def) {
 }
 function stageGeometry() {
   const sc = P.scene; const W = Math.max(200, P.dom.stage.clientWidth), H = Math.max(200, P.dom.stage.clientHeight);
-  if (P.mapEdit ? P.mapEdit.id === "world" : sc.mode === "world") { const top = 64, bottom = Math.max(120, Math.min(210, H * 0.27)); return { kind: "world", w: W, h: H, x0: 0, y0: top, ww: W, wh: Math.max(160, H - top - bottom) }; }
+  if (P.mapEdit ? P.mapEdit.id === "world" : sc.mode === "world") { const top = 64, bottom = Math.max(120, Math.min(210, H * 0.27)); const ah = Math.max(160, H - top - bottom); let ww = W, wh = W * 9 / 16; if (wh > ah) { wh = ah; ww = ah * 16 / 9; } return { kind: "world", w: W, h: H, x0: (W - ww) / 2, y0: top + (ah - wh) / 2, ww, wh }; }
   if (!P.mapEdit && sc.mode === "town") return { kind: "town", w: W, h: H };
   const def = P.mapEdit ? { ...mapDef(P.mapEdit.id), rows: P.mapEdit.rows } : mapDef(sc.loc);
   if (!def || !def.rows) return null;
@@ -617,7 +619,7 @@ function drawGrid(ctx, g, t) {
       if (ch === "T") { ctx.fillStyle = "#2f4a26"; ctx.beginPath(); ctx.arc(px + c / 2, py + c / 2, c * 0.42, 0, 7); ctx.fill(); }
       if (ch === "D") { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(px + c * 0.1, py + c * 0.1, c * 0.8, c * 0.8); }
     }
-    if (ch === "C") { const k = def.id + ":C" + ci++; if (!opened[k] || edit) { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * 0.2, py + c * 0.3, c * 0.6, c * 0.45); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * 0.2, py + c * 0.45, c * 0.6, c * 0.08); ctx.fillRect(px + c * 0.46, py + c * 0.4, c * 0.08, c * 0.2); } }
+    if (ch === "C") { const k = def.id + ":C" + ci++; const chest = img("assets/obj-chest.webp"); if ((!opened[k] || edit) && chest) ctx.drawImage(chest, px + c * 0.06, py + c * 0.06, c * 0.88, c * 0.88); else if (!opened[k] || edit) { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * 0.2, py + c * 0.3, c * 0.6, c * 0.45); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * 0.2, py + c * 0.45, c * 0.6, c * 0.08); ctx.fillRect(px + c * 0.46, py + c * 0.4, c * 0.08, c * 0.2); } }
     if (ch === "?") { const k = def.id + ":?" + qi++; if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140," + (edit ? 0.9 : glowA) + ")"; ctx.font = "bold " + Math.round(c * 0.6) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
     if (edit && /[a-zSBE]/.test(ch)) { ctx.fillStyle = ch === "B" ? "rgba(214,179,102,.85)" : ch === "S" ? "rgba(92,191,166,.85)" : "rgba(231,131,120,.8)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4); ctx.fillStyle = "#111"; ctx.font = "bold " + Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, px + c / 2, py + c / 2); }
     if (edit && bg && (wall || ch === "T")) { ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(px, py, c, c); }
@@ -656,7 +658,7 @@ function drawWorld(ctx, g) {
   ctx.fillStyle = "#0b0805"; ctx.fillRect(0, 0, g.w, g.h);
   ctx.save(); ctx.translate(g.x0, g.y0);
   const W = g.ww, H = g.wh;
-  const bg = bgImg((P.maps.world || {}).bg);
+  const bg = bgImg((P.maps.world || {}).bg || "assets/map-world.webp");
   if (bg) ctx.drawImage(bg, 0, 0, W, H);
   else {
     const grd = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, W * 0.7); grd.addColorStop(0, "#e8dcb8"); grd.addColorStop(1, "#bfa877");
@@ -674,7 +676,7 @@ function drawWorld(ctx, g) {
   const pos = (l) => ({ x: l.x / 100 * W, y: l.y / 100 * H });
   const byId = Object.fromEntries(CAMP.world.locations.map((l) => [l.id, l]));
   ctx.setLineDash([7, 6]); ctx.strokeStyle = "rgba(90,60,30,.8)"; ctx.lineWidth = 2.5;
-  for (const [a, b] of CAMP.world.roads) { const p = pos(byId[a]), q = pos(byId[b]); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.quadraticCurveTo((p.x + q.x) / 2 + 20, (p.y + q.y) / 2 - 15, q.x, q.y); ctx.stroke(); }
+  if (!bg) for (const [a, b] of CAMP.world.roads) { const p = pos(byId[a]), q = pos(byId[b]); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.quadraticCurveTo((p.x + q.x) / 2 + 20, (p.y + q.y) / 2 - 15, q.x, q.y); ctx.stroke(); }
   ctx.setLineDash([]);
   for (const l of CAMP.world.locations) {
     const p = pos(l); const here = P.scene.loc === l.id || (P.scene.loc === "summit" && l.id === "spire"); const done = (P.meta.done || {})[l.id]; const sel = P.worldSel === l.id;
@@ -699,7 +701,7 @@ function drawToken(ctx, t, c, st, cur, glow, pulse) {
   if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 12 + 12 * (pulse || 0); }
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = u.side === "pc" ? "#1d3a33" : "#3b1d1a"; ctx.fill();
   ctx.shadowBlur = 0;
-  const im = img(u.portrait || (u.monId && P.maps.tokens && P.maps.tokens[u.monId]) || "");
+  const im = img(unitImg(u));
   if (im) { ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, 7); ctx.clip(); ctx.drawImage(im, cx - r, cy - r, r * 2, r * 2); ctx.restore(); }
   else { ctx.fillStyle = "#fff"; ctx.font = `600 ${Math.round(r * 0.8)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(initials(u.name.replace(/\(.*\)/, "")), cx, cy + 1); }
   ctx.lineWidth = isCur ? 3.5 : 2.5; ctx.strokeStyle = isCur ? "#fff" : ring; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();

@@ -11,8 +11,8 @@
     "name": "Brindlemoor",
     "th": "หมู่บ้านบรินเดิลมัวร์",
     "type": "town",
-    "x": 30,
-    "y": 58,
+    "x": 18,
+    "y": 52,
     "level": "ปลอดภัย"
    },
    {
@@ -20,8 +20,8 @@
     "name": "Thornback Hollow",
     "th": "โพรงหนามดำ",
     "type": "dungeon",
-    "x": 52,
-    "y": 30,
+    "x": 46,
+    "y": 57,
     "level": "1–2"
    },
    {
@@ -29,8 +29,8 @@
     "name": "Gravewatch Crypt",
     "th": "สุสานเฝ้าหลุม",
     "type": "dungeon",
-    "x": 22,
-    "y": 82,
+    "x": 37,
+    "y": 24,
     "level": "2–3"
    },
    {
@@ -38,8 +38,8 @@
     "name": "Redcliff Tower",
     "th": "หอแดงริมผา",
     "type": "dungeon",
-    "x": 78,
-    "y": 62,
+    "x": 85,
+    "y": 58,
     "level": "3–4"
    },
    {
@@ -47,8 +47,8 @@
     "name": "Ashen Spire",
     "th": "หอเถ้าถ่าน",
     "type": "dungeon",
-    "x": 70,
-    "y": 14,
+    "x": 84,
+    "y": 22,
     "level": "4–5"
    }
   ],

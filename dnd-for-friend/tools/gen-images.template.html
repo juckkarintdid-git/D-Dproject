@@ -45,7 +45,10 @@ button:disabled { opacity: .5; cursor: default }
 .tile .body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px }
 .name { font: 600 .85rem var(--font-mono); overflow-wrap: anywhere }
 .pill { font-size: .72rem; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted) }
-.pill.have { color: var(--ok); border-color: var(--ok) } .pill.busy { color: var(--warn); border-color: var(--warn) } .pill.err { color: var(--bad); border-color: var(--bad) }
+.pill.have { color: var(--ok); border-color: var(--ok) }
+.review { font-size: .8rem; border-radius: 8px; padding: 4px 8px; border: 1px solid var(--line) }
+.review.ok { color: var(--ok); border-color: var(--ok) } .review.redo { color: var(--warn); border-color: var(--warn); font-weight: 600 } .review.new { color: var(--bad); border-color: var(--bad); font-weight: 600 }
+.summary { display: flex; gap: 8px; flex-wrap: wrap } .pill.busy { color: var(--warn); border-color: var(--warn) } .pill.err { color: var(--bad); border-color: var(--bad) }
 .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px }
 .btns > * { font-size: .8rem; padding: 6px 6px; border-color: var(--accent); background: transparent; color: var(--accent) }
 details summary { cursor: pointer; font-size: .8rem; color: var(--muted) }
@@ -97,13 +100,19 @@ code { font-family: var(--font-mono); font-size: .85em }
     <p class="status" id="msg">เปิดไฟล์นี้ด้วย Chrome หรือ Edge แล้วเลือกโฟลเดอร์ <code>D:\claude\D&amp;Dproject\DND for friend</code> รูปจะเซฟที่ <code>images\</code> ถ้าไม่เลือกโฟลเดอร์ รูปจะถูกดาวน์โหลดแทน</p>
   </section>
 
+  <section class="card" id="review">
+    <h2>สรุปการตรวจรูป (7 พ.ย.)</h2>
+    <p class="muted" style="font-size:.88rem">ใส่รูปในเกมเองแล้ว ไม่ต้องนำเข้าผ่านหน้า “ตั้งค่า Map” อีก: โทเคนมอนสเตอร์ 18 ตัว แผนที่โลก รูปตัวสำเร็จรูป 5 ตัว NPC 4 คน ห้อง 4 ห้อง หมู่บ้าน และแผนที่ดันเจียน 5 แผ่น</p>
+    <div class="summary" id="sum"></div>
+  </section>
   <div id="groups" class="wrap" style="gap:16px"></div>
 
   <section class="card">
     <h2>3 · เอารูปเข้าเกม</h2>
     <ol>
       <li><b>รูปตัวละคร</b>: หน้าสร้างตัวละคร ขั้น “ชื่อและตัวตน” กด “เลือกรูป…” (หรือให้เพื่อนใส่เองในการ์ดของตัวเอง)</li>
-      <li><b>โทเคนมอนสเตอร์ + แผนที่</b>: ในเกม host กด “ตั้งค่า Map” แล้วกด “นำเข้ารูปหลายไฟล์” เลือกไฟล์ <code>token-*.png</code> และ <code>map-*.png</code> ทั้งหมดในครั้งเดียว ระบบจับคู่จากชื่อไฟล์ให้เอง</li>
+      <li><b>รูปที่ทำใหม่</b>: เซฟลง <code>images\</code> เหมือนเดิม แล้วบอก Claude ให้ใส่เข้าเกม (Claude ตัดพื้นหลังและย่อขนาดให้)</li>
+      <li><b>โทเคนมอนสเตอร์ + แผนที่ (ทางเลือก ใช้แทนรูปในเกมเฉพาะห้องนั้น)</b>: ในเกม host กด “ตั้งค่า Map” แล้วกด “นำเข้ารูปหลายไฟล์” เลือกไฟล์ <code>token-*.png</code> และ <code>map-*.png</code> ทั้งหมดในครั้งเดียว ระบบจับคู่จากชื่อไฟล์ให้เอง</li>
       <li>แผนที่ต่อสู้วาดตามภาพโครง กำแพงจึงตรงกับช่องในเกม ถ้ารูปเพี้ยนเล็กน้อยไม่เป็นไร เกมยังใช้กำแพงจากข้อมูล Map เสมอ</li>
     </ol>
   </section>
@@ -214,8 +223,9 @@ async function runQueue(list) {
 }
 
 // ---------- UI ----------
-const GROUPS = [["npc", "NPC ในหมู่บ้าน (ขึ้นตอนเข้าอาคาร)"], ["portrait", "รูปตัวละครสำเร็จรูป (ใส่ในการ์ด)"], ["token", "โทเคนมอนสเตอร์ (แคมเปญ Ember Vale)"], ["world", "แผนที่โลก"], ["map", "แผนที่ต่อสู้ (วาดตามภาพโครงของเกม)"]];
+const GROUPS = [["npc", "NPC ในหมู่บ้าน (ขึ้นตอนเข้าอาคาร)"], ["portrait", "รูปตัวละครสำเร็จรูป (ใส่ในการ์ด)"], ["token", "โทเคนมอนสเตอร์ (แคมเปญ Ember Vale)"], ["world", "แผนที่โลก"], ["object", "ของบนแผนที่ต่อสู้"], ["map", "แผนที่ต่อสู้ (วาดตามภาพโครงของเกม)"]];
 function render() {
+  const sum = $("sum"); if (sum) { sum.replaceChildren(); for (const im of IMAGES.filter((i) => i.note === "redo" || i.note === "new")) { const b = document.createElement("span"); b.className = "review " + im.note; b.textContent = (im.note === "new" ? "🆕 ต้องทำ: " : "🔁 ทำใหม่: ") + im.name; sum.appendChild(b); } }
   const box = $("groups"); box.replaceChildren();
   for (const [g, title] of GROUPS) {
     const list = IMAGES.filter((i) => i.group === g); if (!list.length) continue;
@@ -235,6 +245,7 @@ function tile(im) {
   t.innerHTML = `<div class="thumb${im.ratio === "1:1" ? " sq" : im.ratio === "3:4" ? " tall" : ""}">${im.url ? "<img alt=''>" : "<span></span>"}</div>
     <div class="body"><div class="row" style="justify-content:space-between"><span class="name"></span>${pill}</div>
     <span class="muted" style="font-size:.8rem" data-l></span>
+    <span class="review" data-r></span>
     <details><summary>ดู/แก้ Prompt</summary><textarea></textarea></details>
     <div class="btns"><button class="copyp">📋 คัดลอก Prompt</button><label class="put">📥 ใส่รูป<input type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
     ${im.map ? '<button class="guide">🧭 โหลดภาพโครง</button>' : ""}<button class="gen" ${im.state === "busy" ? "disabled" : ""}>${im.url ? "🔁 วาดใหม่ (API)" : "🎨 สร้าง (API)"}</button></div></div>`;
@@ -243,6 +254,7 @@ function tile(im) {
   else t.querySelector(".thumb span").textContent = "ยังไม่มีรูป";
   t.querySelector(".name").textContent = im.name;
   t.querySelector("[data-l]").textContent = im.label + " · " + im.ratio;
+  const rv = t.querySelector("[data-r]"); rv.className = "review " + (im.note || "ok"); rv.textContent = ({ ok: "✅ ", redo: "🔁 ", new: "🆕 " }[im.note] || "") + (im.noteText || "");
   const ta = t.querySelector("textarea"); ta.value = im.map ? GUIDE_NOTE + "\n\n" + fullPrompt(im) : fullPrompt(im);
   ta.addEventListener("change", () => { im.prompt = ta.value.replace(GUIDE_NOTE, "").replace(styleEl.value, "").trim(); });
   t.querySelector(".gen").addEventListener("click", () => runQueue([im]));

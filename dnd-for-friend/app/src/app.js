@@ -36,7 +36,10 @@ function toast(msg) {
   clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600);
 }
 function initials(name) { return (name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase(); }
+// premade heroes ship with art; cards copied from them before the art existed pick it up by name
+function premadePortrait(card) { const p = (typeof PREMADES !== "undefined" ? PREMADES : []).find((x) => x.id === card.id || x.name === card.name); return (p && p.portrait) || ""; }
 function portraitEl(card, big) {
+  if (!card.portrait && premadePortrait(card)) card = { ...card, portrait: premadePortrait(card) };
   if (card.portrait) return h("img", { class: "portrait" + (big ? " big" : ""), src: card.portrait, alt: "รูปของ " + card.name });
   return h("div", { class: "portrait" + (big ? " big" : ""), "aria-hidden": "true" }, initials(card.name));
 }
