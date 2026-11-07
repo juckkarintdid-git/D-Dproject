@@ -360,10 +360,11 @@ function drawGrid(ctx, g) {
   for (const t of tokens) drawToken(ctx, t, c, st, cur);
   // fog
   const bits = revealedBits(def);
+  const art = !!bgImg(def.bg); // with painted map art, keep the unexplored area faintly visible so the map reads as a place
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const k = x + "," + y;
     if (vis.has(k)) continue;
-    ctx.fillStyle = bits[y * W + x] ? "rgba(8,10,12,.55)" : "rgba(6,7,9,.97)";
+    ctx.fillStyle = bits[y * W + x] ? "rgba(8,10,12,.5)" : art ? "rgba(6,7,9,.84)" : "rgba(6,7,9,.97)";
     ctx.fillRect(x * c, y * c, c, c);
   }
   if (P.hover) {
