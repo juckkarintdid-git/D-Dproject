@@ -160,7 +160,7 @@ h1 small { font: 500 .8rem var(--f-th); color: var(--muted); letter-spacing: 0; 
   <header class="top">
     <div>
       <h1>DnD for friend <small>ตัวอย่างหน้าจอแบบใหม่ (ลองกดได้)</small></h1>
-      <p class="note">ภาพฉากตอนนี้เป็นภาพวาดชั่วคราวที่เกมวาดเอง ของจริงจะใช้ภาพจาก gen-images แทน กดปุ่ม ? มุมขวาบนเพื่อดูคำอธิบายแต่ละส่วน</p>
+      <p class="note">ภาพหมู่บ้านและถ้ำมาจากชุดแผนที่ 3k maps ที่โหลดมา (ภาพเดียวกับในเกม) กดปุ่ม ? มุมขวาบนเพื่อดูคำอธิบายแต่ละส่วน</p>
     </div>
     <nav class="tabs" aria-label="หน้าจอตัวอย่าง">
       <button id="t-town" aria-pressed="true">หมู่บ้าน</button>
@@ -179,7 +179,7 @@ h1 small { font: 500 .8rem var(--f-th); color: var(--muted); letter-spacing: 0; 
 </div>
 
 <script>
-const FIZZ = "__FIZZ__";
+const FIZZ = "__FIZZ__"; const TOWN = "__TOWN__"; const CAVE = "__CAVE__";
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); } if (html) e.innerHTML = html; return e; };
 const ICON = {
@@ -213,58 +213,39 @@ function house(x, y, w, h, roof, wall, lit, sign) {
   ctx.fillStyle = "#2b1a10"; ctx.fillRect(x + w * .42, y + h * .5, w * .16, h * .5);
   if (sign) { ctx.fillStyle = "#6b4526"; ctx.fillRect(x + w * .98, y + h * .2, 3, h * .35); ctx.fillStyle = "#c8913f"; ctx.fillRect(x + w * .98, y + h * .3, w * .22, h * .16); }
 }
+const townImg = new Image(); townImg.src = TOWN; const caveImg = new Image(); caveImg.src = CAVE;
+// draw an image so it covers the stage (like CSS background-size: cover)
+function cover(img) { const k = Math.max(W / img.naturalWidth, H / img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k; ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h); }
 function drawTown(t) {
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#1d2440"); g.addColorStop(.45, "#7a4a4a"); g.addColorStop(.62, "#e09a5a"); g.addColorStop(.63, "#3b4a2e"); g.addColorStop(1, "#1f2716");
+  ctx.fillStyle = "#0b0805"; ctx.fillRect(0, 0, W, H);
+  if (townImg.complete && townImg.naturalWidth) cover(townImg);
+  // dusk light: warm from the west, darker edges
+  const g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, "rgba(255,150,70,.16)"); g.addColorStop(.6, "rgba(40,30,60,.1)"); g.addColorStop(1, "rgba(10,10,30,.35)");
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "rgba(255,230,180,.85)"; ctx.beginPath(); ctx.arc(W * .78, H * .5, H * .06, 0, 7); ctx.fill();
-  for (let i = 0; i < 40; i++) { ctx.fillStyle = `rgba(255,255,255,${.3 + .5 * rnd(i)})`; ctx.fillRect(rnd(i, 2) * W, rnd(i, 3) * H * .35, 1.5, 1.5); }
-  const hill = (base, amp, col, s) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, H); for (let x = 0; x <= W; x += 10) ctx.lineTo(x, H * base - Math.sin(x / W * 6 + s) * H * amp - Math.sin(x / W * 17 + s) * H * amp * .3); ctx.lineTo(W, H); ctx.fill(); };
-  hill(.6, .05, "#2c3550", 1); hill(.64, .04, "#2f3b26", 3);
-  // stream
-  ctx.strokeStyle = "rgba(120,170,200,.55)"; ctx.lineWidth = H * .03; ctx.beginPath(); ctx.moveTo(W * .05, H); ctx.bezierCurveTo(W * .2, H * .8, W * .1, H * .72, W * .25, H * .66); ctx.stroke();
-  // road
-  ctx.fillStyle = "#6b5236"; ctx.beginPath(); ctx.moveTo(W * .38, H); ctx.bezierCurveTo(W * .45, H * .8, W * .55, H * .75, W * .52, H * .64); ctx.lineTo(W * .56, H * .64); ctx.bezierCurveTo(W * .62, H * .78, W * .58, H * .85, W * .66, H); ctx.fill();
-  // buildings: inn, temple, market, board, forge
-  house(W * .12, H * .56, W * .17, H * .17, "#5b2d22", "#8a6a4a", true, true);
-  // temple
-  ctx.fillStyle = "#cfc4a8"; ctx.fillRect(W * .44, H * .44, W * .12, H * .22); ctx.fillStyle = "#9a8e70"; ctx.fillRect(W * .485, H * .3, W * .03, H * .16);
-  ctx.beginPath(); ctx.moveTo(W * .475, H * .3); ctx.lineTo(W * .5, H * .22); ctx.lineTo(W * .525, H * .3); ctx.fillStyle = "#6a5a3a"; ctx.fill();
-  ctx.fillStyle = "#ffd98a"; ctx.beginPath(); ctx.arc(W * .5, H * .5, H * .025, 0, 7); ctx.fill(); ctx.fillStyle = "#3a2a1a"; ctx.fillRect(W * .485, H * .58, W * .03, H * .08);
-  house(W * .64, H * .6, W * .13, H * .13, "#3e4f3a", "#7d6145", true, false);
-  // market stalls
-  for (let i = 0; i < 3; i++) { const x = W * (.66 + i * .07), y = H * .76; ctx.fillStyle = ["#a33b33", "#2a7564", "#c8913f"][i]; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + W * .06, y); ctx.lineTo(x + W * .055, y + H * .04); ctx.lineTo(x + W * .005, y + H * .04); ctx.fill(); ctx.fillStyle = "#4a3320"; ctx.fillRect(x + W * .004, y + H * .04, 3, H * .06); ctx.fillRect(x + W * .052, y + H * .04, 3, H * .06); ctx.fillStyle = "#6b4a2a"; ctx.fillRect(x, y + H * .07, W * .06, H * .02); }
-  // notice board
-  ctx.fillStyle = "#5a3d24"; ctx.fillRect(W * .335, H * .74, 4, H * .1); ctx.fillRect(W * .395, H * .74, 4, H * .1); ctx.fillStyle = "#7a5634"; ctx.fillRect(W * .325, H * .7, W * .085, H * .07);
-  for (let i = 0; i < 4; i++) { ctx.fillStyle = "#e9dcbc"; ctx.fillRect(W * (.332 + i * .019), H * (.712 + (i % 2) * .012), W * .014, H * .03); }
-  // smoke from inn chimney
-  if (smoke.length < 30 && Math.random() < .3) smoke.push({ x: W * .16, y: H * .5, r: 3, a: .4 });
-  for (const s of smoke) { s.y -= .4; s.x += .15; s.r += .08; s.a -= .003; ctx.fillStyle = `rgba(200,190,180,${Math.max(0, s.a)})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); }
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, W * .7); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.55)");
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  // chimney smoke from the inn
+  if (smoke.length < 30 && Math.random() < .3) smoke.push({ x: W * .66, y: H * .14, r: 3, a: .35 });
+  for (const s of smoke) { s.y -= .35; s.x += .2; s.r += .08; s.a -= .003; ctx.fillStyle = `rgba(220,210,200,${Math.max(0, s.a)})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); }
   smoke = smoke.filter((s) => s.a > 0);
-  // fireflies
-  for (let i = 0; i < 14; i++) { const a = t / 1000 + i; ctx.fillStyle = `rgba(255,220,120,${.4 + .4 * Math.sin(a * 2)})`; ctx.beginPath(); ctx.arc(W * rnd(i, 9) + Math.sin(a) * 10, H * (.68 + .25 * rnd(i, 7)) + Math.cos(a * 1.3) * 6, 1.6, 0, 7); ctx.fill(); }
+  for (let i = 0; i < 18; i++) { const a = t / 1000 + i; ctx.fillStyle = `rgba(255,220,120,${.35 + .4 * Math.sin(a * 2)})`; ctx.beginPath(); ctx.arc(W * rnd(i, 9) + Math.sin(a) * 10, H * rnd(i, 7) + Math.cos(a * 1.3) * 6, 1.8, 0, 7); ctx.fill(); }
 }
-const MAP = ["##########################", "#S....,,..####......#....#", "#..TT.....####..a...#.c..#", "#..T......#.....a...D..c.#", "#.....,,..#.........#.c..#", "###..######.####..###....#", "#.....?...#.#..#..#......#", "#.b.......#.#..####...C..#", "#..b...~~.....,,.........#", "#......~~~#.###.....######", "#.....b...#.#.#.....#....#", "####.######.#.#.##..D..e.#", "#.......#...#.....#.#.eBe#", "#..C....#.,,......#.#..e.#", "#.......D.........#......#", "##########################"];
-let board = { me: { x: 3, y: 6 }, foes: [{ x: 2, y: 7, hp: 7, max: 7, n: "GM" }, { x: 3, y: 8, hp: 7, max: 7, n: "GM" }], reach: false, target: false };
+const MAP = ["##########################", "##########......##########", "#########.b.b....,,,######", "########...b....cc,,.#####", "########..........c..#####", "########..............####", "########.C,,..........####", "#######...,,..........####", "#######......a..........##", "#######.....a........e.e.#", "######................B.C#", "######...............e...#", "######.........?......e.##", "#######.S...###........###", "#######....###############", "##########################"];
+let board = { me: { x: 10, y: 9 }, foes: [{ x: 13, y: 6, hp: 11, max: 11, n: "W" }, { x: 14, y: 7, hp: 11, max: 11, n: "W" }], reach: false, target: false };
 // camera: zoom onto the explored part of the map so it fills the stage (like the real game will)
-const CAM = { x: 0, y: 2, w: 18, h: 11 };
+const CAM = { x: 4, y: 0, w: 20, h: 14 };
 function cellSize() { return Math.max(W / CAM.w, H / CAM.h); }
 function geo() { const c = cellSize(); return { c, ox: (W - CAM.w * c) / 2 - CAM.x * c, oy: (H - CAM.h * c) / 2 - CAM.y * c }; }
 function drawBoard(t) {
   ctx.fillStyle = "#0b0805"; ctx.fillRect(0, 0, W, H);
   const { c, ox, oy } = geo();
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) {
-    const ch = MAP[y][x], n = rnd(x * 31 + y, 4), px = ox + x * c, py = oy + y * c;
-    if (ch === "#") { ctx.fillStyle = `rgb(${34 + n * 10},${29 + n * 8},${24 + n * 6})`; ctx.fillRect(px, py, c, c); if (y < 15 && MAP[y + 1][x] !== "#") { ctx.fillStyle = "#4a3e32"; ctx.fillRect(px, py + c * .7, c, c * .3); } continue; }
-    ctx.fillStyle = `rgb(${86 + n * 18},${76 + n * 14},${60 + n * 10})`; ctx.fillRect(px, py, c, c);
-    if (ch === ",") { ctx.strokeStyle = "#7da35a"; ctx.lineWidth = 1.2; for (let i = 0; i < 3; i++) { const bx = px + c * (.25 + .25 * i), by = py + c * .75; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - 2, by - c * .3); ctx.moveTo(bx, by); ctx.lineTo(bx + 2, by - c * .3); ctx.stroke(); } }
-    if (ch === "~") { ctx.fillStyle = "rgba(50,100,140,.85)"; ctx.fillRect(px, py, c, c); }
-    if (ch === "T") { ctx.fillStyle = "#2e5a2c"; ctx.beginPath(); ctx.arc(px + c / 2, py + c / 2, c * .45, 0, 7); ctx.fill(); }
-    if (ch === "D") { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(px + c * .1, py + c * .1, c * .8, c * .8); }
-    if (ch === "C") { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * .2, py + c * .32, c * .6, c * .42); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * .2, py + c * .45, c * .6, c * .07); }
-    if (ch === "?") { ctx.fillStyle = `rgba(255,225,140,${.6 + .4 * Math.sin(t / 300)})`; ctx.font = `${c * .6}px serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); }
-  }
+  if (caveImg.complete && caveImg.naturalWidth) ctx.drawImage(caveImg, ox, oy, 26 * c, 16 * c);
+  ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1;
+  for (let x = 0; x <= 26; x++) { ctx.beginPath(); ctx.moveTo(ox + x * c, oy); ctx.lineTo(ox + x * c, oy + 16 * c); ctx.stroke(); }
+  for (let y = 0; y <= 16; y++) { ctx.beginPath(); ctx.moveTo(ox, oy + y * c); ctx.lineTo(ox + 26 * c, oy + y * c); ctx.stroke(); }
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) if (MAP[y][x] === "?") { const px = ox + x * c, py = oy + y * c; ctx.fillStyle = `rgba(255,225,140,${.6 + .4 * Math.sin(t / 300)})`; ctx.font = `${c * .6}px serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); }
   // reachable highlight / targets
-  if (board.reach) for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) if (MAP[y][x] !== "#" && Math.max(Math.abs(x - board.me.x), Math.abs(y - board.me.y)) <= 6 && x < 10) { ctx.fillStyle = "rgba(99,176,156,.2)"; ctx.fillRect(ox + x * c, oy + y * c, c, c); }
+  if (board.reach) for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) if (MAP[y][x] !== "#" && Math.max(Math.abs(x - board.me.x), Math.abs(y - board.me.y)) <= 6) { ctx.fillStyle = "rgba(99,176,156,.2)"; ctx.fillRect(ox + x * c, oy + y * c, c, c); }
   const token = (x, y, ring, label, img, hp, max, glow) => {
     const cx = ox + x * c + c / 2, cy = oy + y * c + c / 2, r = c * .42;
     if (glow) { ctx.save(); ctx.shadowColor = glow; ctx.shadowBlur = 18 + 6 * Math.sin(t / 200); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = "#000"; ctx.fill(); ctx.restore(); }
@@ -276,8 +257,8 @@ function drawBoard(t) {
   };
   for (const f of board.foes) if (f.hp > 0) token(f.x, f.y, "#d0603f", f.n, null, f.hp, f.max, board.target ? "#d0603f" : null);
   token(board.me.x, board.me.y, "#e9b44c", "FB", fizzImg, 4, 8, view === "fight" ? "#e9b44c" : null);
-  // fog
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) { const d = Math.hypot(x - board.me.x, y - board.me.y); if (x > 10 || y > 11 || d > 7) { ctx.fillStyle = x > 12 ? "rgba(5,4,3,.96)" : "rgba(5,4,3,.6)"; ctx.fillRect(ox + x * c, oy + y * c, c, c); } }
+  // fog: what the party has not seen yet stays dark, but the painted cave still shows through
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) { const d = Math.hypot(x - board.me.x, y - board.me.y); if (d > 7.5) { ctx.fillStyle = d > 11 ? "rgba(5,4,3,.82)" : "rgba(5,4,3,.5)"; ctx.fillRect(ox + x * c, oy + y * c, c, c); } }
 }
 const fizzImg = new Image(); fizzImg.src = FIZZ;
 function npc(canvas, kind) {
@@ -300,10 +281,10 @@ const partyHTML = (now) => `<div class="party">
   <div class="pc"><div class="face">BI</div><div><b>Brannoc</b><div class="bar"><i style="width:90%"></i></div></div></div></div>`;
 const menuHTML = `<div class="menu">${[["book", "ประวัติเรื่องเล่า"], ["map", "แผนที่โลก"], ["voice", "เสียง DM"], ["tv", "โหมดทีวี"], ["help", "ช่วยเหลือ"]].map(([k, l]) => `<button class="ic" data-ic="${k}" aria-label="${l}" title="${l}">${ICON[k]}</button>`).join("")}</div>`;
 const SPOTS = [
-  { id: "inn", x: 20, y: 52, name: "The Copper Kettle", th: "โรงเตี๊ยม · พักค้างคืน", who: "Old Pell", line: "นั่งก่อนสิพ่อหนุ่ม ซุปยังร้อน… อยากฟังเรื่องมังกรใต้หอเถ้าถ่านไหมล่ะ?", acts: [["พักค้างคืน", "1 GP/คน"], ["ฟังข่าวลือ", ""]] },
-  { id: "temple", x: 50, y: 34, name: "Temple of the Dawn", th: "วิหาร · ชุบชีวิต รักษา", who: "Sister Maren", line: "แสงรุ่งอรุณคุ้มครองเจ้า ใครบาดเจ็บหรือจากไป พาเขามาที่นี่", acts: [["ชุบชีวิตเพื่อน", "100 GP × Lv"], ["รักษาสภาพผิดปกติ", "10 GP"]] },
-  { id: "market", x: 74, y: 74, name: "Brindle Market", th: "ตลาด · ซื้อขายของ", who: "Bram", line: "ของดีราคาถูก… ก็ไม่ถูกขนาดนั้นหรอก จะเอาอะไรว่ามา", acts: [["ซื้อของ", ""], ["ขายของ", "ครึ่งราคา"]] },
-  { id: "board", x: 37, y: 68, name: "Notice Board", th: "กระดานประกาศ · งานและค่าหัว", who: "Mayor Oswin Hale", line: "ก็อบลินจากโพรงหนามดำลักพาตัวชาวบ้านไปสามคนแล้ว ช่วยพวกเราด้วย", acts: [["รับงาน: Thornback Hollow", "Lv 1–2"], ["ดูแผนที่โลก", ""]] },
+  { id: "inn", x: 75, y: 21, name: "The Copper Kettle", th: "โรงเตี๊ยม · พักค้างคืน", who: "Old Pell", line: "นั่งก่อนสิพ่อหนุ่ม ซุปยังร้อน… อยากฟังเรื่องมังกรใต้หอเถ้าถ่านไหมล่ะ?", acts: [["พักค้างคืน", "1 GP/คน"], ["ฟังข่าวลือ", ""]] },
+  { id: "temple", x: 15, y: 31, name: "Temple of the Dawn", th: "วิหาร · ชุบชีวิต รักษา", who: "Sister Maren", line: "แสงรุ่งอรุณคุ้มครองเจ้า ใครบาดเจ็บหรือจากไป พาเขามาที่นี่", acts: [["ชุบชีวิตเพื่อน", "100 GP × Lv"], ["รักษาสภาพผิดปกติ", "10 GP"]] },
+  { id: "market", x: 79, y: 45, name: "Brindle Market", th: "ตลาด · ซื้อขายของ", who: "Bram", line: "ของดีราคาถูก… ก็ไม่ถูกขนาดนั้นหรอก จะเอาอะไรว่ามา", acts: [["ซื้อของ", ""], ["ขายของ", "ครึ่งราคา"]] },
+  { id: "board", x: 58, y: 57, name: "Notice Board", th: "กระดานประกาศ · งานและค่าหัว", who: "Mayor Oswin Hale", line: "ก็อบลินจากโพรงหนามดำลักพาตัวชาวบ้านไปสามคนแล้ว ช่วยพวกเราด้วย", acts: [["รับงาน: Thornback Hollow", "Lv 1–2"], ["ดูแผนที่โลก", ""]] },
 ];
 function townHUD() {
   hud.innerHTML = `<div class="plate"><div class="loc">Brindlemoor</div><div class="th">หมู่บ้านบรินเดิลมัวร์ · เย็นวันที่ 3</div></div>
@@ -339,7 +320,7 @@ function exploreHUD() {
 let econ = { action: true, bonus: true, move: 30 };
 function fightHUD(first) {
   board.reach = econ.move > 0; board.target = false;
-  hud.innerHTML = `<div class="order">${[["FB", "pc", 19, FIZZ], ["GM", "foe", 17], ["BI", "pc", 14], ["GM", "foe", 9]].map(([n, s, i, img], k) => `<div class="o ${s} ${k === 0 ? "now" : ""}" style="${img ? `background-image:url(${img})` : ""}">${img ? "" : n}<em>${i}</em></div>`).join("")}</div>
+  hud.innerHTML = `<div class="order">${[["FB", "pc", 19, FIZZ], ["W", "foe", 17], ["BI", "pc", 14], ["W", "foe", 9]].map(([n, s, i, img], k) => `<div class="o ${s} ${k === 0 ? "now" : ""}" style="${img ? `background-image:url(${img})` : ""}">${img ? "" : n}<em>${i}</em></div>`).join("")}</div>
   <div class="hint" style="top:clamp(62px,9vw,80px)"><span class="mode fight">ต่อสู้ · รอบ 1</span><span class="txt">ตาของคุณ: แตะช่องสีเขียวเพื่อเดิน หรือเลือกท่าด้านล่าง</span></div>
   ${menuHTML}
   <div class="me"><div class="big" style="background-image:url(${FIZZ})"></div><div class="stats"><b>Fizz Bubblewick</b><div class="hpbar"><i style="width:50%"></i></div><span>HP 4/8 · AC 12</span>
@@ -400,7 +381,7 @@ function rollDice({ label, die, bonus, dc, kind, onDone }) {
 const MARKS = {
   town: [[2, 18, "ทีมของคุณ: รูป หลอด HP แตะเพื่อดูการ์ด"], [62, 3, "เมนู: ประวัติเรื่องเล่า แผนที่โลก เสียง DM โหมดทีวี"], [30, 30, "อาคารที่มีแสง = เข้าไปได้ แตะเพื่อคุยกับ NPC และใช้บริการ"], [30, 60, "DM เล่าเรื่องตรงนี้ แตะตัวเลือก หรือพิมพ์เองก็ได้"]],
   explore: [[30, 12, "แถบนี้บอกเสมอว่าตอนนี้อยู่โหมดไหนและทำอะไรได้"], [8, 40, "กระดาน: แตะพื้นเพื่อเดิน ส่วนมืด = ยังไม่สำรวจ"], [30, 58, "ตัวเลือกที่มีป้ายทักษะ = เกมจะทอยเต๋าให้ ลองแตะ Investigation"]],
-  fight: [[34, 14, "ลำดับตา: ใครขยายใหญ่ = ตานั้น"], [2, 54, "ตัวคุณ: HP ช่องเวท และ Action/Bonus ที่เหลือในตานี้"], [36, 64, "เลือกท่า แล้วกระดานจะไฮไลต์เป้าที่ใช้ได้ ลอง โจมตี → แตะก็อบลิน"]],
+  fight: [[34, 14, "ลำดับตา: ใครขยายใหญ่ = ตานั้น"], [2, 54, "ตัวคุณ: HP ช่องเวท และ Action/Bonus ที่เหลือในตานี้"], [36, 64, "เลือกท่า แล้วกระดานจะไฮไลต์เป้าที่ใช้ได้ ลอง โจมตี → แตะหมาป่า"]],
 };
 function wireMenu() {
   hud.querySelector('[data-ic="help"]').addEventListener("click", (e) => {
