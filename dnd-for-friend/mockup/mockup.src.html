@@ -79,9 +79,13 @@ h1 small { font: 500 .8rem var(--f-th); color: var(--muted); letter-spacing: 0; 
 @keyframes glow { 50% { box-shadow: 0 0 0 7px rgba(233,180,76,.12), 0 0 26px var(--candle) } }
 
 /* interior panel */
-.room { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); background: rgba(10,7,5,.55); backdrop-filter: blur(2px) }
-.room .npc { position: relative; display: flex; align-items: end; justify-content: center }
-.room .npc canvas { width: 82%; max-width: 360px; aspect-ratio: 3 / 4; height: auto }
+.room { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); background: #0b0805 center/cover no-repeat; animation: roomin .35s ease-out }
+.room::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,7,5,.15), rgba(10,7,5,.35) 45%, rgba(10,7,5,.82)); pointer-events: none }
+.room > * { position: relative }
+@keyframes roomin { from { opacity: 0; transform: scale(1.04) } to { opacity: 1; transform: none } }
+.room .npc { display: flex; align-items: end; justify-content: center; padding-bottom: 6% }
+.room .portrait { width: min(62%, 260px); aspect-ratio: 3 / 4; border-radius: 14px; border: 2px solid var(--candle); background: linear-gradient(160deg, #3a2a1c, #1a120c); box-shadow: 0 0 30px rgba(233,180,76,.25), 0 20px 50px rgba(0,0,0,.7); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; color: var(--muted); font: 400 clamp(.62rem, 1.1vw, .8rem)/1.4 var(--f-th); padding: 10px }
+.room .portrait b { font: 700 clamp(2rem, 6vw, 4rem)/1 var(--f-name); color: var(--candle) }
 .room .side { align-self: center; margin-right: 4%; display: flex; flex-direction: column; gap: 10px }
 .room h2 { margin: 0; font: 700 clamp(1.1rem, 2.4vw, 1.8rem)/1 var(--f-name) }
 .room .acts { display: flex; flex-wrap: wrap; gap: 8px }
@@ -179,7 +183,7 @@ h1 small { font: 500 .8rem var(--f-th); color: var(--muted); letter-spacing: 0; 
 </div>
 
 <script>
-const FIZZ = "__FIZZ__"; const TOWN = "__TOWN__"; const CAVE = "__CAVE__";
+const FIZZ = "__FIZZ__"; const TOWN = "__TOWN__"; const ROOMS = { inn: "__R_inn__", temple: "__R_temple__", market: "__R_market__", board: "__R_board__" }; const CAVE = "__CAVE__";
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); } if (html) e.innerHTML = html; return e; };
 const ICON = {
@@ -298,11 +302,11 @@ function townHUD() {
 }
 function openRoom(s) {
   const room = el("div", { class: "room" });
-  room.innerHTML = `<div class="npc"><canvas aria-label="ภาพ ${s.who}"></canvas></div>
+  room.style.backgroundImage = `url(${ROOMS[s.id]})`;
+  room.innerHTML = `<div class="npc"><div class="portrait" aria-label="ภาพ ${s.who}"><b>${s.who.split(" ").pop()[0]}</b>${s.who}<br>(รูป NPC จะสร้างด้วย Gemini)</div></div>
   <div class="side"><div class="mode town" style="align-self:flex-start">${s.th}</div><h2>${s.name}</h2>
   <div class="speech"><span class="who">${s.who}</span><p>${s.line}</p></div>
   <div class="acts">${s.acts.map(([a, c]) => `<button class="btn gold">${a}${c ? ` <small>${c}</small>` : ""}</button>`).join("")}<button class="btn" data-back>← กลับจัตุรัส</button></div></div>`;
-  npc(room.querySelector("canvas"), s.id);
   room.querySelector("[data-back]").addEventListener("click", () => room.remove());
   hud.append(room);
 }
