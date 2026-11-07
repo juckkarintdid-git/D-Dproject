@@ -367,6 +367,16 @@ body.ingame main { max-width: none; padding: 0 }
 @keyframes g-rise { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6) } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.2) } 100% { opacity: 0; transform: translate(-50%, -60px) } }
 .g-banner { position: absolute; top: 34%; left: 0; right: 0; text-align: center; font: 400 clamp(1.5rem, 4vw, 3rem)/1 var(--f-name); color: var(--candle); text-shadow: 0 4px 20px #000; pointer-events: none; opacity: 0 }
 .g-banner.foe { color: #ff8a6a }
+.g-flavor { position: absolute; left: 50%; top: 18%; transform: translate(-50%, -6px); width: max-content; max-width: min(calc(100% - 32px), 560px); padding: 10px 16px; border-radius: 12px; background: color-mix(in srgb, var(--leather) 94%, transparent); border: 1px solid var(--edge); color: var(--ink); font: 400 1rem/1.5 var(--f-thai-display, sans-serif); text-align: center; box-shadow: 0 8px 28px #0008; pointer-events: none; opacity: 0; transition: opacity .3s, transform .3s }
+.g-flavor.dm { border-color: var(--candle) }
+.g-flavor.show { opacity: 1; transform: translate(-50%, 0) }
+.g-flavor + .g-flavor { top: calc(18% + 64px) }
+.g-improv { display: flex; flex-direction: column; gap: 8px }
+.g-improv input, .g-improv select { min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--edge); background: var(--walnut); color: var(--ink) }
+.g-improv input { width: 100% }
+.g-improv .row { display: flex; gap: 8px; flex-wrap: wrap }
+.g-improv select { flex: 1 }
+.g-haggle { margin-bottom: 8px }
 .g-banner.show { animation: g-banner 1.6s ease both }
 @keyframes g-banner { 0% { opacity: 0; letter-spacing: .3em } 20%, 75% { opacity: 1; letter-spacing: .04em } 100% { opacity: 0 } }
 

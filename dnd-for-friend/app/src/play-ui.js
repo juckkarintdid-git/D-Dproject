@@ -103,6 +103,8 @@ function buildPlayDom() {
   d.panel = L("g-panelwrap"); d.coach = L("g-coach");
   d.say = h("input", { type: "text", maxlength: 300, placeholder: "หรือพิมพ์เองว่าจะทำอะไร…", "aria-label": "บอก DM", onkeydown: (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); submitSay(); } } });
   d.sayForm = h("div", { class: "g-say" }, d.say, h("button", { class: "btn primary", onclick: submitSay }, "ส่ง"));
+  d.improvIn = h("input", { type: "text", maxlength: 200, placeholder: "เช่น เตะโต๊ะใส่ก็อบลิน / ห้อยโคมระย้าแล้วกระโดดลง", "aria-label": "ท่าพิเศษที่อยากทำ", onkeydown: (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); sendImprov(); } } });
+  d.improvSel = h("select", { "aria-label": "เป้าหมาย" });
   d.cap = L("g-capbox");
   d.caption = h("div", { class: "g-cap" }, d.cap, d.sayForm);
   d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach);
@@ -441,8 +443,10 @@ function marketPanel() {
   const me = myMember(); if (!me) return h("p", null, "เข้าร่วมทีมก่อน");
   const tab = P.shopTab || "weapons";
   const list = D.equipment[tab];
-  const buy = async (it) => {
-    const p = P.party[me.cardId];
+  const disc = (P.meta && P.meta.discount) || null;
+  const price = (it) => (disc ? Math.round(it.cost * (100 - disc.pct)) / 100 : it.cost);
+  const buy = async (it0) => {
+    const p = P.party[me.cardId]; const it = { ...it0, cost: price(it0) };
     if ((p.card.gp || 0) + 1e-9 < it.cost) return toast("เงินไม่พอ");
     const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === it.id);
     if (e) e.qty++; else inv.push({ id: it.id, qty: 1, equipped: false });
@@ -463,11 +467,13 @@ function marketPanel() {
     await writeParty(me.cardId, { card: { ...p.card, inventory: inv } });
   };
   return h("div", { class: "work" },
+    h("div", { class: "row g-haggle" }, disc ? h("span", { class: "tag ok" }, "🤝 " + disc.npc + " ลดให้ " + disc.pct + "% จนกว่าจะออกจากหมู่บ้าน")
+      : h("button", { class: "btn small", onclick: () => { sendChat("ขอต่อราคากับ Bram หน่อย ลดให้ได้ไหม"); toast("ส่งคำขอต่อราคาแล้ว DM จะให้ทอยเกลี้ยกล่อม"); } }, "🤝 ต่อราคากับ Bram")),
     h("div", { class: "chips" }, [["weapons", "อาวุธ"], ["armor", "เกราะ"], ["gear", "ของใช้/ยา"]].map(([k, l]) => h("button", { class: "chip", "aria-pressed": tab === k ? "true" : "false", onclick: () => { P.shopTab = k; renderOverlay(); } }, l))),
     h("div", { class: "tbl shop" }, h("table", null, h("tbody", null, list.map((it) => h("tr", null,
       h("td", null, it.name, h("div", { class: "small muted" }, it.dmg ? it.dmg + " " + it.dtype : it.ac ? (it.cat === "shield" ? "+2 AC" : "AC " + it.ac) : "")),
-      h("td", { class: "num" }, it.cost >= 1 ? it.cost + " GP" : Math.round(it.cost * 10) >= 1 ? Math.round(it.cost * 10) + " SP" : Math.round(it.cost * 100) + " CP"),
-      h("td", null, h("button", { class: "btn small", disabled: (me.card.gp || 0) + 1e-9 < it.cost, onclick: () => buy(it) }, "ซื้อ"))))))),
+      h("td", { class: "num" }, (() => { const c = price(it); return (c >= 1 ? c + " GP" : Math.round(c * 10) >= 1 ? Math.round(c * 10) + " SP" : Math.round(c * 100) + " CP") + (disc && c !== it.cost ? " ↓" : ""); })()),
+      h("td", null, h("button", { class: "btn small", disabled: (me.card.gp || 0) + 1e-9 < price(it), onclick: () => buy(it) }, "ซื้อ"))))))),
     h("h3", null, "ของของ " + me.card.name),
     h("div", { class: "tbl shop" }, h("table", null, h("tbody", null, (me.card.inventory || []).map((x, i) => { const it = IX.items[x.id] || { name: x.id, cost: 0 };
       return h("tr", null, h("td", null, it.name + (x.equipped ? " (สวมอยู่)" : "")), h("td", { class: "num" }, "×" + x.qty),
@@ -968,12 +974,14 @@ function renderCombat() {
   const box = P.dom.combat; const sc = P.scene;
   const st = sc.mode === "combat" && !P.mapEdit ? combatState() : null;
   box.hidden = !st; if (!st) { P.pop = null; fill(box, ); return; }
+  if (P.pop === "improv" && [P.dom.improvIn, P.dom.improvSel].includes(document.activeElement)) return;
   const cur = current(st); const mine = !!(cur && cur.side === "pc" && canControl(cur) && !st.over);
   const meU = mine ? cur : st.units["pc-" + P.myCardId];
   const out = [];
   if (meU) out.push(mePlate(st, meU));
   if (st.over) out.push(h("div", { class: "g-wait" }, st.over === "win" ? "🏆 ชนะ! กำลังสรุปผล…" : "💀 แพ้… กำลังสรุปผล"));
   else if (mine) out.push(...hotbar(st, cur));
+  else if (cur && st.improv && !st.improv.done) out.push(h("div", { class: "g-wait" }, h("span", null, "🎭 DM กำลังตัดสินท่าพิเศษของ " + shortName((st.units[st.improv.by] || cur).name) + "…")));
   else if (cur) out.push(h("div", { class: "g-wait" }, h("span", null, cur.side === "foe" ? "ตาของ " + shortName(cur.name) + "…" : "รอ " + cur.name + " เล่น"),
     isHost() && cur.side === "pc" && h("button", { class: "btn small", onclick: async () => { const s2 = combatState(); log(s2, cur.name + " ข้ามตา"); finishTurn(s2); await commitCombat(s2); } }, "ข้ามตานี้")));
   fill(box, ...out);
@@ -1024,6 +1032,15 @@ function popover(st, u, id, hasPotion) {
   if (id === "atk") body = [h("div", { class: "g-pop-t" }, "เลือกอาวุธ แล้วแตะศัตรูที่เรืองแสง"), h("div", { class: "g-pop-list" }, u.attacks.map((a, i) =>
     opt(a.name, fmt(a.hit) + " · " + a.dmg + (a.range ? " · ระยะ " + a.range[0] + "/" + a.range[1] + " ft" : " · ประชิด " + a.reach + " ft"), false, () => { P.attackSel = i; P.pop = null; renderPlay(); }, P.attackSel === i)))];
   else if (id === "spell") body = spellPicker(st, u);
+  else if (id === "improv") {
+    const sel = P.dom.improvSel; const keep = sel.value;
+    const opts = Object.values(st.units).filter((x) => alive(x) && x.id !== u.id).sort((a, b) => dist(u, a) - dist(u, b));
+    sel.replaceChildren(h("option", { value: "" }, "ไม่เลือกเป้า"), ...opts.map((x) => h("option", { value: x.id }, (x.side === "foe" ? "⚔ " : "♥ ") + shortName(x.name) + " · " + dist(u, x) + " ft")));
+    if (opts.some((x) => x.id === keep)) sel.value = keep;
+    body = [h("div", { class: "g-pop-t" }, "💡 ท่าพิเศษ: พิมพ์ว่าจะทำอะไร แล้ว DM จะตัดสินว่าทอยอะไรและเกิดอะไรขึ้น (ใช้ Action)"),
+      h("div", { class: "g-improv" }, P.dom.improvIn, h("div", { class: "row" }, sel, h("button", { class: "btn primary small", disabled: !T.action, onclick: sendImprov }, "ลองเลย")))];
+    setTimeout(() => { if (P.pop === "improv" && document.activeElement !== sel) P.dom.improvIn.focus(); }, 0);
+  }
   else if (id === "potion") body = [h("div", { class: "g-pop-t" }, "ยา"), h("div", { class: "g-pop-list" },
     hasPotion && opt("🧪 Potion of Healing", "Bonus Action · ฟื้น 2d4+2", !T.bonus, () => { P.pop = null; drinkPotion(); }),
     ...chaosBar(u, T).map((x) => h("div", { class: "g-opt-row" }, x)))];
@@ -1031,6 +1048,7 @@ function popover(st, u, id, hasPotion) {
     const res = u.resources || {};
     const go2 = (fn) => () => { P.pop = null; fn(); };
     body = [h("div", { class: "g-pop-t" }, "ท่าอื่น ๆ"), h("div", { class: "g-pop-list" },
+      opt("💡 ท่าพิเศษ (พิมพ์เอง)", "Action · ทำอะไรก็ได้ที่คิดออก DM เป็นคนตัดสิน", !T.action || !!(st.improv && !st.improv.done), () => { P.pop = "improv"; renderPlay(); }),
       opt("Disengage", "Action · ถอยออกโดยไม่โดนฉวยโอกาสตี", !T.action, go2(() => act((s, a) => doDisengage(s, a)))),
       opt("Help", "Action · ช่วยเพื่อนที่ยืนติด ให้ได้เปรียบ", !T.action, go2(() => { P.mode = "help"; renderPlay(); })),
       res.secondWind && opt("Second Wind", "Bonus · ฟื้น 1d10+Lv (เหลือ " + (res.secondWind.max - res.secondWind.used) + ")", !T.bonus || res.secondWind.used >= res.secondWind.max, go2(() => act(secondWind))),
@@ -1042,6 +1060,12 @@ function popover(st, u, id, hasPotion) {
       opt("ดูข้อมูลศัตรูและบันทึก", "เปิดแผงด้านข้าง", false, go2(() => toggleDrawer(true, "log"))))];
   }
   return h("div", { class: "g-pop" }, h("button", { class: "g-pop-x", "aria-label": "ปิด", onclick: () => { P.pop = null; renderPlay(); } }, "✕"), body);
+}
+async function sendImprov() {
+  const txt = P.dom.improvIn.value.trim(); if (!txt) return toast("พิมพ์ก่อนว่าจะทำอะไร");
+  const tgt = P.dom.improvSel.value || null;
+  P.dom.improvIn.value = ""; P.pop = null; P.dom.improvIn.blur();
+  await requestImprov(txt, tgt);
 }
 function spellPicker(st, u) {
   const canSlot = (lv) => (u.slots || []).some((n, i) => i + 1 >= lv && slotsLeft(u, i + 1) > 0) || (u.mi && !u.miUsed && lv === 1);
@@ -1058,7 +1082,8 @@ function spellPicker(st, u) {
 }
 function stepFor(st, u) {
   const T = u.turn || {}; let t; const extra = [];
-  if (P.mode === "spell" && P.spellSel) {
+  if (st.improv && !st.improv.done) t = "🎭 DM กำลังตัดสินท่าพิเศษ…";
+  else if (P.mode === "spell" && P.spellSel) {
     const need = spellNeed(P.spellSel.id); const sp = st.spellIndex[P.spellSel.id] || { name: P.spellSel.id };
     t = sp.name + ": " + (need.kind === "units" ? (need.ally ? "แตะเพื่อน" : "แตะศัตรูที่เรืองแสง") + (need.n > 1 ? " สูงสุด " + need.n + " เป้า" : "") : need.kind === "dir" ? "แตะทิศที่จะปล่อยเวท" : "แตะจุดที่จะร่าย") + (need.range ? " (ระยะ " + need.range + " ft)" : "");
     if ((P.spellSel.targets || []).length) extra.push(h("button", { class: "btn small primary", onclick: () => castNow({}) }, "ร่ายใส่ " + P.spellSel.targets.length + " เป้า"));
@@ -1105,6 +1130,13 @@ function floatAt(unitId, text, cls) {
   P.dom.fx.append(h("div", { class: "g-float " + (cls || ""), style: "left:" + Math.round(g.ox + u.x * g.cell + s / 2) + "px;top:" + Math.round(g.oy + u.y * g.cell - 4) + "px" }, text));
   const el = P.dom.fx.lastChild; setTimeout(() => el.remove(), 1400);
 }
+// a short spoken-style line over the board (DM rulings, enemy taunts, flavor on big moments)
+function flavorPill(text, cls) {
+  if (!P.dom || !text) return;
+  const old = P.dom.fx.querySelectorAll(".g-flavor"); if (old.length > 1) old[0].remove();
+  const el = h("div", { class: "g-flavor " + (cls || ""), role: "status" }, String(text).slice(0, 200)); P.dom.fx.append(el);
+  requestAnimationFrame(() => el.classList.add("show")); setTimeout(() => el.remove(), 5200);
+}
 function banner(text, side) {
   if (!P.dom) return Promise.resolve();
   const b = h("div", { class: "g-banner " + (side || "") }, text); P.dom.fx.append(b);
@@ -1115,8 +1147,11 @@ function watchFx() {
   const lastTs = P.chat.length ? P.chat[P.chat.length - 1].ts : 0;
   if (P.fxChatCid !== P.cid) { P.fxChat = lastTs; P.fxChatCid = P.cid; }
   else if (lastTs > (P.fxChat || 0)) {
-    for (const m of P.chat) if (m.ts > (P.fxChat || 0) && Array.isArray(m.rolls)) for (const r of m.rolls.slice(0, 4))
-      fxQueue(() => diceAnim({ label: r.who + " · " + r.label, roll: r.roll, bonus: r.bonus, total: r.total, vs: "DC " + r.dc, verdict: r.ok ? "ok" : "fail" }));
+    for (const m of P.chat) if (m.ts > (P.fxChat || 0)) {
+      if (Array.isArray(m.rolls)) for (const r of m.rolls.slice(0, 4))
+        fxQueue(() => diceAnim({ label: r.who + " · " + r.label, roll: r.roll, bonus: r.bonus, total: r.total, vs: "DC " + r.dc, verdict: r.ok ? "ok" : "fail" }));
+      if (m.flavor) flavorPill(m.text, "dm");
+    }
     P.fxChat = lastTs;
   }
   const st = P.scene.mode === "combat" ? combatState() : null;
@@ -1127,11 +1162,16 @@ function watchFx() {
   if (prev && st.seq > prev.seq) {
     const fresh = st.log.filter((l) => l.n > prev.seq);
     const atks = fresh.filter((l) => l.kind === "attack").slice(-3);
+    for (const l of fresh.filter((x) => x.kind === "check").slice(-2))
+      fxQueue(() => diceAnim({ label: shortName(l.who || "") + " · " + l.label, roll: l.roll, bonus: l.total - l.roll, total: l.total, vs: "DC " + l.dc, verdict: l.ok ? "ok" : "fail" }));
+    for (const l of fresh.filter((x) => x.kind === "say").slice(-2)) fxQueue(async () => { flavorPill(l.text); await sleep(300); });
     for (const l of atks) {
       const a = st.units[l.a], tg = st.units[l.t]; if (!a || !tg) continue;
       fxQueue(() => diceAnim({ label: shortName(a.name) + " → " + shortName(tg.name), roll: l.roll, bonus: l.total - l.roll, total: l.total, vs: "AC " + tg.ac, verdict: l.crit ? "crit" : l.hit ? "hit" : "miss", fast: a.side === "foe" }));
     }
-    const diffs = Object.keys(hp).filter((id) => prev.hp[id] != null && hp[id] !== prev.hp[id]).map((id) => [id, hp[id] - prev.hp[id]]);
+    const gone = Object.values(st.units).filter((x) => x.left && prev.hp[x.id] > 0).map((x) => x.id);
+    const diffs = Object.keys(hp).filter((id) => prev.hp[id] != null && hp[id] !== prev.hp[id] && !gone.includes(id)).map((id) => [id, hp[id] - prev.hp[id]]);
+    if (gone.length) fxQueue(() => { for (const id of gone) floatAt(id, st.units[id].left === "flee" ? "หนี!" : "ยอมแพ้", "miss"); });
     const missed = atks.filter((l) => !l.hit).map((l) => l.t);
     if (diffs.length || missed.length) fxQueue(async () => {
       for (const [id, d] of diffs) floatAt(id, d > 0 ? "+" + d : "−" + -d, d > 0 ? "heal" : "");
@@ -1185,6 +1225,7 @@ function chatPanel() {
     m.kind === "dm" && m === lastDm && (m.options || []).length > 0 && h("div", { class: "chips" }, m.options.map((o) => h("button", { class: "chip", onclick: () => sendChat(o) }, o))),
     m.kind === "dm" && h("button", { class: "btn ghost tiny", "aria-label": "อ่านออกเสียง", onclick: () => speak(m.text) }, "🔊"))),
     !P.chat.length && h("div", { class: "muted small" }, "ยังไม่มีข้อความ"),
+    P.chat.length >= 4 && !NET.local && h("button", { class: "btn small ghost", style: "align-self:flex-start", onclick: () => { askRecap(); toast("ขอให้ DM สรุปเรื่องย่อแล้ว"); } }, "📖 สรุปเรื่องย่อ"),
     NET.local && h("div", { class: "small muted" }, "DM (Claude) เล่าเรื่องได้เมื่อเปิดผ่านลิงก์ claude.ai"),
     dmRunning && h("div", { class: "small muted" }, "DM กำลังคิด…"));
 }

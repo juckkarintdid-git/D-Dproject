@@ -194,6 +194,12 @@ function onSync(what) {
   if (what === "party") syncMyCards();
   if (!P.myCardId) { const mine = myParty()[0]; if (mine) P.myCardId = mine.cardId; }
   if (what === "chat" && P.tts) speakLatest();
+  if (what === "chat" && isHost()) {
+    maybeRecap(false);
+    const req = [...P.chat].reverse().find((m) => m.recapReq);
+    if (req && P.recapReqCid === P.cid && req.ts > P.recapReqSeen) maybeRecap(true);
+    P.recapReqCid = P.cid; P.recapReqSeen = req ? req.ts : 0;
+  }
   if (isHost()) hostTick(what);
   if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; if (S.view === "play") renderPlay(); }); }
 }
@@ -228,7 +234,10 @@ function hostTick() {
     const st = combatState();
     if (st.over && !sc.finalized) { hostBusy = true; finalizeCombat(st).finally(() => { hostBusy = false; setTimeout(hostTick, 50); }); return; }
     const u = current(st);
+    maybeFlavor(st);
     if (!u || st.over) return;
+    if (st.improv && !st.improv.done) { hostBusy = true; resolveImprov().finally(() => { hostBusy = false; setTimeout(hostTick, 50); }); return; }
+    if (u.side === "foe" && u.tier === "normal" && moraleDue(st)) { hostBusy = true; runMorale().finally(() => { hostBusy = false; setTimeout(hostTick, 50); }); return; }
     if (u.side === "foe") { hostBusy = true; setTimeout(() => monsterTurn().finally(() => { hostBusy = false; hostTick(); }), 650); return; }
     if (u.side === "pc" && (u.hp <= 0 || u.dead)) { hostBusy = true; setTimeout(async () => { const s2 = combatState(); if (current(s2) && current(s2).id === u.id) { finishTurn(s2); await commitCombat(s2); } hostBusy = false; hostTick(); }, 900); return; }
   } else if (sc.mode === "explore" && !P.arriving) {
@@ -302,7 +311,8 @@ async function finalizeCombat(st) {
     await writeMeta({ cleared, done });
     await writeScene({ mode: "explore", combat: null, finalized: true, ex: { ...(P.scene.ex || {}), moved: 0, acted: false }, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss } });
     await say("system", "🏆 ชนะ " + def.encounters[st.encounter].th + " · ได้ EXP คนละ " + share + (milestone ? " (บอสดันเจี้ยน: EXP อย่างน้อย " + milestone + ")" : "") + pcs.filter((u) => u.dead).map((u) => " · " + u.name + " เสียชีวิต ต้องไปชุบที่วิหาร").join(""));
-    requestDM({ event: "ชนะการต่อสู้กับ " + def.encounters[st.encounter].th + (st.boss ? " (บอสของสถานที่นี้)" + (def.final ? " นี่คือบอสสุดท้ายของแคมเปญ ให้บรรยายตอนจบ" : "") : "") });
+    if ((st.captives || []).length) await writeMeta({ flags: { ...(P.meta.flags || {}), captives: st.captives.join(", ") } });
+    requestDM({ event: "ชนะการต่อสู้กับ " + def.encounters[st.encounter].th + ((st.captives || []).length ? " · จับเชลยได้: " + st.captives.join(", ") + " (ผู้เล่นสอบสวนได้)" : "") + (st.boss ? " (บอสของสถานที่นี้)" + (def.final ? " นี่คือบอสสุดท้ายของแคมเปญ ให้บรรยายตอนจบ" : "") : "") });
   } else {
     for (const u of pcs) {
       const p = P.party[u.cardId]; if (!p) continue;
@@ -315,6 +325,141 @@ async function finalizeCombat(st) {
     await say("system", "💀 ทีมพ่ายแพ้… ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
     requestDM({ event: "ทีมแพ้และถูกพากลับมาชุบชีวิตที่วิหาร" });
   }
+}
+
+// ---------- Claude as the table's judge: improvised actions, enemy morale, recaps, flavor lines ----------
+// Claude only rules (what to roll, how hard, what happens); the page rolls the dice and applies capped effects.
+const IMPROV_CONDS = { Prone: { cond: "Prone" }, Restrained: { cond: "Restrained", endSave: "STR" }, Blinded: { cond: "Blinded" }, Frightened: { cond: "Frightened", endSave: "WIS" }, Grappled: { cond: "Grappled", endSave: "STR" } };
+const SKILL_AB = { Athletics: "STR", Acrobatics: "DEX", "Sleight of Hand": "DEX", Stealth: "DEX", Arcana: "INT", History: "INT", Investigation: "INT", Nature: "INT", Religion: "INT", "Animal Handling": "WIS", Insight: "WIS", Medicine: "WIS", Perception: "WIS", Survival: "WIS", Deception: "CHA", Intimidation: "CHA", Performance: "CHA", Persuasion: "CHA" };
+function unitCheckBonus(u, skill) {
+  if (u.kind === "pc") { const p = P.party[u.cardId]; const sh = p && safeSheet(p.card); const sk = sh && sh.skills.find((s) => s.name.toLowerCase() === String(skill).toLowerCase()); if (sk) return sk.bonus; }
+  const ab = SKILL_AB[skill] || (ABILITIES.includes(String(skill).toUpperCase()) ? String(skill).toUpperCase() : "STR");
+  return (u.mods && u.mods[ab]) || 0;
+}
+const improvCap = (a) => ((a.level || 1) <= 2 ? 2 : (a.level || 1) <= 4 ? 3 : 4);
+const improvDC = (a) => 8 + (a.pb || 2) + Math.max((a.mods || {}).STR || 0, (a.mods || {}).DEX || 0);
+// player side: spend the Action and leave a request in the combat state for the host
+async function requestImprov(text, targetId) {
+  text = String(text || "").trim().slice(0, 200); if (!text) return toast("พิมพ์ก่อนว่าจะทำอะไร");
+  await act((s, a) => {
+    if (!a.turn || !a.turn.action) return { error: "ใช้ Action ไปแล้วในตานี้" };
+    a.turn.action = 0; a.turn.attacksLeft = 0;
+    s.improv = { id: s.seq + 1, by: a.id, text, target: targetId || null };
+    log(s, "💡 " + a.name + " ลอง: " + text, { kind: "improv" });
+  });
+}
+function improvPrompt(st, a, t, text) {
+  const all = Object.values(st.units).filter(alive).map((u) => u.name + (u.side === "foe" ? " (ศัตรู" : " (ทีม") + ", ห่าง " + dist(a, u) + " ft" + (u.conditions.length ? ", " + u.conditions.join("/") : "") + ")").join("; ");
+  const def = mapDef(st.mapId);
+  return "คุณคือ DM ของเกม D&D (SRD 5.2.1) ผู้เล่นทำท่าแหวกแนวระหว่างต่อสู้ โดยใช้ Action ของตานี้ ตัดสินให้ยุติธรรม สนุก และสมเหตุสมผลตามสถานการณ์\n" +
+    "ห้ามแรงกว่าการโจมตีปกติของเลเวลนี้ (ดาเมจไม่เกิน " + improvCap(a) + " ลูกเต๋า) ถ้าทำไม่ได้จริง ๆ ให้ impossible เป็น true\n" +
+    "ผู้เล่น: " + a.name + " Lv " + (a.level || 1) + "\nสถานที่: " + (def ? def.name + " · " + (def.intro || "") : "") +
+    "\nเป้าที่เลือก: " + (t ? t.name + " ห่าง " + dist(a, t) + " ft" : "ไม่ได้เลือก") + "\nในสนาม: " + all + "\nผู้เล่นบอกว่า: \"" + text + "\"\n" +
+    "ตอบเป็น JSON เท่านั้น:\n{\"impossible\":false,\"skill\":\"Athletics\",\"dc\":13,\"save\":null,\"adv\":0,\"success\":{\"dmg\":\"1d6\",\"dtype\":\"Bludgeoning\",\"cond\":\"Prone\",\"adv\":false,\"cover\":false,\"surrender\":false},\"fail\":{},\"sayOk\":\"ผลถ้าสำเร็จ ไม่เกิน 25 คำ\",\"sayFail\":\"ผลถ้าพลาด ไม่เกิน 25 คำ\"}\n" +
+    "- ใช้ skill กับ dc (10-20) เมื่อผู้เล่นเป็นคนทอย หรือใส่ save เป็น STR/DEX/CON/WIS เมื่อให้เป้าทอยเซฟแทน\n- adv เป็น 1 เมื่อสถานการณ์เป็นใจ (ซ่อนในเงามืด ยืนบนที่สูง ศัตรูเผลอ) หรือ -1 เมื่อยากผิดปกติ\n" +
+    "- cond เลือกได้: Prone, Restrained, Blinded, Frightened, Grappled หรือ null · adv:true ให้ผู้เล่นตีครั้งถัดไปได้เปรียบ · cover:true ให้ AC +2 จนถึงตาหน้า\n- surrender:true เฉพาะเมื่อขู่หรือเกลี้ยกล่อมให้ศัตรูที่เหลือ (ไม่ใช่บอส) ยอมแพ้สำเร็จ และศัตรูบาดเจ็บหรือเสียเปรียบแล้ว";
+}
+async function resolveImprov() {
+  const st0 = combatState(); const req = st0 && st0.improv; if (!req || req.done) return;
+  const a0 = st0.units[req.by]; if (!a0) return;
+  let rule = null;
+  const sample = await useSample();
+  if (sample) { try { rule = await sample.json(improvPrompt(st0, a0, req.target && st0.units[req.target], req.text), { modelTier: "quick" }); } catch (e) { rule = null; } }
+  if (!rule || typeof rule !== "object") rule = { skill: "Athletics", dc: 12, success: { adv: true }, sayOk: "ได้จังหวะดี ตีครั้งต่อไปได้เปรียบ", sayFail: "ไม่ได้ผลอย่างที่หวัง" };
+  // re-read right before writing so nothing a player did meanwhile is lost
+  const st = combatState(); if (!st || !st.improv || st.improv.id !== req.id || st.improv.done) return;
+  st.improv = { ...st.improv, done: true };
+  applyImprov(st, st.units[req.by], req.target ? st.units[req.target] : null, rule);
+  checkOver(st);
+  await commitCombat(st);
+}
+function applyImprov(st, a, t, rule) {
+  if (!a) return;
+  if (rule.impossible) { log(st, "🎭 " + String(rule.sayFail || rule.say || "ทำแบบนั้นไม่ได้ในสถานการณ์นี้").slice(0, 220), { kind: "say" }); return; }
+  let ok;
+  const save = rule.save && String(rule.save).toUpperCase();
+  if (t && save && ABILITIES.includes(save)) {
+    const dc = Math.max(8, Math.min(20, +rule.dc || improvDC(a)));
+    const s = savingThrow(t, save, dc); ok = !s.ok;
+    log(st, t.name + " เซฟ " + save + ": " + s.total + " vs DC " + dc + (s.ok ? " · ต้านได้" : " · ไม่รอด"), { kind: "check", who: t.name, label: save + " save", roll: s.roll ? s.roll.v : s.total, total: s.total, dc, ok: s.ok });
+  } else {
+    const skill = String(rule.skill || "Athletics"); const dc = Math.max(5, Math.min(25, +rule.dc || 12));
+    const r = d20(rule.adv > 0 ? 1 : rule.adv < 0 ? -1 : 0); const bonus = unitCheckBonus(a, skill); const total = r.v + bonus;
+    ok = r.v !== 1 && total >= dc;
+    log(st, a.name + " ทอย " + skill + (rule.adv > 0 ? " (ได้เปรียบ)" : rule.adv < 0 ? " (เสียเปรียบ)" : "") + ": 🎲 " + r.v + (bonus >= 0 ? " +" : " ") + bonus + " = " + total + " vs DC " + dc + (ok ? " · สำเร็จ" : " · ไม่สำเร็จ"), { kind: "check", who: a.name, label: skill, roll: r.v, total, dc, ok });
+  }
+  const line = String((ok ? rule.sayOk : rule.sayFail) || rule.say || "").slice(0, 220);
+  if (line) log(st, "🎭 " + line, { kind: "say" });
+  applyImprovFx(st, a, t, (ok ? rule.success : rule.fail) || {});
+}
+function applyImprovFx(st, a, t, fx) {
+  if (fx.dmg && t && alive(t)) {
+    const m = String(fx.dmg).match(/^(\d+)d(\d+)/);
+    if (m) { const r = roll(Math.min(improvCap(a), +m[1]) + "d" + Math.min(8, +m[2])); const dt = /^[A-Z][a-z]+$/.test(fx.dtype || "") ? fx.dtype : "Bludgeoning"; log(st, t.name + " โดน " + r.text + " " + dt, { kind: "improv" }); damage(st, t, r.total, dt, a); }
+  }
+  if (fx.cond && IMPROV_CONDS[fx.cond] && t && alive(t) && !(t.immune || "").includes(fx.cond)) {
+    const c = IMPROV_CONDS[fx.cond];
+    addEffect(st, t, { name: "ท่าพิเศษ: " + fx.cond, cond: c.cond, src: a.id, ...(c.endSave ? { endSave: { ab: c.endSave, dc: improvDC(a) } } : { until: "startOfSourceTurn" }) });
+    log(st, t.name + " ติดสภาพ " + fx.cond, { kind: "improv" });
+  }
+  if (fx.adv) { addEffect(st, a, { name: "ได้เปรียบจากท่าพิเศษ", helped: true, src: a.id }); log(st, a.name + " ตีครั้งถัดไปได้เปรียบ", { kind: "improv" }); }
+  if (fx.cover) { addEffect(st, a, { name: "กำบัง", ac: 2, until: "startOfTurn", src: a.id }); log(st, a.name + " ได้ที่กำบัง AC +2 จนถึงตาหน้า", { kind: "improv" }); }
+  if (fx.surrender) applyMorale(st, "surrender", "");
+}
+// morale: once per fight, when half the enemies are down or their leader falls, Claude decides if the rest fight on
+function moraleDue(st) {
+  if (st.moraleDone) return false;
+  const foes = Object.values(st.units).filter((u) => u.side === "foe"); const up = foes.filter(alive);
+  if (foes.length < 2 || !up.length || up.some((u) => u.tier !== "normal")) return false;
+  return up.length <= Math.floor(foes.length / 2) || foes.some((u) => u.tier !== "normal" && !alive(u));
+}
+function applyMorale(st, decision, line) {
+  st.moraleDone = true;
+  if (decision !== "flee" && decision !== "surrender") { if (line) log(st, "🗣 " + line, { kind: "say" }); return; }
+  const up = Object.values(st.units).filter((u) => u.side === "foe" && alive(u) && u.tier === "normal");
+  if (line) log(st, "🗣 " + line, { kind: "say" });
+  for (const u of up) { u.hp = 0; u.left = decision; endConc(st, u); log(st, u.name + (decision === "flee" ? " หนีไปแล้ว!" : " ทิ้งอาวุธยอมแพ้"), { kind: "morale" }); }
+  if (decision === "surrender") st.captives = [...(st.captives || []), ...up.map((u) => u.name)];
+  checkOver(st);
+}
+async function runMorale() {
+  const st0 = combatState(); if (!st0 || !moraleDue(st0)) return;
+  const up = Object.values(st0.units).filter((u) => u.side === "foe" && alive(u));
+  const pcs = Object.values(st0.units).filter((u) => u.side === "pc" && alive(u));
+  let ans = null;
+  const sample = await useSample();
+  if (sample) { try { ans = await sample.json("คุณคือ DM ของเกม D&D ศัตรูฝ่ายนี้เสียพวกไปมากแล้ว ตัดสินว่าที่เหลือจะสู้ต่อ หนี หรือยอมแพ้ ตามนิสัยของมัน (สัตว์ป่ามักหนี ก็อบลินกับโจรอาจยอมแพ้ อันเดดและสิ่งที่ถูกบังคับสู้จนตาย)\nศัตรูที่เหลือ: " + up.map((u) => u.name + " HP " + u.hp + "/" + u.maxHp).join(", ") + "\nฝั่งผู้เล่น: " + pcs.map((u) => u.name + " HP " + u.hp + "/" + u.maxHp).join(", ") + "\nตอบ JSON เท่านั้น: {\"decision\":\"fight|flee|surrender\",\"line\":\"คำพูดหรือท่าทางของศัตรู ไม่เกิน 15 คำ\"}", { modelTier: "quick" }); } catch (e) { ans = null; } }
+  if (!ans) { const lead = up[0]; const s = savingThrow(lead, "WIS", 10); ans = { decision: s.ok || /Skeleton|Zombie|Undead/i.test(lead.name) ? "fight" : "flee", line: "" }; }
+  const st = combatState(); if (!st || st.moraleDone) return;
+  applyMorale(st, String(ans.decision || "fight"), String(ans.line || "").slice(0, 120));
+  await commitCombat(st);
+}
+// flavor: one short vivid line on a critical hit, a boss falling, or a hero going down (sent to chat, so it never races the board)
+async function maybeFlavor(st) {
+  if (P.flavorKey !== P.cid + st.mapId + st.encounter) { P.flavorKey = P.cid + st.mapId + st.encounter; P.flavorSeq = st.seq; return; }
+  const fresh = st.log.filter((l) => l.n > (P.flavorSeq || 0)); P.flavorSeq = st.seq;
+  const hit = fresh.filter((l) => (l.kind === "attack" && l.crit) || (l.kind === "kill" && /\((Sub )?Boss\)/.test(l.text)) || l.kind === "down").pop();
+  if (!hit || Date.now() - (P.flavorAt || 0) < 12000) return;
+  const sample = await useSample(); if (!sample) return;
+  P.flavorAt = Date.now();
+  try { const ans = await sample.json("คุณคือ DM ของเกม D&D เล่าจังหวะนี้ให้ตื่นเต้นเป็นภาษาไทย 1 ประโยค ไม่เกิน 20 คำ ห้ามเปลี่ยนผลที่เกิดขึ้น\nเหตุการณ์: " + hit.text + "\nตอบ JSON: {\"say\":\"...\"}", { modelTier: "quick" }); if (ans && ans.say) await say("dm", String(ans.say).slice(0, 160), { flavor: true }); } catch (e) {}
+}
+// recap: when the host opens a room after a break, Claude sums up "last time…"
+async function maybeRecap(force) {
+  if (!isHost() || P.recapBusy || !P.chat.length) return;
+  if (!force) { if (P.recapChecked === P.cid) return; P.recapChecked = P.cid; const last = P.chat[P.chat.length - 1].ts; if (P.chat.length < 8 || Date.now() - last < 3 * 3600e3) return; }
+  const sample = await useSample(); if (!sample) { if (force) toast("ต้องเปิดผ่านลิงก์ claude.ai DM ถึงจะสรุปได้"); return; }
+  P.recapBusy = true;
+  try {
+    const hist = P.chat.slice(-40).map((m) => (m.kind === "dm" ? "DM: " : m.kind === "system" ? "[ระบบ] " : (m.who || "ผู้เล่น") + ": ") + m.text).join("\n");
+    const ans = await sample.json("คุณคือ DM ของเกม D&D สรุปเรื่องที่ผ่านมาให้ผู้เล่นที่กลับมาเล่นต่อ ภาษาไทย 3-5 ประโยค เล่าเหมือนตอนต้นของซีรีส์ (ครั้งที่แล้ว…) บอกว่าตอนนี้ทีมอยู่ที่ไหนและเป้าหมายต่อไปคืออะไร\n" + dmContext() + "\n=== บันทึก ===\n" + hist + "\nตอบ JSON: {\"say\":\"...\"}", { modelTier: "default" });
+    if (ans && ans.say) { await say("dm", "📖 ครั้งที่แล้ว… " + String(ans.say).slice(0, 900), { recap: true }); await writeMeta({ recapAt: Date.now() }); }
+  } catch (e) { if (force) toast("สรุปเรื่องไม่สำเร็จ ลองใหม่อีกครั้ง"); } finally { P.recapBusy = false; }
+}
+
+function askRecap() {
+  if (isHost()) return maybeRecap(true);
+  const me = myMember(); say("system", "📖 " + (me ? me.card.name : "ผู้เล่น") + " ขอสรุปเรื่องย่อ", { recapReq: true }).catch(() => {});
 }
 
 // ---------- DM (Claude) ----------
@@ -377,8 +522,11 @@ const DM_RULES = `คุณคือ Dungeon Master ของเกม D&D (ก�
 - ให้รางวัลอย่างสมเหตุสมผล (เงินเล็กน้อย, potion-healing) ผ่าน action give
 - ตอบไม่เกิน 120 คำ
 ตอบเป็น JSON เท่านั้น ตามรูปแบบ:
-{"say":"คำบรรยาย","checks":[{"who":"ชื่อตัวละคร","skill":"Perception","dc":12}],"action":null,"options":["ทางเลือกสั้น 1","ทางเลือกสั้น 2"]}
-action เป็นได้: null | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"flag","key":"ชื่อ","value":true}
+{"say":"คำบรรยาย","checks":[{"who":"ชื่อตัวละคร","skill":"Perception","dc":12,"adv":0}],"action":null,"options":["ทางเลือกสั้น 1","ทางเลือกสั้น 2"]}
+การเข้าสังคม: เมื่อผู้เล่นต่อรอง หลอก ขู่ หรือเกลี้ยกล่อม NPC ให้ขอ check (Persuasion/Deception/Intimidation/Insight) ก่อน แล้วในรอบเล่าผลค่อยให้ผลจริง เช่น discount ที่ตลาด give ของ หรือ flag ความสัมพันธ์
+ได้เปรียบ/เสียเปรียบ: ถ้าสถานการณ์เป็นใจ (มีเครื่องมือ ซ่อนในเงามืด ช่วยกันทำ) ใส่ "adv":1 ใน check ถ้ายากผิดปกติใส่ "adv":-1
+ใส่หลาย action ได้ด้วย "actions":[...] (ไม่เกิน 3)
+action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"flag","key":"ชื่อ","value":true}
 skill ใช้ชื่อภาษาอังกฤษของ D&D หรือ STR/DEX/CON/INT/WIS/CHA สำหรับเซฟ`;
 async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const history = P.chat.slice(-14).map((m) => (m.kind === "dm" ? "DM: " : m.kind === "system" ? "[ระบบ] " : (m.who || "ผู้เล่น") + ": ") + m.text).join("\n");
@@ -391,7 +539,7 @@ async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const ans = await sample.json(prompt, { modelTier: "default" });
   const text = String((ans && ans.say) || "").trim();
   if (text) await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map(String) : [] });
-  if (ans && ans.action) await dmAction(ans.action);
+  for (const a of [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3)) await dmAction(a);
   if (!depth && ans && Array.isArray(ans.checks) && ans.checks.length) {
     const rolls = [];
     const results = ans.checks.slice(0, 4).map((c) => { const t = rollCheck(c); if (t) rolls.push(rollCheck.last); return t; }).filter(Boolean);
@@ -411,12 +559,13 @@ function rollCheck(c) {
   const sk = sh.skills.find((s) => s.name.toLowerCase() === String(c.skill).toLowerCase());
   const ab = ABILITIES.includes(String(c.skill).toUpperCase()) ? String(c.skill).toUpperCase() : null;
   let bonus = sk ? sk.bonus : ab ? sh.saves.find((s) => s.ab === ab).bonus : 0;
-  const r = d(20);
+  const adv = +c.adv > 0 ? 1 : +c.adv < 0 ? -1 : 0;
+  const r = adv ? (adv > 0 ? Math.max(d(20), d(20)) : Math.min(d(20), d(20))) : d(20);
   let potion = 0;
   if (p.live.checkBonus && sk) { potion = d(4); bonus += potion; writeParty(p.cardId, { live: { ...p.live, checkBonus: false } }).catch(() => {}); }
   const total = r + bonus; const dc = +c.dc || 10;
   rollCheck.last = { who: p.card.name, label: sk ? sk.name : ab ? ab + " save" : String(c.skill), roll: r, bonus, total, dc, ok: total >= dc };
-  return p.card.name + " " + (sk ? sk.name : ab ? ab + " save" : c.skill) + ": " + r + (bonus >= 0 ? "+" : "") + bonus + " = " + total + " vs DC " + dc + (potion ? " (รวมยาปรุง +" + potion + ")" : "") + (total >= dc ? " ✅ สำเร็จ" : " ❌ ไม่สำเร็จ");
+  return p.card.name + " " + (sk ? sk.name : ab ? ab + " save" : c.skill) + (adv > 0 ? " (ได้เปรียบ)" : adv < 0 ? " (เสียเปรียบ)" : "") + ": " + r + (bonus >= 0 ? "+" : "") + bonus + " = " + total + " vs DC " + dc + (potion ? " (รวมยาปรุง +" + potion + ")" : "") + (total >= dc ? " ✅ สำเร็จ" : " ❌ ไม่สำเร็จ");
 }
 async function dmAction(a) {
   try {
@@ -431,6 +580,7 @@ async function dmAction(a) {
       }
       if (who.length) await say("system", "🎁 " + who.map((p) => p.card.name).join(", ") + " ได้รับ" + (a.gp ? " " + a.gp + " GP" : "") + ((a.items || []).length ? " " + a.items.map(([id, q]) => q + "× " + iname(id)).join(", ") : "") + (a.xp ? " " + a.xp + " EXP" : ""));
     } else if (a.type === "rest") await restParty(a.kind === "long" ? "long" : "short", true);
+    else if (a.type === "discount" && P.scene.mode === "town") await writeMeta({ discount: { pct: Math.max(5, Math.min(30, Math.round(+a.pct || 10))), npc: String(a.npc || "Bram").slice(0, 30) } });
     else if (a.type === "flag" && a.key) await writeMeta({ flags: { ...(P.meta.flags || {}), [String(a.key).slice(0, 40)]: a.value ?? true } });
   } catch (e) { /* ignore a malformed action */ }
 }
@@ -443,6 +593,7 @@ async function travelTo(loc, quiet) {
   await say("system", "🧭 ทีมเดินทางไป " + (L0 ? L0.name + " · " + L0.th : loc));
   P.arriving = true;
   await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false } });
+  if (!isTown && P.meta.discount) await writeMeta({ discount: null });
   if (isTown) for (const p of Object.values(P.party)) if (p.townPlace || p.ready) await writeParty(p.cardId, { townPlace: null, ready: 0 });
   if (!isTown && def) {
     let i = 0;
