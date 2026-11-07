@@ -45,6 +45,9 @@ const THEME = {
 for (const [id, m] of Object.entries({})) images.push({ group: "map", name: "map-" + id, label: m.name + " · " + m.th, ratio: "3:2", map: id,
   prompt: `Top-down tabletop battle map of ${THEME[m.theme] || m.theme}: ${m.name}. ${m.final ? "A huge circular lair at the summit with a dragon hoard of gold. " : ""}Readable floor texture, clear contrast between walls and floor.` });
 const maps = Object.fromEntries(Object.entries(camp.maps).map(([id, m]) => [id, m.rows]));
+// Welcome art for the home page (text is overlaid at the bottom-left, keep that area calm and darker)
+images.push({ group: "welcome", name: "welcome", label: "รูปต้อนรับหน้าเข้าเล่น", ratio: "16:9",
+  prompt: "Epic wide establishing shot of Ember Vale at dusk: a cozy log village with warm lit windows by a stream in the foreground left, a dark thorny forest in the middle, a red stone tower on a sea cliff to the right, and far away a black volcanic spire glowing with lava and smoke where a red dragon silhouette circles. Five adventurers seen from behind on a hill in the lower right (a dwarf fighter with a greatsword, a halfling rogue, a human cleric with a shining shield, an elf ranger with a bow, a gnome wizard with a staff light). Cinematic painted fantasy key art, warm amber and teal palette, the lower-left third is darker and simpler so title text can sit there." });
 // Map objects drawn on battle maps
 images.push({ group: "object", name: "obj-chest", label: "หีบสมบัติบนแผนที่", ratio: "1:1",
   prompt: "A single small closed wooden treasure chest with iron bands and a gold lock, seen from directly above at a slight angle like a tabletop map prop, centered, filling most of the frame, plain flat dark brown background, soft warm light, no shadow outside the chest." });
@@ -52,6 +55,7 @@ images.push({ group: "object", name: "obj-chest", label: "หีบสมบั�
 const NOTE = {
   "token-bandit": ["redo", "ทำใหม่: ตอนนี้หน้าตาเหมือน Scout (ผ้าคลุมเขียว) ในเกมแยกไม่ออก Prompt แก้แล้ว"],
   "token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
+  "welcome": ["new", "ยังไม่มี: ตอนนี้หน้าเข้าเล่นใช้แผนที่โลกแทนไปก่อน ทำแล้วเซฟเป็น images\\welcome.png"],
   "obj-chest": ["new", "ยังไม่มี: ตอนนี้เกมวาดเป็นกล่องสีน้ำตาลเฉย ๆ ทำแล้วใส่ในโฟลเดอร์ images ส่งให้ Claude"],
 };
 for (const im of images) { const n = NOTE[im.name]; im.note = n ? n[0] : "ok"; im.noteText = n ? n[1] : "อยู่ในเกมแล้ว"; }

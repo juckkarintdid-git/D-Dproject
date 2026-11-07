@@ -423,6 +423,45 @@ body.ingame main { max-width: none; padding: 0 }
 .town .place .nm { font-family: var(--f-display); font-size: 1.25rem }
 .shop table { width: 100%; border-collapse: collapse; font-size: .88rem }
 .shop td { padding: 5px 6px; border-top: 1px solid var(--line); vertical-align: middle }
+/* home (เข้าเล่น): welcome art on top, hero card + rooms below */
+.home { display: flex; flex-direction: column; gap: 20px }
+.home-hero { position: relative; border-radius: 14px; overflow: hidden; min-height: clamp(260px, 42vw, 440px); display: flex; align-items: flex-end;
+  background: #1a130c url(assets/welcome.webp) center / cover no-repeat; background-image: linear-gradient(180deg, rgba(10,7,4,0) 30%, rgba(10,7,4,.88) 100%), url(assets/welcome.webp), url(assets/map-world.webp) }
+.home-hero-in { padding: clamp(18px, 4vw, 40px); color: #f3e8cf; display: flex; flex-direction: column; gap: 6px; max-width: 720px }
+.home-hero-in .eyebrow { color: #e9b44c }
+.home-hero h1 { font: 400 clamp(2.2rem, 6vw, 4rem)/1 var(--f-display); color: #fff6df; text-shadow: 0 3px 18px #000 }
+.home-th { font: 500 1.05rem var(--f-thai-display); color: #f0d9a8 }
+.home-hero p { margin: 4px 0 10px; max-width: 60ch; text-shadow: 0 1px 6px #000 }
+.btn.big { font-size: 1.05rem; padding: 12px 22px; border-radius: 10px }
+.btn.ghost-light { background: rgba(0,0,0,.35); color: #fff6df; border-color: rgba(255,240,210,.45) }
+.home-grid { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 20px; align-items: start }
+.home-grid > * { min-width: 0 }
+.home-me { display: flex; flex-direction: column; gap: 10px }
+.home-hero-card .portrait.big { width: 84px; height: 84px }
+.home-pick { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow: auto }
+.room-list { display: flex; flex-direction: column; gap: 10px }
+.room { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px }
+.room h3 { overflow-wrap: anywhere }
+.room-faces { display: flex }
+.room-faces .portrait { width: 40px; height: 40px; font-size: .8rem; border: 2px solid var(--surface); margin-left: -10px }
+.room-faces .portrait:first-child { margin-left: 0 }
+.crumb { margin-bottom: 10px }
+/* info (ข้อมูล) */
+.info { display: flex; flex-direction: column; gap: 14px }
+.info-q { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: min(100%, 320px) }
+.info-nav { display: flex; gap: 6px; flex-wrap: wrap }
+.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px }
+.info-grid.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) }
+.info-card { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
+.info-card ol, .info-card ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px }
+.info-card p { margin: 0 }
+.info-h { margin: 18px 0 8px }
+.info .tbl { overflow-x: auto }
+.info select { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+.spell-list { display: flex; flex-direction: column; gap: 6px }
+.spell-row summary { cursor: pointer }
+.spell-row p { margin: 6px 0 0 }
+@media (max-width: 760px) { .home-grid { grid-template-columns: 1fr } .room { grid-template-columns: 1fr auto } .room-faces { display: none } }
 .lobby input[type=text] { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); min-width: 0 }
 .camp .portrait { font-size: 1.8rem }
 .fld input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
@@ -2119,8 +2158,14 @@ const STEPS = [
   { id: "equipment", th: "อุปกรณ์" }, { id: "identity", th: "ชื่อและตัวตน" },
 ];
 
-const S = { view: "shelf", cards: [], store: "loading", draft: null, step: 0, sheet: null, banner: null,
+const S = { view: "play", mainCard: lsGet("dnd-main-card"), cards: [], store: "loading", draft: null, step: 0, sheet: null, banner: null,
   openSpell: null, spellLv: "all", confirmDel: false, exportText: null, xpEdit: false, importErrs: null };
+
+// per-viewer conveniences (which hero I play, last room); safe when storage is blocked
+function lsGet(k) { try { return localStorage.getItem(k) || null; } catch (e) { return null; } }
+function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
+function setMainCard(id) { S.mainCard = id; lsSet("dnd-main-card", id); }
+function mainCard() { const c = S.cards.find((x) => x.id === S.mainCard) || S.cards.find((x) => !validate(x, D).length); return c && !validate(c, D).length ? c : null; }
 
 // ---------- tiny DOM helper ----------
 function h(tag, attrs, ...kids) {
@@ -2216,17 +2261,19 @@ function editCard(card) {
   S.banner = errs.length && S.importErrs ? h("div", null, h("b", null, "การ์ดจาก AI ยังมีจุดที่ต้องแก้ "), "ดูขั้นที่ขึ้นสีแดงด้านซ้าย แก้แล้วกดเซฟการ์ด") : null;
   S.importErrs = null; go("build");
 }
-async function adoptPremade(p) {
+async function adoptPremade(p, stay) {
   const c = clone(p); delete c.premade;
   c.id = newCard().id; c.state.hp = null;
   const saved = await saveCard(c);
-  toast("เพิ่ม " + c.name + " เข้าการ์ดของคุณแล้ว"); openSheet(saved);
+  toast("เพิ่ม " + c.name + " เข้าการ์ดของคุณแล้ว");
+  if (!S.mainCard || stay) setMainCard(saved.id);
+  if (stay) render(); else openSheet(saved);
 }
 
 function renderTabs() {
   const t = document.getElementById("tabs"); t.replaceChildren();
-  const tab = (id, label, dis) => h("button", { class: "tab", "aria-current": S.view === id ? "true" : "false", disabled: dis, onclick: () => go(id) }, label);
-  t.append(tab("shelf", "การ์ดตัวละคร"), tab("build", S.draft ? "หน้าสร้าง/แก้ไข" : "สร้างตัวละคร", false), tab("sheet", "ชีตตัวละคร", !S.sheet), tab("play", "⚔ เล่น", false));
+  const tab = (id, label, on) => h("button", { class: "tab", "aria-current": on ? "true" : "false", onclick: () => go(id) }, label);
+  t.append(tab("play", "⚔ เข้าเล่น", S.view === "play"), tab("shelf", "ตัวละคร", ["shelf", "build", "sheet"].includes(S.view)), tab("info", "ข้อมูล", S.view === "info"));
 }
 function render() {
   renderTabs();
@@ -2235,7 +2282,8 @@ function render() {
   document.body.classList.toggle("tv", S.view === "play" && !!P.tv);
   document.body.classList.toggle("playing", S.view === "play");
   document.body.classList.toggle("ingame", S.view === "play" && !!P.cid);
-  const v = S.view === "play" ? viewPlay() : S.view === "build" ? viewBuild() : S.view === "sheet" && S.sheet ? viewSheet(S.sheet) : viewShelf();
+  let v = S.view === "play" ? viewPlay() : S.view === "info" ? viewInfo() : S.view === "build" ? viewBuild() : S.view === "sheet" && S.sheet ? viewSheet(S.sheet) : viewShelf();
+  if (S.view === "build" || (S.view === "sheet" && S.sheet)) v = h("div", null, h("button", { class: "btn ghost small crumb", onclick: () => go("shelf") }, "← ตัวละครทั้งหมด"), v);
   app.replaceChildren(v);
 }
 
@@ -2259,13 +2307,14 @@ function cardTile(card, premade) {
         ? [h("button", { class: "btn primary", onclick: () => adoptPremade(card) }, "ใช้ตัวนี้"),
            h("button", { class: "btn", onclick: () => openSheet({ ...card, premade: true }) }, "ดูชีต")]
         : [h("button", { class: "btn primary", onclick: () => openSheet(card) }, "เปิดชีต"),
-           h("button", { class: "btn", onclick: () => editCard(card) }, "แก้ไข")]));
+           h("button", { class: "btn", onclick: () => editCard(card) }, "แก้ไข"),
+           !errs.length && (S.mainCard === card.id ? h("span", { class: "tag ok" }, "★ ตัวที่ใช้เล่น") : h("button", { class: "btn ghost", onclick: () => { setMainCard(card.id); toast("ใช้ " + card.name + " เล่นแล้ว"); render(); } }, "ใช้เล่นตัวนี้"))]));
 }
 function viewShelf() {
   const mine = S.cards;
   return h("div", null,
     h("div", { class: "shelf-head" },
-      h("div", null, h("div", { class: "eyebrow" }, "การ์ดของฉัน"), h("h2", null, "เลือกการ์ดแล้วเข้าเล่นได้เลย")),
+      h("div", null, h("div", { class: "eyebrow" }, "ตัวละครของฉัน"), h("h2", null, "สร้าง แก้ไข และเลือกตัวที่จะใช้เล่น")),
       h("div", { class: "row" },
         h("button", { class: "btn primary", onclick: startNew }, "+ สร้างตัวละครใหม่"),
         h("button", { class: "btn", onclick: () => document.getElementById("fileIn").click() }, "โหลดการ์ดจากไฟล์"),
@@ -2923,6 +2972,124 @@ async function downloadCard(card) {
 }
 
 
+// ---------- ข้อมูล (rules & how-to reference): how to play, abilities/skills, conditions, classes, origins, spells, gear ----------
+const INFO_SECTIONS = [["how", "วิธีเล่น"], ["rules", "กติกาพื้นฐาน"], ["skills", "ความสามารถและทักษะ"], ["conds", "สภาพผิดปกติ"], ["classes", "คลาส"], ["origins", "เผ่าพันธุ์และภูมิหลัง"], ["spells", "เวท"], ["gear", "อาวุธ เกราะ ของใช้"]];
+const HOW_TO = [
+  ["เตรียมตัว", ["ไปที่หน้า “ตัวละคร” แล้วสร้างตัวละครเอง หรือกด “ใช้ตัวนี้” ที่ตัวสำเร็จรูป", "กลับมาหน้า “เข้าเล่น” แล้วเลือกตัวที่จะใช้เล่น", "สร้างห้อง หรือเข้าห้องที่เพื่อนสร้างไว้ เพื่อนที่เปิดลิงก์เดียวกันจะเห็นห้องเดียวกัน"]],
+  ["ในหมู่บ้าน", ["แตะอาคารบนรูปหมู่บ้านเพื่อเข้าไปคุยกับ NPC: โรงเตี๊ยม (พักผ่อน ฟังข่าว) วิหาร (รักษา ชุบชีวิต) ตลาด (ซื้อขายของ) กระดานประกาศ (รับภารกิจ)", "ที่ตลาดกด “ต่อราคากับ Bram” ได้ ถ้าทอยผ่านจะได้ส่วนลดจนกว่าจะออกจากหมู่บ้าน", "กด “ชวนทีมไปที่นี่” ที่กระดานประกาศ เพื่อนทุกคนกดพร้อมแล้วทีมจะออกเดินทาง"]],
+  ["สำรวจดันเจียน", ["ผลัดกันเดินคนละ 30 ฟุต (6 ช่อง) ต่อตา แตะช่องที่อยากไป", "โหมด “จับกลุ่ม”: ทั้งทีมเดินไปด้วยกัน ผลัดกันเป็นคนนำเลือกเส้นทาง", "แตะ ✦ เพื่อหาเบาะแส แตะหีบเพื่อเปิด เดินเข้าใกล้ศัตรูจะเริ่มการต่อสู้"]],
+  ["ต่อสู้", ["ทุกคนทอย Initiative เรียงลำดับ ถึงตาใครคนนั้นเล่น", "ในตาของคุณ: เดินได้ตามความเร็ว + 1 Action (โจมตี เวท หลบ วิ่ง ฯลฯ) + 1 Bonus Action ถ้ามีท่าที่ใช้ได้", "แถบท่าด้านล่างกดเลขคีย์ 1–6 ได้ กด Enter เพื่อจบตา Esc เพื่อยกเลิก", "“อื่นๆ → 💡 ท่าพิเศษ” พิมพ์อะไรก็ได้ที่อยากทำ เช่น เตะโต๊ะใส่ศัตรู DM (Claude) จะตัดสินว่าต้องทอยอะไรและเกิดอะไรขึ้น", "ศัตรูธรรมดาที่เสียขวัญอาจยอมแพ้หรือหนี บอสสู้จนตัวตาย"]],
+  ["คุยกับ DM", ["พิมพ์ในช่องด้านล่างจอว่าจะทำอะไร หรือกดตัวเลือกที่ DM เสนอ", "DM อาจขอให้ทอยเช็กทักษะ ระบบทอยให้และโชว์ลูกเต๋าให้ทุกคนเห็น", "กลับมาเล่นหลังหายไปนาน DM จะสรุป “ครั้งที่แล้ว…” ให้ หรือกด “📖 สรุปเรื่องย่อ” ในแผงเรื่องเล่า"]],
+  ["ตาย พัก และเลเวล", ["HP เหลือ 0 จะหมดสติและทอย Death Save ทุกตา สำเร็จ 3 ครั้งรอด พลาด 3 ครั้งตาย", "ตัวละครที่ตายไปชุบชีวิตที่วิหารได้ (เสียเงิน)", "พักสั้นใช้ Hit Dice ฟื้น HP พักยาวที่โรงเตี๊ยมฟื้นทุกอย่าง", "ได้ EXP จากการต่อสู้และภารกิจ ครบแล้วเลเวลอัปในหน้าชีต (สูงสุด Lv 5)"]],
+];
+const RULES = [
+  ["d20 Test", "ทุกอย่างที่ไม่แน่นอนทอย d20 + โบนัส ถ้าได้เท่าหรือมากกว่าเป้า (AC หรือ DC) ถือว่าสำเร็จ"],
+  ["ได้เปรียบ / เสียเปรียบ", "ได้เปรียบทอย d20 สองลูกเอาค่าสูง เสียเปรียบเอาค่าต่ำ ถ้ามีทั้งสองอย่างหักล้างกัน DM อาจให้ตามสถานการณ์ เช่น ยืนที่สูง หรือศัตรูมองไม่เห็น"],
+  ["AC", "Armor Class ค่าป้องกัน ทอยโจมตีต้องได้เท่าหรือมากกว่า AC ถึงจะโดน"],
+  ["DC", "Difficulty Class ความยาก: 10 ง่าย, 15 ปานกลาง, 20 ยาก"],
+  ["Proficiency Bonus (PB)", "โบนัสความชำนาญ +2 ที่ Lv 1–4 และ +3 ที่ Lv 5 บวกเมื่อใช้ทักษะ อาวุธ หรือเซฟที่ถนัด"],
+  ["คริติคอล", "ทอยโจมตีได้ 20 โดนแน่และทอยลูกเต๋าดาเมจเพิ่มเป็นสองเท่า ทอยได้ 1 พลาดแน่"],
+  ["Saving Throw", "ทอยเซฟเพื่อต้านเวทหรือผลร้าย เช่น DEX เซฟหลบลูกไฟ CON เซฟต้านพิษ"],
+  ["Action", "โจมตี ร่ายเวท Dash (วิ่งได้อีกเท่าตัว) Disengage (ถอยไม่โดนตีสวน) Dodge (ศัตรูตีเสียเปรียบ) Help (ให้เพื่อนได้เปรียบ) ใช้สิ่งของ"],
+  ["Bonus Action / Reaction", "Bonus Action ใช้ได้เมื่อมีท่าที่ระบุว่าเป็น Bonus Reaction ใช้ได้ครั้งเดียวต่อรอบ เช่น ตีสวนศัตรูที่เดินหนีออกจากระยะ (Opportunity Attack)"],
+  ["Concentration", "เวทบางอย่างต้องตั้งสมาธิ ร่ายได้ทีละอย่าง ถ้าโดนตีต้องทอย CON เซฟ (DC 10 หรือครึ่งดาเมจ) ไม่งั้นเวทหาย"],
+  ["ช่องเวท (Spell Slot)", "เวทเลเวล 1 ขึ้นไปใช้ช่องเวท พักยาวคืนหมด Cantrip ใช้ได้ไม่จำกัด"],
+  ["Cover", "ยืนหลังสิ่งกีดขวางครึ่งตัว AC +2 สามในสี่ AC +5"],
+];
+const CONDS_TH = [
+  ["Blinded", "มองไม่เห็น", "เช็กที่ต้องใช้สายตาพลาดอัตโนมัติ ตีเสียเปรียบ คนอื่นตีใส่ได้เปรียบ"],
+  ["Charmed", "ถูกมนต์เสน่ห์", "ทำร้ายผู้ร่ายไม่ได้ ผู้ร่ายคุยด้วยได้เปรียบ"],
+  ["Deafened", "หูหนวก", "ไม่ได้ยิน เช็กที่ต้องใช้การฟังพลาดอัตโนมัติ"],
+  ["Exhaustion", "อ่อนล้า", "ทุกระดับ d20 −2 และความเร็ว −5 ฟุต ระดับ 6 ตาย พักยาวลด 1 ระดับ"],
+  ["Frightened", "หวาดกลัว", "ตีและเช็กเสียเปรียบเมื่อมองเห็นต้นเหตุ เดินเข้าใกล้ต้นเหตุไม่ได้"],
+  ["Grappled", "ถูกจับยึด", "ความเร็วเป็น 0 ตีตัวอื่นที่ไม่ใช่คนจับเสียเปรียบ"],
+  ["Incapacitated", "ไร้ความสามารถ", "ใช้ Action, Bonus Action, Reaction ไม่ได้ เสียสมาธิ"],
+  ["Invisible", "ล่องหน", "คนอื่นตีใส่เสียเปรียบ ตัวเองตีได้เปรียบ"],
+  ["Paralyzed", "เป็นอัมพาต", "ไร้ความสามารถ ขยับไม่ได้ เซฟ STR/DEX พลาดอัตโนมัติ โดนตีได้เปรียบ ตีในระยะ 5 ฟุตเป็นคริติคอล"],
+  ["Petrified", "กลายเป็นหิน", "ไร้ความสามารถ ต้านทานดาเมจทุกชนิด เซฟ STR/DEX พลาดอัตโนมัติ"],
+  ["Poisoned", "ติดพิษ", "ตีและเช็กเสียเปรียบ"],
+  ["Prone", "ล้มลง", "คลานได้ ลุกใช้ระยะเดินครึ่งหนึ่ง ตีเสียเปรียบ คนติดตัวตีได้เปรียบ คนไกลตีเสียเปรียบ"],
+  ["Restrained", "ถูกพันธนาการ", "ความเร็ว 0 ตีเสียเปรียบ โดนตีได้เปรียบ เซฟ DEX เสียเปรียบ"],
+  ["Stunned", "มึนงง", "ไร้ความสามารถ เซฟ STR/DEX พลาดอัตโนมัติ โดนตีได้เปรียบ"],
+  ["Unconscious", "หมดสติ", "ล้มลง ไร้ความสามารถ เซฟ STR/DEX พลาดอัตโนมัติ โดนตีได้เปรียบ ตีในระยะ 5 ฟุตเป็นคริติคอล"],
+];
+const ABILITY_USE = { STR: "ตีระยะประชิด ยกของ ปีน ผลัก", DEX: "ยิงธนู อาวุธ Finesse หลบ AC จากเกราะเบา", CON: "HP และการตั้งสมาธิ", INT: "เวทของ Wizard ความรู้ สืบสวน", WIS: "เวทของ Cleric/Ranger การรับรู้ สัญชาตญาณ", CHA: "พูดโน้มน้าว หลอก ขู่ แสดง" };
+
+function viewInfo() {
+  const sec = S.infoSec || "how";
+  const q = (S.infoQ || "").trim().toLowerCase();
+  const search = h("input", { type: "search", class: "info-q", placeholder: "ค้นหา เช่น Prone, Fireball, Stealth", value: S.infoQ || "", "aria-label": "ค้นหาข้อมูล",
+    oninput: (e) => { S.infoQ = e.target.value; filterInfo(); } });
+  const nav = h("nav", { class: "info-nav", "aria-label": "หัวข้อ" }, INFO_SECTIONS.map(([k, l]) => h("button", { class: "chip", "aria-pressed": sec === k ? "true" : "false", onclick: () => { S.infoSec = k; render(); } }, l)));
+  const body = h("div", { class: "info-body", id: "info-body" }, infoSection(sec));
+  const page = h("div", { class: "info" },
+    h("div", { class: "shelf-head" }, h("div", null, h("div", { class: "eyebrow" }, "ข้อมูลและวิธีเล่น"), h("h2", null, "ทุกอย่างที่ต้องรู้ก่อนลงดันเจียน")), search),
+    nav, body);
+  if (q) setTimeout(filterInfo, 0);
+  return page;
+}
+// search hides rows that don't contain the query (any element marked data-q)
+function filterInfo() {
+  const q = (S.infoQ || "").trim().toLowerCase(); const box = document.getElementById("info-body"); if (!box) return;
+  let shown = 0;
+  box.querySelectorAll("[data-q]").forEach((el) => { const ok = !q || el.textContent.toLowerCase().includes(q); el.hidden = !ok; if (ok) shown++; });
+  let none = box.querySelector(".info-none"); if (!none) { none = h("p", { class: "muted info-none" }, "ไม่พบในหัวข้อนี้ ลองเลือกหัวข้ออื่นด้านบน"); box.append(none); }
+  none.hidden = shown > 0;
+}
+const infoTable = (head, rows) => h("div", { class: "tbl" }, h("table", null, h("thead", null, h("tr", null, head.map((x) => h("th", null, x)))), h("tbody", null, rows)));
+function infoSection(sec) {
+  const O = DATA.origins, E = DATA.equipment;
+  if (sec === "how") return h("div", { class: "info-grid" }, HOW_TO.map(([t, list]) => h("section", { class: "panel info-card", "data-q": "" }, h("h3", null, t), h("ol", null, list.map((x) => h("li", null, x))))));
+  if (sec === "rules") return h("div", { class: "info-grid" }, RULES.map(([t, d]) => h("section", { class: "panel info-card", "data-q": "" }, h("h3", null, t), h("p", null, d))));
+  if (sec === "skills") return h("div", null,
+    h("h3", { class: "info-h" }, "ค่าความสามารถ 6 อย่าง"),
+    infoTable(["ค่า", "ชื่อ", "ใช้กับ"], Object.entries(O.abilities).map(([k, a]) => h("tr", { "data-q": "" }, h("td", { class: "num" }, k), h("td", null, a.name + " · " + a.th), h("td", null, ABILITY_USE[k] || "")))),
+    h("p", { class: "small muted" }, "โบนัส (modifier) = (ค่า − 10) ÷ 2 ปัดลง เช่น 16 → +3, 8 → −1"),
+    h("h3", { class: "info-h" }, "ทักษะ 18 อย่าง"),
+    infoTable(["ทักษะ", "ใช้ค่า", "ความหมาย"], Object.entries(O.skills).map(([k, s]) => h("tr", { "data-q": "" }, h("td", null, k), h("td", { class: "num" }, s.ab), h("td", null, s.th)))),
+    h("p", { class: "small muted" }, "โบนัสทักษะ = โบนัสค่าความสามารถ + PB (ถ้าถนัดทักษะนั้น)"));
+  if (sec === "conds") return infoTable(["สภาพ", "ผล"], CONDS_TH.map(([en, th, d]) => h("tr", { "data-q": "" }, h("td", null, h("b", null, en), h("div", { class: "small muted" }, th)), h("td", null, d))));
+  if (sec === "classes") return h("div", { class: "info-grid wide" }, DATA.classes.classes.map((c) => h("section", { class: "panel info-card", "data-q": "" },
+    h("h3", null, c.name + " · " + c.th), h("p", { class: "small" }, c.role),
+    h("div", { class: "row small" }, h("span", { class: "tag num" }, "Hit Die d" + c.hitDie), h("span", { class: "tag" }, "ค่าหลัก " + c.primary.join("/")), h("span", { class: "tag" }, "เซฟ " + c.saves.join("/"))),
+    h("details", null, h("summary", null, "ความสามารถ Lv 1–5"), h("ul", { class: "small" }, c.features.filter((f) => f.lv <= 5).map((f) => h("li", null, h("b", null, "Lv " + f.lv + " " + f.name), f.th ? " · " + f.th : "")))),
+    (c.subclasses || []).length > 0 && h("details", null, h("summary", null, "สายย่อย (Lv 3)"), h("ul", { class: "small" }, c.subclasses.map((s) => h("li", null, h("b", null, s.name), " · " + (s.th || ""))))))));
+  if (sec === "origins") return h("div", null,
+    h("h3", { class: "info-h" }, "เผ่าพันธุ์"),
+    h("div", { class: "info-grid wide" }, O.species.map((s) => h("section", { class: "panel info-card", "data-q": "" }, h("h3", null, s.name), h("div", { class: "small muted" }, s.th + " · ความเร็ว " + s.speed + " ft" + (s.darkvision ? " · มองในที่มืด " + s.darkvision + " ft" : "")),
+      h("ul", { class: "small" }, (s.traits || []).map((t) => h("li", null, h("b", null, t.name), t.th ? " · " + t.th : "")))))),
+    h("h3", { class: "info-h" }, "ภูมิหลัง"),
+    infoTable(["ภูมิหลัง", "เพิ่มค่า", "ทักษะ", "Feat"], O.backgrounds.map((b) => h("tr", { "data-q": "" }, h("td", null, b.name, h("div", { class: "small muted" }, b.th)), h("td", { class: "num" }, b.abilities.join(" ")), h("td", null, b.skills.join(", ")), h("td", null, ((O.feats || []).find((f) => f.id === b.feat) || { name: b.feat }).name)))));
+  if (sec === "spells") {
+    const cls = S.infoCls || ""; const lvl = S.infoLv == null ? "" : S.infoLv;
+    const list = DATA.spells.filter((s) => (!cls || s.classes.includes(cls)) && (lvl === "" || s.level === +lvl)).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+    return h("div", null,
+      h("div", { class: "row", style: "margin-bottom:10px" },
+        h("select", { "aria-label": "คลาส", onchange: (e) => { S.infoCls = e.target.value; render(); } }, h("option", { value: "" }, "ทุกคลาส"), ["Cleric", "Ranger", "Wizard"].map((c) => h("option", { value: c, selected: cls === c }, c))),
+        h("select", { "aria-label": "เลเวลเวท", onchange: (e) => { S.infoLv = e.target.value === "" ? null : e.target.value; render(); } }, h("option", { value: "" }, "ทุกเลเวล"), [0, 1, 2, 3].map((l) => h("option", { value: l, selected: String(lvl) === String(l) }, l ? "Lv " + l : "Cantrip"))),
+        h("span", { class: "small muted" }, list.length + " เวท")),
+      h("div", { class: "spell-list" }, list.map((s) => h("details", { class: "panel spell-row", "data-q": "" },
+        h("summary", null, h("b", null, s.name), h("span", { class: "small muted" }, " · " + (s.level ? "Lv " + s.level : "Cantrip") + " · " + s.school + " · " + s.classes.join("/") + (s.concentration ? " · สมาธิ" : ""))),
+        h("div", { class: "small num" }, s.time + " · ระยะ " + s.range + " · " + s.duration + " · " + s.components),
+        (s.text || []).map((p) => h("p", { class: "small" }, p))))));
+  }
+  if (sec === "gear") {
+    const money = (c) => (c >= 1 ? c + " GP" : Math.round(c * 10) >= 1 ? Math.round(c * 10) + " SP" : Math.round(c * 100) + " CP");
+    return h("div", null,
+      h("h3", { class: "info-h" }, "อาวุธ"),
+      infoTable(["อาวุธ", "ดาเมจ", "คุณสมบัติ", "Mastery", "ราคา"], E.weapons.map((w) => h("tr", { "data-q": "" }, h("td", null, w.name, h("div", { class: "small muted" }, w.cat + " " + w.type)), h("td", { class: "num" }, w.dmg + " " + w.dtype), h("td", { class: "small" }, (w.props || []).join(", ")), h("td", null, w.mastery || ""), h("td", { class: "num" }, money(w.cost))))),
+      h("h3", { class: "info-h" }, "คุณสมบัติอาวุธ"),
+      infoTable(["คุณสมบัติ", "ผล"], Object.entries(E.weaponProperties).map(([k, v]) => h("tr", { "data-q": "" }, h("td", null, k), h("td", null, v)))),
+      h("h3", { class: "info-h" }, "Weapon Mastery"),
+      infoTable(["Mastery", "ผล"], Object.entries(E.masteries).map(([k, v]) => h("tr", { "data-q": "" }, h("td", null, k), h("td", null, v.th || v.en)))),
+      h("h3", { class: "info-h" }, "เกราะ"),
+      infoTable(["เกราะ", "AC", "ราคา"], E.armor.map((a) => h("tr", { "data-q": "" }, h("td", null, a.name, h("div", { class: "small muted" }, a.cat)), h("td", { class: "num" }, a.cat === "shield" ? "+2" : a.ac + (a.dex ? (a.cat === "medium" ? " + DEX (สูงสุด 2)" : " + DEX") : "") + (a.stealthDis ? " · Stealth เสียเปรียบ" : "")), h("td", { class: "num" }, money(a.cost))))),
+      h("h3", { class: "info-h" }, "ของใช้"),
+      infoTable(["ของ", "ราคา"], E.gear.map((g) => h("tr", { "data-q": "" }, h("td", null, g.name), h("td", { class: "num" }, money(g.cost))))));
+  }
+  return h("div");
+}
+
 // DnD for friend · play: campaigns, world, town, exploration, combat, DM, online sync (phases 2-5)
 // Depends on app.js (h, S, D, IX, toast, render, go, saveCard...) and the engines (rules, combat, ai).
 const CAMP = CAMPAIGN;
@@ -3002,11 +3169,11 @@ async function createCampaign(name) {
 }
 function openCampaign(cid) {
   closeCampaign();
-  P.cid = cid; P.party = {}; P.chat = []; P.meta = null; P.scene = null; P.maps = {};
+  P.cid = cid; P.party = {}; P.partyLoaded = false; P.chat = []; P.meta = null; P.scene = null; P.maps = {}; lsSet("dnd-last-room", cid);
   const base = "campaigns/" + cid;
   P.unsub.push(dbx().doc(base).onSnapshot((s) => { P.meta = s.exists ? s.data() : null; onSync(); }));
   P.unsub.push(dbx().doc(base + "/scene/main").onSnapshot((s) => { P.scene = s.exists ? s.data() : null; onSync("scene"); }));
-  P.unsub.push(dbx().collection(base + "/party").onSnapshot((s) => { P.party = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); onSync("party"); }));
+  P.unsub.push(dbx().collection(base + "/party").onSnapshot((s) => { P.party = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); P.partyLoaded = true; onSync("party"); }));
   P.unsub.push(dbx().collection(base + "/chat").orderBy("ts", "desc").limit(60).onSnapshot((s) => { P.chat = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.ts - b.ts); onSync("chat"); }));
   P.unsub.push(dbx().collection(base + "/maps").onSnapshot((s) => { P.maps = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); bgCache.clear(); onSync(); }));
   S.view = "play"; render();
@@ -3383,6 +3550,12 @@ async function maybeRecap(force) {
   } catch (e) { if (force) toast("สรุปเรื่องไม่สำเร็จ ลองใหม่อีกครั้ง"); } finally { P.recapBusy = false; }
 }
 
+// keeps the DM prompt short: older events live in one rolling summary instead of the full chat
+async function updateStory(sample) {
+  const hist = P.chat.slice(-30).map((m) => (m.kind === "dm" ? "DM: " : m.kind === "system" ? "[ระบบ] " : (m.who || "ผู้เล่น") + ": ") + m.text).join("\n");
+  const ans = await sample.json("สรุปเรื่องราวของแคมเปญ D&D นี้ให้ DM จำไว้ใช้ต่อ ภาษาไทย ไม่เกิน 8 บรรทัด: เหตุการณ์สำคัญ NPC ที่เจอและท่าทีต่อทีม ของสำคัญ ภารกิจที่ค้าง\nสรุปเดิม: " + ((P.meta && P.meta.story) || "-") + "\nบันทึกล่าสุด:\n" + hist + "\nตอบ JSON: {\"story\":\"...\"}", { modelTier: "quick" });
+  if (ans && ans.story) await writeMeta({ story: String(ans.story).slice(0, 1500) });
+}
 function askRecap() {
   if (isHost()) return maybeRecap(true);
   const me = myMember(); say("system", "📖 " + (me ? me.card.name : "ผู้เล่น") + " ขอสรุปเรื่องย่อ", { recapReq: true }).catch(() => {});
@@ -3433,6 +3606,7 @@ function dmContext() {
     const enc = Object.entries(def.encounters || {}).map(([L, e]) => L + "=" + e.th + (P.meta.cleared && P.meta.cleared[clearedKey(loc, L)] ? " (ชนะแล้ว)" : "")).join(", ");
     lines.push("ตอนนี้อยู่: " + def.name + " (" + def.th + ", เลเวลแนะนำ " + def.level + ")\nบรรยากาศ: " + def.intro + "\nความลับ DM: " + (def.dm || "") + "\nการต่อสู้ในแผนที่: " + enc);
   }
+  if (P.meta.story) lines.push("เรื่องที่ผ่านมา (สรุป): " + P.meta.story);
   lines.push("ดันเจี้ยนที่จบแล้ว: " + (Object.keys(P.meta.done || {}).join(", ") || "ยังไม่มี"));
   lines.push("สถานที่บนแผนที่โลก: " + CAMP.world.locations.map((l) => l.id + "=" + l.name + " (Lv " + l.level + ")").join(", "));
   lines.push("ทีม:\n" + partySummary());
@@ -3464,7 +3638,7 @@ async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const prompt = DM_RULES + "\n\n=== สถานการณ์ ===\n" + dmContext() + "\n\n=== บทสนทนาล่าสุด ===\n" + history + "\n\n=== ตอนนี้ ===\n" + (now || "ผู้เล่นรอให้ DM เล่าต่อ") + (depth ? "\n(นี่คือรอบเล่าผลทอย ห้ามขอ checks เพิ่ม)" : "");
   const ans = await sample.json(prompt, { modelTier: "default" });
   const text = String((ans && ans.say) || "").trim();
-  if (text) await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map(String) : [] });
+  if (text) { await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map(String) : [] }); P.dmLines = (P.dmLines || 0) + 1; if (P.dmLines % 10 === 0) updateStory(sample).catch(() => {}); }
   for (const a of [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3)) await dmAction(a);
   if (!depth && ans && Array.isArray(ans.checks) && ans.checks.length) {
     const rolls = [];
@@ -3511,6 +3685,16 @@ async function dmAction(a) {
   } catch (e) { /* ignore a malformed action */ }
 }
 
+// small table of road happenings: the code picks, the DM tells it (and may ask for a check)
+const TRAVEL_EVENTS = [
+  "พ่อค้าเร่ถูกล้อเกวียนติดหล่ม ขอความช่วยเหลือ (ช่วยแล้วอาจได้ของเล็กน้อย)",
+  "เจอรอยเท้าหมาป่าสด ๆ และซากกวาง ให้ทีมเช็ก Survival หรือ Perception",
+  "ฝนตกหนักจนทางลื่น ให้ทีมเลือกพักหลบฝนหรือฝ่าไป",
+  "คนแปลกหน้าคลุมผ้าเทาเฝ้ามองทีมจากเนินแล้วหายไป (สายของลัทธิ Ashen Choir)",
+  "เจอศาลเจ้าเล็กริมทางของเทพีรุ่งอรุณ ใครสวดภาวนาได้กำลังใจ",
+  "ป้ายบอกทางถูกหมุนสลับ ให้เช็ก Survival ถ้าพลาดเสียเวลาเล็กน้อย",
+];
+
 // ---------- shared party actions ----------
 async function travelTo(loc, quiet) {
   const isTown = loc === CAMP.town.id;
@@ -3531,7 +3715,8 @@ async function travelTo(loc, quiet) {
   }
   P.arriving = false;
   const L = L0;
-  if (!quiet) requestDM({ event: "ทีมเดินทางมาถึง " + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
+  const ev = !quiet && !isTown && Math.random() < 1 / 3 ? TRAVEL_EVENTS[Math.floor(Math.random() * TRAVEL_EVENTS.length)] : null;
+  if (!quiet) requestDM({ event: (ev ? "ระหว่างทางเกิดเหตุการณ์ (ระบบสุ่มได้): " + ev + " · เล่าสั้น ๆ แล้ว " : "") + "ทีมเดินทางมาถึง " + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
 }
 async function restParty(kind, quiet) {
   for (const p of Object.values(P.party)) {
@@ -3669,24 +3854,72 @@ function viewPlay() {
   setTimeout(renderPlay, 0);
   return P.dom.root;
 }
+// ---------- home: welcome art, continue, my hero, rooms ----------
+const agoTh = (ts) => { const m = Math.round((Date.now() - (ts || 0)) / 60000); return m < 2 ? "เมื่อสักครู่" : m < 60 ? m + " นาทีที่แล้ว" : m < 1440 ? Math.round(m / 60) + " ชม.ที่แล้ว" : Math.round(m / 1440) + " วันที่แล้ว"; };
+// who is online in each room (party docs refresh "seen" every minute while someone plays)
+function watchRoomOnline(list) {
+  S.online = S.online || {}; S.onlineWatch = S.onlineWatch || {};
+  for (const c of list.slice(0, 8)) {
+    if (S.onlineWatch[c.id]) continue;
+    S.onlineWatch[c.id] = dbx().collection("campaigns/" + c.id + "/party").onSnapshot((snap) => {
+      const docs = snap.docs.map((d) => d.data());
+      const on = docs.filter((d) => Date.now() - (d.seen || 0) < 180000).map((d) => d.card && d.card.name).filter(Boolean);
+      const key = on.join("|") + "/" + docs.length;
+      if ((S.online[c.id] || {}).key === key) return;
+      S.online[c.id] = { key, on, n: docs.length, faces: docs.slice(0, 4).map((d) => d.card || {}) };
+      if (S.view === "play" && !P.cid) render();
+    }, () => {});
+  }
+}
 function viewLobby() {
   if (S.store === "loading") return h("div", { class: "empty" }, "กำลังเชื่อมต่อ…");
   watchCampaigns();
   const list = S.campaigns || [];
+  watchRoomOnline(list);
+  const last = list.find((c) => c.id === lsGet("dnd-last-room")) || list[0];
+  const hero = mainCard();
   const nameIn = h("input", { type: "text", id: "camp-name", maxlength: 50, placeholder: "ชื่อห้อง เช่น ปาร์ตี้วันเสาร์", value: "" });
-  return h("div", { class: "lobby" },
-    h("div", { class: "shelf-head" },
-      h("div", null, h("div", { class: "eyebrow" }, "แคมเปญ " + CAMP.name + " · " + CAMP.th), h("h2", null, "เลือกห้องเล่น หรือสร้างห้องใหม่")),
-      h("div", { class: "row" }, nameIn, h("button", { class: "btn primary", onclick: async () => { const id = await createCampaign(nameIn.value.trim()); openCampaign(id); } }, "+ สร้างห้อง"))),
-    h("p", { class: "small muted", style: "max-width:70ch;margin-top:0" }, NET.local
-      ? "ตอนนี้เล่นแบบออฟไลน์ในเบราว์เซอร์นี้ (ทุกตัวละครคุมได้จากเครื่องนี้) DM จะเล่าเรื่องได้เมื่อเปิดผ่านลิงก์ claude.ai และล็อกอิน"
-      : "เพื่อนที่เปิดลิงก์เดียวกันจะเห็นห้องเหล่านี้ เข้าห้อง เลือกการ์ดของตัวเอง แล้วเล่นด้วยกันได้ทันที คนสร้างห้องเป็น host (เครื่องที่ให้ DM และมอนสเตอร์คิด) ถ้า host ไม่อยู่ คนอื่นกด “เป็น host แทน” ได้"),
-    h("div", { class: "cards" }, list.length ? list.map((c) => h("article", { class: "ccard camp" },
-      h("div", { class: "portrait", "aria-hidden": "true" }, "⚔"),
-      h("div", { style: "min-width:0" }, h("h3", null, c.name), h("div", { class: "small muted" }, "สร้างเมื่อ " + new Date(c.createdAt || Date.now()).toLocaleDateString("th-TH")),
-        h("div", null, h("span", { class: "tag num" }, "จบดันเจี้ยน " + Object.keys(c.done || {}).length + "/5"), c.hostUid === myUid() && h("span", { class: "tag ok" }, "ห้องของฉัน"))),
-      h("div", { class: "acts" }, h("button", { class: "btn primary", onclick: () => openCampaign(c.id) }, "เข้าห้อง"))))
-      : h("div", { class: "empty" }, "ยังไม่มีห้อง ตั้งชื่อแล้วกด “สร้างห้อง” ได้เลย")));
+  const create = async () => { const id = await createCampaign(nameIn.value.trim()); openCampaign(id); };
+  const ready = S.cards.filter((c) => !validate(c, D).length);
+  const summary = String(CAMP.summary || "").split(/(?<=[.!?…])\s|\n/)[0];
+  return h("div", { class: "home" },
+    h("section", { class: "home-hero", "aria-label": "ยินดีต้อนรับ" },
+      h("div", { class: "home-hero-in" },
+        h("div", { class: "eyebrow" }, "ยินดีต้อนรับสู่"),
+        h("h1", null, CAMP.name),
+        h("div", { class: "home-th" }, CAMP.th),
+        h("p", null, summary),
+        h("div", { class: "row" },
+          last ? h("button", { class: "btn primary big", onclick: () => openCampaign(last.id) }, "▶ เล่นต่อ · " + last.name)
+               : h("button", { class: "btn primary big", onclick: create }, "▶ เริ่มเล่น (สร้างห้องแรก)"),
+          h("button", { class: "btn ghost-light", onclick: () => go("info") }, "วิธีเล่น")))),
+    h("div", { class: "home-grid" },
+      h("section", { class: "panel home-me", "aria-label": "ตัวที่จะใช้เล่น" },
+        h("div", { class: "eyebrow" }, "ตัวที่จะใช้เล่น"),
+        hero ? h("div", { class: "row home-hero-card" }, portraitEl(hero, true), h("div", { style: "min-width:0" }, h("h3", null, hero.name), h("div", { class: "small muted" }, classLine(hero)), h("span", { class: "tag num" }, "Lv " + hero.level)))
+             : h("p", { class: "muted" }, "ยังไม่ได้เลือกตัวละคร เลือกตัวสำเร็จรูปด้านล่าง หรือสร้างเองในหน้าตัวละคร"),
+        h("div", { class: "row" },
+          h("button", { class: "btn small", "aria-expanded": S.pickMain ? "true" : "false", onclick: () => { S.pickMain = !S.pickMain; render(); } }, hero ? "เปลี่ยนตัว" : "เลือกตัว"),
+          h("button", { class: "btn ghost small", onclick: () => go("shelf") }, "ไปหน้าตัวละคร")),
+        (S.pickMain || !hero) && h("div", { class: "home-pick" },
+          ready.map((c) => h("button", { class: "pick", "aria-pressed": hero && hero.id === c.id ? "true" : "false", onclick: () => { setMainCard(c.id); S.pickMain = false; render(); } },
+            h("div", { class: "row" }, portraitEl(c), h("div", { style: "min-width:0" }, h("b", null, c.name), h("div", { class: "small muted" }, classLine(c) + " · Lv " + c.level))))),
+          h("div", { class: "small muted", style: "margin-top:4px" }, "หรือหยิบตัวสำเร็จรูป"),
+          PREMADES.filter((p) => !S.cards.some((c) => c.name === p.name)).map((p) => h("button", { class: "pick", onclick: () => { S.pickMain = false; adoptPremade(p, true); } },
+            h("div", { class: "row" }, portraitEl(p), h("div", { style: "min-width:0" }, h("b", null, p.name), h("div", { class: "small muted" }, classLine(p)))))))),
+      h("section", { class: "home-rooms", "aria-label": "ห้องเล่น" },
+        h("div", { class: "shelf-head" }, h("div", null, h("div", { class: "eyebrow" }, "ห้องเล่น"), h("h2", null, "เข้าห้องเพื่อน หรือสร้างห้องใหม่")),
+          h("div", { class: "row" }, nameIn, h("button", { class: "btn primary", onclick: create }, "+ สร้างห้อง"))),
+        h("p", { class: "small muted", style: "margin:0 0 10px" }, NET.local ? "ตอนนี้เล่นแบบออฟไลน์ในเบราว์เซอร์นี้ (คุมทุกตัวจากเครื่องนี้) DM เล่าเรื่องได้เมื่อเปิดผ่านลิงก์ claude.ai" : "เพื่อนที่เปิดลิงก์เดียวกัน (สิทธิ์แก้ไขได้) จะเห็นห้องเหล่านี้ เข้าห้องแล้วจะเข้าทีมด้วยตัวที่เลือกไว้ทันที"),
+        list.length ? h("div", { class: "room-list" }, list.map((c) => { const o = (S.online || {})[c.id] || { on: [], n: 0, faces: [] };
+          return h("article", { class: "room" },
+            h("div", { class: "room-faces", "aria-hidden": "true" }, o.faces.length ? o.faces.map((f) => portraitEl(f)) : h("div", { class: "portrait" }, "⚔")),
+            h("div", { style: "min-width:0" }, h("h3", null, c.name),
+              h("div", { class: "small muted" }, "เล่นล่าสุด " + agoTh(c.updated || c.createdAt) + " · จบดันเจียน " + Object.keys(c.done || {}).length + "/5"),
+              h("div", null, o.on.length ? h("span", { class: "tag ok" }, "● ออนไลน์ " + o.on.length + " คน: " + o.on.join(", ")) : h("span", { class: "tag" }, "ในทีม " + o.n + " คน"),
+                c.hostUid === myUid() && h("span", { class: "tag" }, "ห้องของฉัน"))),
+            h("button", { class: "btn" + (last && last.id === c.id ? " primary" : ""), onclick: () => openCampaign(c.id) }, "เข้าห้อง")); }))
+        : h("div", { class: "empty" }, "ยังไม่มีห้อง ตั้งชื่อแล้วกด “สร้างห้อง” ได้เลย"))));
 }
 
 // ---------- icons (inline SVG, stroke follows the text color) ----------
@@ -3998,6 +4231,7 @@ function renderCaption() {
 function renderPanel() {
   let content = null;
   if (P.mapEdit) content = editorPanel();
+  else if (!myParty().length && !P.forceJoin && P.partyLoaded && P.autoJoin !== P.cid && mainCard() && !P.party[mainCard().id]) { P.autoJoin = P.cid; joinWith(mainCard()); content = h("div", { class: "panel ov-panel" }, "กำลังเข้าทีมด้วย " + mainCard().name + "…"); }
   else if (!myParty().length || P.forceJoin) content = joinPanel();
   const box = P.dom.panel; box.hidden = !content; box.classList.toggle("edit", !!P.mapEdit);
   fill(box, ...(content ? [content] : []));
@@ -4030,10 +4264,10 @@ function joinPanel() {
     : ready.length ? h("div", { class: "pick-grid" }, ready.map((c) => h("button", { class: "pick", disabled: inUse.has(c.id), onclick: () => joinWith(c) },
         h("div", { class: "row" }, portraitEl(c), h("div", { style: "min-width:0" }, h("b", null, c.name), h("div", { class: "small muted" }, classLine(c)), h("span", { class: "tag num" }, "Lv " + c.level))),
         inUse.has(c.id) && h("span", { class: "small muted" }, "อยู่ในทีมแล้ว"))))
-    : h("p", null, "ยังไม่มีการ์ดที่พร้อมเล่น ไปที่แท็บ “การ์ดตัวละคร” แล้วสร้างหรือกด “ใช้ตัวนี้” ที่ตัวสำเร็จรูปก่อน"),
+    : h("p", null, "ยังไม่มีการ์ดที่พร้อมเล่น ไปที่หน้า “ตัวละคร” แล้วสร้างหรือกด “ใช้ตัวนี้” ที่ตัวสำเร็จรูปก่อน"),
     NET.local && h("p", { class: "small muted" }, "โหมดออฟไลน์: เพิ่มได้หลายตัว แล้วสลับคุมจากแท็บทีม"),
     P.forceJoin && h("button", { class: "btn ghost", onclick: () => { P.forceJoin = false; renderPlay(); } }, "ปิด"),
-    h("button", { class: "btn", onclick: () => go("shelf") }, "ไปที่การ์ดตัวละคร"));
+    h("button", { class: "btn", onclick: () => go("shelf") }, "ไปหน้าตัวละคร"));
 }
 
 const fmtGp = (g) => (Math.round(g * 100) / 100) + " GP";
@@ -4808,7 +5042,7 @@ function watchFx() {
       await sleep(250);
     });
   }
-  if (cur && !st.over && (!prev || prev.cur !== cur.id)) fxQueue(() => banner(cur.side === "pc" && canControl(cur) ? "ตาของคุณ!" : "ตาของ " + shortName(cur.name), cur.side));
+  if (cur && !st.over && (!prev || prev.cur !== cur.id)) fxQueue(() => (P.scene && P.scene.mode === "combat" ? banner(cur.side === "pc" && canControl(cur) ? "ตาของคุณ!" : "ตาของ " + shortName(cur.name), cur.side) : null));
   P.fxCombat = { key, seq: st.seq, hp, cur: cur && cur.id };
 }
 

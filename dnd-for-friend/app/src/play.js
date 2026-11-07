@@ -77,11 +77,11 @@ async function createCampaign(name) {
 }
 function openCampaign(cid) {
   closeCampaign();
-  P.cid = cid; P.party = {}; P.chat = []; P.meta = null; P.scene = null; P.maps = {};
+  P.cid = cid; P.party = {}; P.partyLoaded = false; P.chat = []; P.meta = null; P.scene = null; P.maps = {}; lsSet("dnd-last-room", cid);
   const base = "campaigns/" + cid;
   P.unsub.push(dbx().doc(base).onSnapshot((s) => { P.meta = s.exists ? s.data() : null; onSync(); }));
   P.unsub.push(dbx().doc(base + "/scene/main").onSnapshot((s) => { P.scene = s.exists ? s.data() : null; onSync("scene"); }));
-  P.unsub.push(dbx().collection(base + "/party").onSnapshot((s) => { P.party = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); onSync("party"); }));
+  P.unsub.push(dbx().collection(base + "/party").onSnapshot((s) => { P.party = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); P.partyLoaded = true; onSync("party"); }));
   P.unsub.push(dbx().collection(base + "/chat").orderBy("ts", "desc").limit(60).onSnapshot((s) => { P.chat = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.ts - b.ts); onSync("chat"); }));
   P.unsub.push(dbx().collection(base + "/maps").onSnapshot((s) => { P.maps = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); bgCache.clear(); onSync(); }));
   S.view = "play"; render();
@@ -458,6 +458,12 @@ async function maybeRecap(force) {
   } catch (e) { if (force) toast("สรุปเรื่องไม่สำเร็จ ลองใหม่อีกครั้ง"); } finally { P.recapBusy = false; }
 }
 
+// keeps the DM prompt short: older events live in one rolling summary instead of the full chat
+async function updateStory(sample) {
+  const hist = P.chat.slice(-30).map((m) => (m.kind === "dm" ? "DM: " : m.kind === "system" ? "[ระบบ] " : (m.who || "ผู้เล่น") + ": ") + m.text).join("\n");
+  const ans = await sample.json("สรุปเรื่องราวของแคมเปญ D&D นี้ให้ DM จำไว้ใช้ต่อ ภาษาไทย ไม่เกิน 8 บรรทัด: เหตุการณ์สำคัญ NPC ที่เจอและท่าทีต่อทีม ของสำคัญ ภารกิจที่ค้าง\nสรุปเดิม: " + ((P.meta && P.meta.story) || "-") + "\nบันทึกล่าสุด:\n" + hist + "\nตอบ JSON: {\"story\":\"...\"}", { modelTier: "quick" });
+  if (ans && ans.story) await writeMeta({ story: String(ans.story).slice(0, 1500) });
+}
 function askRecap() {
   if (isHost()) return maybeRecap(true);
   const me = myMember(); say("system", "📖 " + (me ? me.card.name : "ผู้เล่น") + " ขอสรุปเรื่องย่อ", { recapReq: true }).catch(() => {});
@@ -508,6 +514,7 @@ function dmContext() {
     const enc = Object.entries(def.encounters || {}).map(([L, e]) => L + "=" + e.th + (P.meta.cleared && P.meta.cleared[clearedKey(loc, L)] ? " (ชนะแล้ว)" : "")).join(", ");
     lines.push("ตอนนี้อยู่: " + def.name + " (" + def.th + ", เลเวลแนะนำ " + def.level + ")\nบรรยากาศ: " + def.intro + "\nความลับ DM: " + (def.dm || "") + "\nการต่อสู้ในแผนที่: " + enc);
   }
+  if (P.meta.story) lines.push("เรื่องที่ผ่านมา (สรุป): " + P.meta.story);
   lines.push("ดันเจี้ยนที่จบแล้ว: " + (Object.keys(P.meta.done || {}).join(", ") || "ยังไม่มี"));
   lines.push("สถานที่บนแผนที่โลก: " + CAMP.world.locations.map((l) => l.id + "=" + l.name + " (Lv " + l.level + ")").join(", "));
   lines.push("ทีม:\n" + partySummary());
@@ -539,7 +546,7 @@ async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const prompt = DM_RULES + "\n\n=== สถานการณ์ ===\n" + dmContext() + "\n\n=== บทสนทนาล่าสุด ===\n" + history + "\n\n=== ตอนนี้ ===\n" + (now || "ผู้เล่นรอให้ DM เล่าต่อ") + (depth ? "\n(นี่คือรอบเล่าผลทอย ห้ามขอ checks เพิ่ม)" : "");
   const ans = await sample.json(prompt, { modelTier: "default" });
   const text = String((ans && ans.say) || "").trim();
-  if (text) await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map(String) : [] });
+  if (text) { await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map(String) : [] }); P.dmLines = (P.dmLines || 0) + 1; if (P.dmLines % 10 === 0) updateStory(sample).catch(() => {}); }
   for (const a of [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3)) await dmAction(a);
   if (!depth && ans && Array.isArray(ans.checks) && ans.checks.length) {
     const rolls = [];
@@ -586,6 +593,16 @@ async function dmAction(a) {
   } catch (e) { /* ignore a malformed action */ }
 }
 
+// small table of road happenings: the code picks, the DM tells it (and may ask for a check)
+const TRAVEL_EVENTS = [
+  "พ่อค้าเร่ถูกล้อเกวียนติดหล่ม ขอความช่วยเหลือ (ช่วยแล้วอาจได้ของเล็กน้อย)",
+  "เจอรอยเท้าหมาป่าสด ๆ และซากกวาง ให้ทีมเช็ก Survival หรือ Perception",
+  "ฝนตกหนักจนทางลื่น ให้ทีมเลือกพักหลบฝนหรือฝ่าไป",
+  "คนแปลกหน้าคลุมผ้าเทาเฝ้ามองทีมจากเนินแล้วหายไป (สายของลัทธิ Ashen Choir)",
+  "เจอศาลเจ้าเล็กริมทางของเทพีรุ่งอรุณ ใครสวดภาวนาได้กำลังใจ",
+  "ป้ายบอกทางถูกหมุนสลับ ให้เช็ก Survival ถ้าพลาดเสียเวลาเล็กน้อย",
+];
+
 // ---------- shared party actions ----------
 async function travelTo(loc, quiet) {
   const isTown = loc === CAMP.town.id;
@@ -606,7 +623,8 @@ async function travelTo(loc, quiet) {
   }
   P.arriving = false;
   const L = L0;
-  if (!quiet) requestDM({ event: "ทีมเดินทางมาถึง " + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
+  const ev = !quiet && !isTown && Math.random() < 1 / 3 ? TRAVEL_EVENTS[Math.floor(Math.random() * TRAVEL_EVENTS.length)] : null;
+  if (!quiet) requestDM({ event: (ev ? "ระหว่างทางเกิดเหตุการณ์ (ระบบสุ่มได้): " + ev + " · เล่าสั้น ๆ แล้ว " : "") + "ทีมเดินทางมาถึง " + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
 }
 async function restParty(kind, quiet) {
   for (const p of Object.values(P.party)) {

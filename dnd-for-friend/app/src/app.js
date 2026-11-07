@@ -10,8 +10,14 @@ const STEPS = [
   { id: "equipment", th: "อุปกรณ์" }, { id: "identity", th: "ชื่อและตัวตน" },
 ];
 
-const S = { view: "shelf", cards: [], store: "loading", draft: null, step: 0, sheet: null, banner: null,
+const S = { view: "play", mainCard: lsGet("dnd-main-card"), cards: [], store: "loading", draft: null, step: 0, sheet: null, banner: null,
   openSpell: null, spellLv: "all", confirmDel: false, exportText: null, xpEdit: false, importErrs: null };
+
+// per-viewer conveniences (which hero I play, last room); safe when storage is blocked
+function lsGet(k) { try { return localStorage.getItem(k) || null; } catch (e) { return null; } }
+function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
+function setMainCard(id) { S.mainCard = id; lsSet("dnd-main-card", id); }
+function mainCard() { const c = S.cards.find((x) => x.id === S.mainCard) || S.cards.find((x) => !validate(x, D).length); return c && !validate(c, D).length ? c : null; }
 
 // ---------- tiny DOM helper ----------
 function h(tag, attrs, ...kids) {
@@ -107,17 +113,19 @@ function editCard(card) {
   S.banner = errs.length && S.importErrs ? h("div", null, h("b", null, "การ์ดจาก AI ยังมีจุดที่ต้องแก้ "), "ดูขั้นที่ขึ้นสีแดงด้านซ้าย แก้แล้วกดเซฟการ์ด") : null;
   S.importErrs = null; go("build");
 }
-async function adoptPremade(p) {
+async function adoptPremade(p, stay) {
   const c = clone(p); delete c.premade;
   c.id = newCard().id; c.state.hp = null;
   const saved = await saveCard(c);
-  toast("เพิ่ม " + c.name + " เข้าการ์ดของคุณแล้ว"); openSheet(saved);
+  toast("เพิ่ม " + c.name + " เข้าการ์ดของคุณแล้ว");
+  if (!S.mainCard || stay) setMainCard(saved.id);
+  if (stay) render(); else openSheet(saved);
 }
 
 function renderTabs() {
   const t = document.getElementById("tabs"); t.replaceChildren();
-  const tab = (id, label, dis) => h("button", { class: "tab", "aria-current": S.view === id ? "true" : "false", disabled: dis, onclick: () => go(id) }, label);
-  t.append(tab("shelf", "การ์ดตัวละคร"), tab("build", S.draft ? "หน้าสร้าง/แก้ไข" : "สร้างตัวละคร", false), tab("sheet", "ชีตตัวละคร", !S.sheet), tab("play", "⚔ เล่น", false));
+  const tab = (id, label, on) => h("button", { class: "tab", "aria-current": on ? "true" : "false", onclick: () => go(id) }, label);
+  t.append(tab("play", "⚔ เข้าเล่น", S.view === "play"), tab("shelf", "ตัวละคร", ["shelf", "build", "sheet"].includes(S.view)), tab("info", "ข้อมูล", S.view === "info"));
 }
 function render() {
   renderTabs();
@@ -126,7 +134,8 @@ function render() {
   document.body.classList.toggle("tv", S.view === "play" && !!P.tv);
   document.body.classList.toggle("playing", S.view === "play");
   document.body.classList.toggle("ingame", S.view === "play" && !!P.cid);
-  const v = S.view === "play" ? viewPlay() : S.view === "build" ? viewBuild() : S.view === "sheet" && S.sheet ? viewSheet(S.sheet) : viewShelf();
+  let v = S.view === "play" ? viewPlay() : S.view === "info" ? viewInfo() : S.view === "build" ? viewBuild() : S.view === "sheet" && S.sheet ? viewSheet(S.sheet) : viewShelf();
+  if (S.view === "build" || (S.view === "sheet" && S.sheet)) v = h("div", null, h("button", { class: "btn ghost small crumb", onclick: () => go("shelf") }, "← ตัวละครทั้งหมด"), v);
   app.replaceChildren(v);
 }
 
@@ -150,13 +159,14 @@ function cardTile(card, premade) {
         ? [h("button", { class: "btn primary", onclick: () => adoptPremade(card) }, "ใช้ตัวนี้"),
            h("button", { class: "btn", onclick: () => openSheet({ ...card, premade: true }) }, "ดูชีต")]
         : [h("button", { class: "btn primary", onclick: () => openSheet(card) }, "เปิดชีต"),
-           h("button", { class: "btn", onclick: () => editCard(card) }, "แก้ไข")]));
+           h("button", { class: "btn", onclick: () => editCard(card) }, "แก้ไข"),
+           !errs.length && (S.mainCard === card.id ? h("span", { class: "tag ok" }, "★ ตัวที่ใช้เล่น") : h("button", { class: "btn ghost", onclick: () => { setMainCard(card.id); toast("ใช้ " + card.name + " เล่นแล้ว"); render(); } }, "ใช้เล่นตัวนี้"))]));
 }
 function viewShelf() {
   const mine = S.cards;
   return h("div", null,
     h("div", { class: "shelf-head" },
-      h("div", null, h("div", { class: "eyebrow" }, "การ์ดของฉัน"), h("h2", null, "เลือกการ์ดแล้วเข้าเล่นได้เลย")),
+      h("div", null, h("div", { class: "eyebrow" }, "ตัวละครของฉัน"), h("h2", null, "สร้าง แก้ไข และเลือกตัวที่จะใช้เล่น")),
       h("div", { class: "row" },
         h("button", { class: "btn primary", onclick: startNew }, "+ สร้างตัวละครใหม่"),
         h("button", { class: "btn", onclick: () => document.getElementById("fileIn").click() }, "โหลดการ์ดจากไฟล์"),

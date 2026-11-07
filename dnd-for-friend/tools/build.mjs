@@ -10,7 +10,7 @@ const CAMPAIGN = ${json("data/campaign.json")};
 const TEMPLATE = ${JSON.stringify(r("character-template.md"))};`;
 const strip = (s) => s.replace(/^import[\s\S]*?from\s+"[^"]+";?[ \t]*$/gm, "").replace(/^export /gm, "");
 const engine = ["engine/rules.js", "engine/combat.js", "engine/ai.js"].map((p) => "// ---- " + p + " ----\n" + strip(r(p))).join("\n");
-const app = ["app/src/app.js", "app/src/play.js", "app/src/play-ui.js"].map(r).join("\n");
+const app = ["app/src/app.js", "app/src/info.js", "app/src/play.js", "app/src/play-ui.js"].map(r).join("\n");
 const safe = (s) => s.replace(/<\/script/gi, "<\\/script");
 const html = r("app/src/page.html")
   .replace("/*__DATA__*/", () => safe(data))

@@ -223,7 +223,7 @@ async function runQueue(list) {
 }
 
 // ---------- UI ----------
-const GROUPS = [["npc", "NPC ในหมู่บ้าน (ขึ้นตอนเข้าอาคาร)"], ["portrait", "รูปตัวละครสำเร็จรูป (ใส่ในการ์ด)"], ["token", "โทเคนมอนสเตอร์ (แคมเปญ Ember Vale)"], ["world", "แผนที่โลก"], ["object", "ของบนแผนที่ต่อสู้"], ["map", "แผนที่ต่อสู้ (วาดตามภาพโครงของเกม)"]];
+const GROUPS = [["welcome", "รูปต้อนรับ (หน้าเข้าเล่น)"], ["npc", "NPC ในหมู่บ้าน (ขึ้นตอนเข้าอาคาร)"], ["portrait", "รูปตัวละครสำเร็จรูป (ใส่ในการ์ด)"], ["token", "โทเคนมอนสเตอร์ (แคมเปญ Ember Vale)"], ["world", "แผนที่โลก"], ["object", "ของบนแผนที่ต่อสู้"], ["map", "แผนที่ต่อสู้ (วาดตามภาพโครงของเกม)"]];
 function render() {
   const sum = $("sum"); if (sum) { sum.replaceChildren(); for (const im of IMAGES.filter((i) => i.note === "redo" || i.note === "new")) { const b = document.createElement("span"); b.className = "review " + im.note; b.textContent = (im.note === "new" ? "🆕 ต้องทำ: " : "🔁 ทำใหม่: ") + im.name; sum.appendChild(b); } }
   const box = $("groups"); box.replaceChildren();

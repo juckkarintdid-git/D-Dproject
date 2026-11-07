@@ -423,6 +423,45 @@ body.ingame main { max-width: none; padding: 0 }
 .town .place .nm { font-family: var(--f-display); font-size: 1.25rem }
 .shop table { width: 100%; border-collapse: collapse; font-size: .88rem }
 .shop td { padding: 5px 6px; border-top: 1px solid var(--line); vertical-align: middle }
+/* home (เข้าเล่น): welcome art on top, hero card + rooms below */
+.home { display: flex; flex-direction: column; gap: 20px }
+.home-hero { position: relative; border-radius: 14px; overflow: hidden; min-height: clamp(260px, 42vw, 440px); display: flex; align-items: flex-end;
+  background: #1a130c url(assets/welcome.webp) center / cover no-repeat; background-image: linear-gradient(180deg, rgba(10,7,4,0) 30%, rgba(10,7,4,.88) 100%), url(assets/welcome.webp), url(assets/map-world.webp) }
+.home-hero-in { padding: clamp(18px, 4vw, 40px); color: #f3e8cf; display: flex; flex-direction: column; gap: 6px; max-width: 720px }
+.home-hero-in .eyebrow { color: #e9b44c }
+.home-hero h1 { font: 400 clamp(2.2rem, 6vw, 4rem)/1 var(--f-display); color: #fff6df; text-shadow: 0 3px 18px #000 }
+.home-th { font: 500 1.05rem var(--f-thai-display); color: #f0d9a8 }
+.home-hero p { margin: 4px 0 10px; max-width: 60ch; text-shadow: 0 1px 6px #000 }
+.btn.big { font-size: 1.05rem; padding: 12px 22px; border-radius: 10px }
+.btn.ghost-light { background: rgba(0,0,0,.35); color: #fff6df; border-color: rgba(255,240,210,.45) }
+.home-grid { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 20px; align-items: start }
+.home-grid > * { min-width: 0 }
+.home-me { display: flex; flex-direction: column; gap: 10px }
+.home-hero-card .portrait.big { width: 84px; height: 84px }
+.home-pick { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow: auto }
+.room-list { display: flex; flex-direction: column; gap: 10px }
+.room { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px }
+.room h3 { overflow-wrap: anywhere }
+.room-faces { display: flex }
+.room-faces .portrait { width: 40px; height: 40px; font-size: .8rem; border: 2px solid var(--surface); margin-left: -10px }
+.room-faces .portrait:first-child { margin-left: 0 }
+.crumb { margin-bottom: 10px }
+/* info (ข้อมูล) */
+.info { display: flex; flex-direction: column; gap: 14px }
+.info-q { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: min(100%, 320px) }
+.info-nav { display: flex; gap: 6px; flex-wrap: wrap }
+.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px }
+.info-grid.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) }
+.info-card { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
+.info-card ol, .info-card ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px }
+.info-card p { margin: 0 }
+.info-h { margin: 18px 0 8px }
+.info .tbl { overflow-x: auto }
+.info select { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+.spell-list { display: flex; flex-direction: column; gap: 6px }
+.spell-row summary { cursor: pointer }
+.spell-row p { margin: 6px 0 0 }
+@media (max-width: 760px) { .home-grid { grid-template-columns: 1fr } .room { grid-template-columns: 1fr auto } .room-faces { display: none } }
 .lobby input[type=text] { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); min-width: 0 }
 .camp .portrait { font-size: 1.8rem }
 .fld input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }

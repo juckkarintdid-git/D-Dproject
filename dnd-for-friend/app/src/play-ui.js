@@ -42,24 +42,72 @@ function viewPlay() {
   setTimeout(renderPlay, 0);
   return P.dom.root;
 }
+// ---------- home: welcome art, continue, my hero, rooms ----------
+const agoTh = (ts) => { const m = Math.round((Date.now() - (ts || 0)) / 60000); return m < 2 ? "เมื่อสักครู่" : m < 60 ? m + " นาทีที่แล้ว" : m < 1440 ? Math.round(m / 60) + " ชม.ที่แล้ว" : Math.round(m / 1440) + " วันที่แล้ว"; };
+// who is online in each room (party docs refresh "seen" every minute while someone plays)
+function watchRoomOnline(list) {
+  S.online = S.online || {}; S.onlineWatch = S.onlineWatch || {};
+  for (const c of list.slice(0, 8)) {
+    if (S.onlineWatch[c.id]) continue;
+    S.onlineWatch[c.id] = dbx().collection("campaigns/" + c.id + "/party").onSnapshot((snap) => {
+      const docs = snap.docs.map((d) => d.data());
+      const on = docs.filter((d) => Date.now() - (d.seen || 0) < 180000).map((d) => d.card && d.card.name).filter(Boolean);
+      const key = on.join("|") + "/" + docs.length;
+      if ((S.online[c.id] || {}).key === key) return;
+      S.online[c.id] = { key, on, n: docs.length, faces: docs.slice(0, 4).map((d) => d.card || {}) };
+      if (S.view === "play" && !P.cid) render();
+    }, () => {});
+  }
+}
 function viewLobby() {
   if (S.store === "loading") return h("div", { class: "empty" }, "กำลังเชื่อมต่อ…");
   watchCampaigns();
   const list = S.campaigns || [];
+  watchRoomOnline(list);
+  const last = list.find((c) => c.id === lsGet("dnd-last-room")) || list[0];
+  const hero = mainCard();
   const nameIn = h("input", { type: "text", id: "camp-name", maxlength: 50, placeholder: "ชื่อห้อง เช่น ปาร์ตี้วันเสาร์", value: "" });
-  return h("div", { class: "lobby" },
-    h("div", { class: "shelf-head" },
-      h("div", null, h("div", { class: "eyebrow" }, "แคมเปญ " + CAMP.name + " · " + CAMP.th), h("h2", null, "เลือกห้องเล่น หรือสร้างห้องใหม่")),
-      h("div", { class: "row" }, nameIn, h("button", { class: "btn primary", onclick: async () => { const id = await createCampaign(nameIn.value.trim()); openCampaign(id); } }, "+ สร้างห้อง"))),
-    h("p", { class: "small muted", style: "max-width:70ch;margin-top:0" }, NET.local
-      ? "ตอนนี้เล่นแบบออฟไลน์ในเบราว์เซอร์นี้ (ทุกตัวละครคุมได้จากเครื่องนี้) DM จะเล่าเรื่องได้เมื่อเปิดผ่านลิงก์ claude.ai และล็อกอิน"
-      : "เพื่อนที่เปิดลิงก์เดียวกันจะเห็นห้องเหล่านี้ เข้าห้อง เลือกการ์ดของตัวเอง แล้วเล่นด้วยกันได้ทันที คนสร้างห้องเป็น host (เครื่องที่ให้ DM และมอนสเตอร์คิด) ถ้า host ไม่อยู่ คนอื่นกด “เป็น host แทน” ได้"),
-    h("div", { class: "cards" }, list.length ? list.map((c) => h("article", { class: "ccard camp" },
-      h("div", { class: "portrait", "aria-hidden": "true" }, "⚔"),
-      h("div", { style: "min-width:0" }, h("h3", null, c.name), h("div", { class: "small muted" }, "สร้างเมื่อ " + new Date(c.createdAt || Date.now()).toLocaleDateString("th-TH")),
-        h("div", null, h("span", { class: "tag num" }, "จบดันเจี้ยน " + Object.keys(c.done || {}).length + "/5"), c.hostUid === myUid() && h("span", { class: "tag ok" }, "ห้องของฉัน"))),
-      h("div", { class: "acts" }, h("button", { class: "btn primary", onclick: () => openCampaign(c.id) }, "เข้าห้อง"))))
-      : h("div", { class: "empty" }, "ยังไม่มีห้อง ตั้งชื่อแล้วกด “สร้างห้อง” ได้เลย")));
+  const create = async () => { const id = await createCampaign(nameIn.value.trim()); openCampaign(id); };
+  const ready = S.cards.filter((c) => !validate(c, D).length);
+  const summary = String(CAMP.summary || "").split(/(?<=[.!?…])\s|\n/)[0];
+  return h("div", { class: "home" },
+    h("section", { class: "home-hero", "aria-label": "ยินดีต้อนรับ" },
+      h("div", { class: "home-hero-in" },
+        h("div", { class: "eyebrow" }, "ยินดีต้อนรับสู่"),
+        h("h1", null, CAMP.name),
+        h("div", { class: "home-th" }, CAMP.th),
+        h("p", null, summary),
+        h("div", { class: "row" },
+          last ? h("button", { class: "btn primary big", onclick: () => openCampaign(last.id) }, "▶ เล่นต่อ · " + last.name)
+               : h("button", { class: "btn primary big", onclick: create }, "▶ เริ่มเล่น (สร้างห้องแรก)"),
+          h("button", { class: "btn ghost-light", onclick: () => go("info") }, "วิธีเล่น")))),
+    h("div", { class: "home-grid" },
+      h("section", { class: "panel home-me", "aria-label": "ตัวที่จะใช้เล่น" },
+        h("div", { class: "eyebrow" }, "ตัวที่จะใช้เล่น"),
+        hero ? h("div", { class: "row home-hero-card" }, portraitEl(hero, true), h("div", { style: "min-width:0" }, h("h3", null, hero.name), h("div", { class: "small muted" }, classLine(hero)), h("span", { class: "tag num" }, "Lv " + hero.level)))
+             : h("p", { class: "muted" }, "ยังไม่ได้เลือกตัวละคร เลือกตัวสำเร็จรูปด้านล่าง หรือสร้างเองในหน้าตัวละคร"),
+        h("div", { class: "row" },
+          h("button", { class: "btn small", "aria-expanded": S.pickMain ? "true" : "false", onclick: () => { S.pickMain = !S.pickMain; render(); } }, hero ? "เปลี่ยนตัว" : "เลือกตัว"),
+          h("button", { class: "btn ghost small", onclick: () => go("shelf") }, "ไปหน้าตัวละคร")),
+        (S.pickMain || !hero) && h("div", { class: "home-pick" },
+          ready.map((c) => h("button", { class: "pick", "aria-pressed": hero && hero.id === c.id ? "true" : "false", onclick: () => { setMainCard(c.id); S.pickMain = false; render(); } },
+            h("div", { class: "row" }, portraitEl(c), h("div", { style: "min-width:0" }, h("b", null, c.name), h("div", { class: "small muted" }, classLine(c) + " · Lv " + c.level))))),
+          h("div", { class: "small muted", style: "margin-top:4px" }, "หรือหยิบตัวสำเร็จรูป"),
+          PREMADES.filter((p) => !S.cards.some((c) => c.name === p.name)).map((p) => h("button", { class: "pick", onclick: () => { S.pickMain = false; adoptPremade(p, true); } },
+            h("div", { class: "row" }, portraitEl(p), h("div", { style: "min-width:0" }, h("b", null, p.name), h("div", { class: "small muted" }, classLine(p)))))))),
+      h("section", { class: "home-rooms", "aria-label": "ห้องเล่น" },
+        h("div", { class: "shelf-head" }, h("div", null, h("div", { class: "eyebrow" }, "ห้องเล่น"), h("h2", null, "เข้าห้องเพื่อน หรือสร้างห้องใหม่")),
+          h("div", { class: "row" }, nameIn, h("button", { class: "btn primary", onclick: create }, "+ สร้างห้อง"))),
+        h("p", { class: "small muted", style: "margin:0 0 10px" }, NET.local ? "ตอนนี้เล่นแบบออฟไลน์ในเบราว์เซอร์นี้ (คุมทุกตัวจากเครื่องนี้) DM เล่าเรื่องได้เมื่อเปิดผ่านลิงก์ claude.ai" : "เพื่อนที่เปิดลิงก์เดียวกัน (สิทธิ์แก้ไขได้) จะเห็นห้องเหล่านี้ เข้าห้องแล้วจะเข้าทีมด้วยตัวที่เลือกไว้ทันที"),
+        list.length ? h("div", { class: "room-list" }, list.map((c) => { const o = (S.online || {})[c.id] || { on: [], n: 0, faces: [] };
+          return h("article", { class: "room" },
+            h("div", { class: "room-faces", "aria-hidden": "true" }, o.faces.length ? o.faces.map((f) => portraitEl(f)) : h("div", { class: "portrait" }, "⚔")),
+            h("div", { style: "min-width:0" }, h("h3", null, c.name),
+              h("div", { class: "small muted" }, "เล่นล่าสุด " + agoTh(c.updated || c.createdAt) + " · จบดันเจียน " + Object.keys(c.done || {}).length + "/5"),
+              h("div", null, o.on.length ? h("span", { class: "tag ok" }, "● ออนไลน์ " + o.on.length + " คน: " + o.on.join(", ")) : h("span", { class: "tag" }, "ในทีม " + o.n + " คน"),
+                c.hostUid === myUid() && h("span", { class: "tag" }, "ห้องของฉัน"))),
+            h("button", { class: "btn" + (last && last.id === c.id ? " primary" : ""), onclick: () => openCampaign(c.id) }, "เข้าห้อง")); }))
+        : h("div", { class: "empty" }, "ยังไม่มีห้อง ตั้งชื่อแล้วกด “สร้างห้อง” ได้เลย"))));
 }
 
 // ---------- icons (inline SVG, stroke follows the text color) ----------
@@ -371,6 +419,7 @@ function renderCaption() {
 function renderPanel() {
   let content = null;
   if (P.mapEdit) content = editorPanel();
+  else if (!myParty().length && !P.forceJoin && P.partyLoaded && P.autoJoin !== P.cid && mainCard() && !P.party[mainCard().id]) { P.autoJoin = P.cid; joinWith(mainCard()); content = h("div", { class: "panel ov-panel" }, "กำลังเข้าทีมด้วย " + mainCard().name + "…"); }
   else if (!myParty().length || P.forceJoin) content = joinPanel();
   const box = P.dom.panel; box.hidden = !content; box.classList.toggle("edit", !!P.mapEdit);
   fill(box, ...(content ? [content] : []));
@@ -403,10 +452,10 @@ function joinPanel() {
     : ready.length ? h("div", { class: "pick-grid" }, ready.map((c) => h("button", { class: "pick", disabled: inUse.has(c.id), onclick: () => joinWith(c) },
         h("div", { class: "row" }, portraitEl(c), h("div", { style: "min-width:0" }, h("b", null, c.name), h("div", { class: "small muted" }, classLine(c)), h("span", { class: "tag num" }, "Lv " + c.level))),
         inUse.has(c.id) && h("span", { class: "small muted" }, "อยู่ในทีมแล้ว"))))
-    : h("p", null, "ยังไม่มีการ์ดที่พร้อมเล่น ไปที่แท็บ “การ์ดตัวละคร” แล้วสร้างหรือกด “ใช้ตัวนี้” ที่ตัวสำเร็จรูปก่อน"),
+    : h("p", null, "ยังไม่มีการ์ดที่พร้อมเล่น ไปที่หน้า “ตัวละคร” แล้วสร้างหรือกด “ใช้ตัวนี้” ที่ตัวสำเร็จรูปก่อน"),
     NET.local && h("p", { class: "small muted" }, "โหมดออฟไลน์: เพิ่มได้หลายตัว แล้วสลับคุมจากแท็บทีม"),
     P.forceJoin && h("button", { class: "btn ghost", onclick: () => { P.forceJoin = false; renderPlay(); } }, "ปิด"),
-    h("button", { class: "btn", onclick: () => go("shelf") }, "ไปที่การ์ดตัวละคร"));
+    h("button", { class: "btn", onclick: () => go("shelf") }, "ไปหน้าตัวละคร"));
 }
 
 const fmtGp = (g) => (Math.round(g * 100) / 100) + " GP";
@@ -1181,7 +1230,7 @@ function watchFx() {
       await sleep(250);
     });
   }
-  if (cur && !st.over && (!prev || prev.cur !== cur.id)) fxQueue(() => banner(cur.side === "pc" && canControl(cur) ? "ตาของคุณ!" : "ตาของ " + shortName(cur.name), cur.side));
+  if (cur && !st.over && (!prev || prev.cur !== cur.id)) fxQueue(() => (P.scene && P.scene.mode === "combat" ? banner(cur.side === "pc" && canControl(cur) ? "ตาของคุณ!" : "ตาของ " + shortName(cur.name), cur.side) : null));
   P.fxCombat = { key, seq: st.seq, hp, cur: cur && cur.id };
 }
 
