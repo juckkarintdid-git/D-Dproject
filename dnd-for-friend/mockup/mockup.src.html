@@ -1,0 +1,425 @@
+<title>DnD for friend · Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almendra:wght@700&family=Almendra+SC&family=Mitr:wght@400;500&family=Sarabun:wght@400;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one 16:9 game stage per screen. Scene art fills it; HUD floats on top (party top-left, menu top-right,
+   hint strip top-center, story caption or combat hotbar at the bottom). Candle-lit tabletop: walnut, leather, parchment, candle gold. */
+:root {
+  --walnut: #140f0b; --leather: #261b13; --leather-2: #33261b; --edge: #5a4330;
+  --parchment: #efe3c8; --ink: #2a1d12; --muted: #b9a687; --candle: #e9b44c; --ember: #d0603f; --verdigris: #63b09c; --hp: #6fbf6a;
+  --f-name: "Almendra", "Mitr", Georgia, serif; --f-sc: "Almendra SC", "Mitr", Georgia, serif;
+  --f-th: "Mitr", "Sarabun", system-ui, sans-serif; --f-body: "Sarabun", "Mitr", system-ui, sans-serif; --f-num: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+body { background: radial-gradient(1200px 600px at 50% 0%, #2a1d13 0%, var(--walnut) 70%); background-color: var(--walnut); color: var(--parchment); font: 16px/1.6 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; min-height: 100% }
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px }
+header.top { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap }
+h1 { margin: 0; font: 700 2rem/1 var(--f-name); letter-spacing: .01em }
+h1 small { font: 500 .8rem var(--f-th); color: var(--muted); letter-spacing: 0; margin-left: 8px }
+.note { color: var(--muted); font-size: .92rem; max-width: 70ch; margin: 0 }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap }
+.tabs button { font: 500 .95rem var(--f-th); color: var(--muted); background: transparent; border: 1px solid var(--edge); border-radius: 999px; padding: 6px 14px; cursor: pointer }
+.tabs button[aria-pressed="true"] { background: var(--candle); color: var(--ink); border-color: var(--candle) }
+:focus-visible { outline: 2px solid var(--candle); outline-offset: 2px }
+
+/* ---------- stage ---------- */
+.stage { position: relative; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 14px; overflow: hidden; background: #0b0805;
+  box-shadow: 0 0 0 1px var(--edge), 0 30px 80px rgba(0,0,0,.6), inset 0 0 120px rgba(0,0,0,.6) }
+.stage canvas.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%) }
+.hud { position: absolute; inset: 0; pointer-events: none }
+.hud > * { pointer-events: auto }
+
+.plate { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none }
+.plate .loc { font: 700 clamp(1rem, 2.2vw, 1.6rem)/1 var(--f-name); text-shadow: 0 2px 8px #000 }
+.plate .th { font: 400 clamp(.7rem, 1.2vw, .85rem) var(--f-th); color: var(--muted); text-shadow: 0 1px 4px #000 }
+
+.hint { position: absolute; top: clamp(52px, 8vw, 70px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
+  background: rgba(20,15,11,.82); border: 1px solid var(--edge); border-radius: 999px; padding: 5px 14px 5px 6px; font: 400 clamp(.72rem, 1.3vw, .9rem) var(--f-th); white-space: nowrap; backdrop-filter: blur(4px) }
+.mode { font: 500 .78em var(--f-th); padding: 2px 10px; border-radius: 999px; background: var(--verdigris); color: #0d1a16 }
+.mode.fight { background: var(--ember); color: #fff }
+.mode.town { background: var(--candle); color: var(--ink) }
+
+.party { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 8px }
+.pc { display: flex; align-items: center; gap: 8px; background: rgba(20,15,11,.78); border: 1px solid var(--edge); border-radius: 999px; padding: 3px 12px 3px 3px; font-size: .78rem }
+.pc .face { width: clamp(30px, 4vw, 42px); aspect-ratio: 1; border-radius: 50%; background: var(--leather-2) center/cover; border: 2px solid var(--verdigris); display: grid; place-items: center; font: 600 .8rem var(--f-th) }
+.pc b { font: 700 .9rem var(--f-name); display: block; line-height: 1.1 }
+.bar { height: 5px; width: 74px; background: #000; border-radius: 3px; overflow: hidden; margin-top: 3px }
+.bar i { display: block; height: 100%; background: var(--hp) }
+.pc.now { border-color: var(--candle); box-shadow: 0 0 0 1px var(--candle), 0 0 18px rgba(233,180,76,.35) }
+
+.menu { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px }
+.ic { width: clamp(32px, 4vw, 40px); aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--edge); background: rgba(20,15,11,.8); color: var(--parchment); display: grid; place-items: center; cursor: pointer; padding: 0 }
+.ic svg { width: 55%; height: 55% }
+.ic[aria-pressed="true"] { background: var(--candle); color: var(--ink) }
+
+/* story caption (visual novel) */
+.caption { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(92%, 860px); display: flex; flex-direction: column; gap: 8px }
+.speech { background: linear-gradient(180deg, rgba(239,227,200,.97), rgba(226,210,176,.97)); color: var(--ink); border-radius: 12px; padding: 14px 18px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.5); position: relative }
+.speech .who { position: absolute; top: -14px; left: 16px; background: var(--leather); color: var(--candle); border: 1px solid var(--edge); font: 700 .85rem var(--f-sc); padding: 2px 12px; border-radius: 6px; letter-spacing: .04em }
+.speech p { margin: 0; font: 400 clamp(.82rem, 1.5vw, 1.02rem)/1.65 var(--f-body); max-width: 72ch }
+.choices { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center }
+.choice { font: 500 clamp(.74rem, 1.3vw, .88rem) var(--f-th); background: rgba(20,15,11,.88); color: var(--parchment); border: 1px solid var(--candle); border-radius: 999px; padding: 6px 14px; cursor: pointer }
+.choice:hover { background: var(--candle); color: var(--ink) }
+.choice .tag { font: 600 .8em var(--f-num); color: var(--verdigris); margin-left: 6px }
+.say { display: flex; gap: 6px }
+.say input { flex: 1; min-width: 0; background: rgba(20,15,11,.88); border: 1px solid var(--edge); color: var(--parchment); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: .85rem }
+
+/* town hotspots */
+.spot { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 0; color: var(--parchment); cursor: pointer; padding: 0 }
+.spot .pin { width: 14px; height: 14px; border-radius: 50%; background: var(--candle); box-shadow: 0 0 0 4px rgba(233,180,76,.25), 0 0 18px var(--candle); animation: glow 2.4s ease-in-out infinite }
+.spot .lbl { background: rgba(20,15,11,.85); border: 1px solid var(--edge); border-radius: 8px; padding: 3px 10px; text-align: center; transition: transform .15s, border-color .15s }
+.spot .lbl b { display: block; font: 700 clamp(.72rem, 1.3vw, .95rem)/1.1 var(--f-name) }
+.spot .lbl span { font: 400 clamp(.62rem, 1vw, .74rem) var(--f-th); color: var(--muted) }
+.spot:hover .lbl, .spot:focus-visible .lbl { transform: translateY(-3px); border-color: var(--candle) }
+@keyframes glow { 50% { box-shadow: 0 0 0 7px rgba(233,180,76,.12), 0 0 26px var(--candle) } }
+
+/* interior panel */
+.room { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); background: rgba(10,7,5,.55); backdrop-filter: blur(2px) }
+.room .npc { position: relative; display: flex; align-items: end; justify-content: center }
+.room .npc canvas { width: 82%; max-width: 360px; aspect-ratio: 3 / 4; height: auto }
+.room .side { align-self: center; margin-right: 4%; display: flex; flex-direction: column; gap: 10px }
+.room h2 { margin: 0; font: 700 clamp(1.1rem, 2.4vw, 1.8rem)/1 var(--f-name) }
+.room .acts { display: flex; flex-wrap: wrap; gap: 8px }
+.btn { font: 500 clamp(.78rem, 1.3vw, .92rem) var(--f-th); border-radius: 10px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--edge); background: var(--leather-2); color: var(--parchment); display: inline-flex; gap: 8px; align-items: center }
+.btn.gold { background: var(--candle); color: var(--ink); border-color: var(--candle) }
+.btn small { font-family: var(--f-num); opacity: .8 }
+
+/* combat HUD */
+.order { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center }
+.order .o { width: clamp(30px, 3.6vw, 40px); aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; font: 600 .72rem var(--f-th); border: 2px solid var(--verdigris); background: var(--leather-2) center/cover; position: relative }
+.order .o.foe { border-color: var(--ember) }
+.order .o.now { transform: scale(1.22); box-shadow: 0 0 0 2px var(--candle), 0 0 16px var(--candle) }
+.order .o em { position: absolute; bottom: -14px; font: 600 .62rem var(--f-num); font-style: normal; color: var(--muted) }
+.banner { position: absolute; top: 34%; left: 0; right: 0; text-align: center; font: 700 clamp(1.4rem, 4vw, 3rem)/1 var(--f-name); color: var(--candle); text-shadow: 0 4px 20px #000; pointer-events: none; opacity: 0 }
+.banner.show { animation: banner 1.6s ease both }
+@keyframes banner { 0% { opacity: 0; letter-spacing: .3em } 20%, 75% { opacity: 1; letter-spacing: .04em } 100% { opacity: 0 } }
+
+.me { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: end; gap: 10px }
+.me .big { width: clamp(64px, 9vw, 104px); aspect-ratio: 1; border-radius: 50%; border: 3px solid var(--candle); background: var(--leather-2) center/cover; box-shadow: 0 0 24px rgba(233,180,76,.3) }
+.me .stats { background: rgba(20,15,11,.85); border: 1px solid var(--edge); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; gap: 3px; font-size: .74rem }
+.me .stats b { font: 700 .95rem var(--f-name) }
+.me .hpbar { height: 8px; width: clamp(90px, 12vw, 150px); background: #000; border-radius: 4px; overflow: hidden }
+.me .hpbar i { display: block; height: 100%; background: var(--hp); transition: width .4s }
+.pips { display: flex; gap: 4px; align-items: center; font-family: var(--f-num) }
+.pip { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--candle) }
+.pip.on { background: var(--candle) }
+.econ { display: flex; gap: 4px }
+.econ span { font: 500 .66rem var(--f-th); padding: 1px 6px; border-radius: 999px; background: var(--verdigris); color: #0d1a16 }
+.econ span.used { background: #3a2f25; color: var(--muted); text-decoration: line-through }
+
+.hotbar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: clamp(4px, .8vw, 8px); background: rgba(20,15,11,.86); border: 1px solid var(--edge); border-radius: 16px; padding: 8px }
+.slot { width: clamp(42px, 5.6vw, 64px); aspect-ratio: 1; border-radius: 12px; border: 1px solid var(--edge); background: linear-gradient(180deg, var(--leather-2), var(--leather)); color: var(--parchment); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; position: relative; padding: 0 }
+.slot svg { width: 46%; height: 46% }
+.slot span { font: 500 clamp(.52rem, .9vw, .66rem) var(--f-th) }
+.slot kbd { position: absolute; top: 3px; left: 5px; font: 600 .56rem var(--f-num); color: var(--muted) }
+.slot[aria-pressed="true"] { border-color: var(--candle); box-shadow: 0 0 0 1px var(--candle), 0 0 16px rgba(233,180,76,.4); color: var(--candle) }
+.slot.end { background: var(--ember); border-color: var(--ember) }
+.slot:disabled { opacity: .35; cursor: default }
+.step { position: absolute; left: 50%; bottom: clamp(70px, 9.4vw, 96px); transform: translateX(-50%); background: var(--candle); color: var(--ink); font: 500 clamp(.72rem, 1.3vw, .9rem) var(--f-th); padding: 4px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 20px rgba(0,0,0,.5) }
+
+/* dice */
+.dice { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,6,4,.55); pointer-events: none; opacity: 0; transition: opacity .2s }
+.dice.show { opacity: 1 }
+.dcard { display: flex; flex-direction: column; align-items: center; gap: 10px }
+.d20 { width: clamp(96px, 14vw, 150px); aspect-ratio: 1; position: relative; display: grid; place-items: center }
+.d20 svg { position: absolute; inset: 0; width: 100%; height: 100% }
+.d20 b { position: relative; font: 600 clamp(1.6rem, 4vw, 2.8rem) var(--f-num); color: var(--ink) }
+.d20.roll { animation: tumble .9s cubic-bezier(.2,.7,.3,1) }
+@keyframes tumble { 0% { transform: translateY(-60px) rotate(-200deg) scale(.6) } 70% { transform: translateY(6px) rotate(18deg) scale(1.05) } 100% { transform: none } }
+.math { font: 600 clamp(.9rem, 2vw, 1.3rem) var(--f-num); background: rgba(20,15,11,.9); border: 1px solid var(--edge); padding: 6px 16px; border-radius: 10px; opacity: 0; transition: opacity .25s }
+.verdict { font: 700 clamp(1.4rem, 3.6vw, 2.6rem)/1 var(--f-name); opacity: 0; transform: scale(1.6); transition: opacity .25s, transform .25s }
+.dice.done .math, .dice.done .verdict { opacity: 1; transform: none }
+.verdict.hit { color: var(--candle) } .verdict.miss { color: var(--muted) } .verdict.crit { color: var(--ember) }
+.float { position: absolute; font: 700 clamp(1rem, 2.4vw, 1.8rem) var(--f-num); color: #ffdf8a; text-shadow: 0 2px 6px #000; pointer-events: none; animation: rise 1.3s ease-out forwards }
+@keyframes rise { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6) } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.2) } 100% { opacity: 0; transform: translate(-50%, -60px) } }
+
+/* help coach marks */
+.coach { position: absolute; inset: 0; background: rgba(5,4,3,.55); pointer-events: none }
+.mark { position: absolute; display: flex; gap: 8px; align-items: flex-start; max-width: 230px; font: 400 clamp(.66rem, 1.15vw, .82rem)/1.45 var(--f-th); background: var(--parchment); color: var(--ink); border-radius: 10px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,.6) }
+.mark i { font: 600 .8rem var(--f-num); font-style: normal; background: var(--ember); color: #fff; border-radius: 50%; width: 20px; height: 20px; display: grid; place-items: center; flex: none }
+
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px }
+.legend div { background: var(--leather); border: 1px solid var(--edge); border-radius: 12px; padding: 12px 14px; font-size: .9rem; color: var(--muted) }
+.legend b { color: var(--parchment); font: 500 1rem var(--f-th); display: block; margin-bottom: 2px }
+
+@media (max-width: 700px) {
+  .party .pc div, .hint .txt { display: none }
+  .room { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr) }
+  .say { display: none }
+  .me .stats { display: none }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>DnD for friend <small>ตัวอย่างหน้าจอแบบใหม่ (ลองกดได้)</small></h1>
+      <p class="note">ภาพฉากตอนนี้เป็นภาพวาดชั่วคราวที่เกมวาดเอง ของจริงจะใช้ภาพจาก gen-images แทน กดปุ่ม ? มุมขวาบนเพื่อดูคำอธิบายแต่ละส่วน</p>
+    </div>
+    <nav class="tabs" aria-label="หน้าจอตัวอย่าง">
+      <button id="t-town" aria-pressed="true">หมู่บ้าน</button>
+      <button id="t-explore" aria-pressed="false">สำรวจ + DM</button>
+      <button id="t-fight" aria-pressed="false">ต่อสู้</button>
+    </nav>
+  </header>
+
+  <section class="stage" id="stage" aria-label="จอเกม">
+    <canvas class="scene" id="scene"></canvas>
+    <div class="vignette"></div>
+    <div class="hud" id="hud"></div>
+  </section>
+
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+const FIZZ = "__FIZZ__";
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); } if (html) e.innerHTML = html; return e; };
+const ICON = {
+  sword: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.5 3.5 20.5 3.5 20.5 9.5 9 21 3 15Z"/><path d="M6 12 12 18M4 20l2-2"/></svg>',
+  spell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>',
+  potion: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M9 2h6M10 2v6L5 17a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V2"/><path d="M7.5 14h9" /></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5Z"/></svg>',
+  boots: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 2h5v11l6 3a2 2 0 0 1 1 1.7V21H4V2"/><path d="M4 17h15"/></svg>',
+  run: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="14" cy="4" r="2"/><path d="M8 21l3-6 3 2v5M6 11l3-3h5l3 4M11 15l2-6"/></svg>',
+  end: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h12M13 6l6 6-6 6"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4ZM20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7Z"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2Z"/><path d="M9 4v14M15 6v14"/></svg>',
+  voice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4Z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>',
+  tv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>',
+  help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 1-1 1.7V14M12 18h.01"/></svg>',
+};
+
+// ---------- painted placeholder scenes (the real game swaps these for generated art) ----------
+const cv = $("#scene"), ctx = cv.getContext("2d");
+let W = 0, H = 0, view = "town", t0 = performance.now(), smoke = [];
+function fit() { const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+const rnd = (i, s = 1) => { const x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
+function house(x, y, w, h, roof, wall, lit, sign) {
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 4, w * .62, 8, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = wall; ctx.fillRect(x, y, w, h);
+  for (let i = 1; i < 4; i++) { ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.fillRect(x, y + (h / 4) * i, w, 1.5); }
+  ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - w * .12, y + 2); ctx.lineTo(x + w / 2, y - h * .62); ctx.lineTo(x + w * 1.12, y + 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.beginPath(); ctx.moveTo(x + w / 2, y - h * .62); ctx.lineTo(x + w * 1.12, y + 2); ctx.lineTo(x + w * .6, y + 2); ctx.closePath(); ctx.fill();
+  const win = (wx, wy) => { ctx.fillStyle = lit ? "#ffcf6e" : "#3b2a1c"; ctx.fillRect(wx, wy, w * .16, h * .22); if (lit) { ctx.fillStyle = "rgba(255,190,90,.18)"; ctx.beginPath(); ctx.arc(wx + w * .08, wy + h * .11, w * .22, 0, 7); ctx.fill(); } };
+  win(x + w * .14, y + h * .25); win(x + w * .7, y + h * .25);
+  ctx.fillStyle = "#2b1a10"; ctx.fillRect(x + w * .42, y + h * .5, w * .16, h * .5);
+  if (sign) { ctx.fillStyle = "#6b4526"; ctx.fillRect(x + w * .98, y + h * .2, 3, h * .35); ctx.fillStyle = "#c8913f"; ctx.fillRect(x + w * .98, y + h * .3, w * .22, h * .16); }
+}
+function drawTown(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#1d2440"); g.addColorStop(.45, "#7a4a4a"); g.addColorStop(.62, "#e09a5a"); g.addColorStop(.63, "#3b4a2e"); g.addColorStop(1, "#1f2716");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(255,230,180,.85)"; ctx.beginPath(); ctx.arc(W * .78, H * .5, H * .06, 0, 7); ctx.fill();
+  for (let i = 0; i < 40; i++) { ctx.fillStyle = `rgba(255,255,255,${.3 + .5 * rnd(i)})`; ctx.fillRect(rnd(i, 2) * W, rnd(i, 3) * H * .35, 1.5, 1.5); }
+  const hill = (base, amp, col, s) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, H); for (let x = 0; x <= W; x += 10) ctx.lineTo(x, H * base - Math.sin(x / W * 6 + s) * H * amp - Math.sin(x / W * 17 + s) * H * amp * .3); ctx.lineTo(W, H); ctx.fill(); };
+  hill(.6, .05, "#2c3550", 1); hill(.64, .04, "#2f3b26", 3);
+  // stream
+  ctx.strokeStyle = "rgba(120,170,200,.55)"; ctx.lineWidth = H * .03; ctx.beginPath(); ctx.moveTo(W * .05, H); ctx.bezierCurveTo(W * .2, H * .8, W * .1, H * .72, W * .25, H * .66); ctx.stroke();
+  // road
+  ctx.fillStyle = "#6b5236"; ctx.beginPath(); ctx.moveTo(W * .38, H); ctx.bezierCurveTo(W * .45, H * .8, W * .55, H * .75, W * .52, H * .64); ctx.lineTo(W * .56, H * .64); ctx.bezierCurveTo(W * .62, H * .78, W * .58, H * .85, W * .66, H); ctx.fill();
+  // buildings: inn, temple, market, board, forge
+  house(W * .12, H * .56, W * .17, H * .17, "#5b2d22", "#8a6a4a", true, true);
+  // temple
+  ctx.fillStyle = "#cfc4a8"; ctx.fillRect(W * .44, H * .44, W * .12, H * .22); ctx.fillStyle = "#9a8e70"; ctx.fillRect(W * .485, H * .3, W * .03, H * .16);
+  ctx.beginPath(); ctx.moveTo(W * .475, H * .3); ctx.lineTo(W * .5, H * .22); ctx.lineTo(W * .525, H * .3); ctx.fillStyle = "#6a5a3a"; ctx.fill();
+  ctx.fillStyle = "#ffd98a"; ctx.beginPath(); ctx.arc(W * .5, H * .5, H * .025, 0, 7); ctx.fill(); ctx.fillStyle = "#3a2a1a"; ctx.fillRect(W * .485, H * .58, W * .03, H * .08);
+  house(W * .64, H * .6, W * .13, H * .13, "#3e4f3a", "#7d6145", true, false);
+  // market stalls
+  for (let i = 0; i < 3; i++) { const x = W * (.66 + i * .07), y = H * .76; ctx.fillStyle = ["#a33b33", "#2a7564", "#c8913f"][i]; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + W * .06, y); ctx.lineTo(x + W * .055, y + H * .04); ctx.lineTo(x + W * .005, y + H * .04); ctx.fill(); ctx.fillStyle = "#4a3320"; ctx.fillRect(x + W * .004, y + H * .04, 3, H * .06); ctx.fillRect(x + W * .052, y + H * .04, 3, H * .06); ctx.fillStyle = "#6b4a2a"; ctx.fillRect(x, y + H * .07, W * .06, H * .02); }
+  // notice board
+  ctx.fillStyle = "#5a3d24"; ctx.fillRect(W * .335, H * .74, 4, H * .1); ctx.fillRect(W * .395, H * .74, 4, H * .1); ctx.fillStyle = "#7a5634"; ctx.fillRect(W * .325, H * .7, W * .085, H * .07);
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = "#e9dcbc"; ctx.fillRect(W * (.332 + i * .019), H * (.712 + (i % 2) * .012), W * .014, H * .03); }
+  // smoke from inn chimney
+  if (smoke.length < 30 && Math.random() < .3) smoke.push({ x: W * .16, y: H * .5, r: 3, a: .4 });
+  for (const s of smoke) { s.y -= .4; s.x += .15; s.r += .08; s.a -= .003; ctx.fillStyle = `rgba(200,190,180,${Math.max(0, s.a)})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); }
+  smoke = smoke.filter((s) => s.a > 0);
+  // fireflies
+  for (let i = 0; i < 14; i++) { const a = t / 1000 + i; ctx.fillStyle = `rgba(255,220,120,${.4 + .4 * Math.sin(a * 2)})`; ctx.beginPath(); ctx.arc(W * rnd(i, 9) + Math.sin(a) * 10, H * (.68 + .25 * rnd(i, 7)) + Math.cos(a * 1.3) * 6, 1.6, 0, 7); ctx.fill(); }
+}
+const MAP = ["##########################", "#S....,,..####......#....#", "#..TT.....####..a...#.c..#", "#..T......#.....a...D..c.#", "#.....,,..#.........#.c..#", "###..######.####..###....#", "#.....?...#.#..#..#......#", "#.b.......#.#..####...C..#", "#..b...~~.....,,.........#", "#......~~~#.###.....######", "#.....b...#.#.#.....#....#", "####.######.#.#.##..D..e.#", "#.......#...#.....#.#.eBe#", "#..C....#.,,......#.#..e.#", "#.......D.........#......#", "##########################"];
+let board = { me: { x: 3, y: 6 }, foes: [{ x: 2, y: 7, hp: 7, max: 7, n: "GM" }, { x: 3, y: 8, hp: 7, max: 7, n: "GM" }], reach: false, target: false };
+// camera: zoom onto the explored part of the map so it fills the stage (like the real game will)
+const CAM = { x: 0, y: 2, w: 18, h: 11 };
+function cellSize() { return Math.max(W / CAM.w, H / CAM.h); }
+function geo() { const c = cellSize(); return { c, ox: (W - CAM.w * c) / 2 - CAM.x * c, oy: (H - CAM.h * c) / 2 - CAM.y * c }; }
+function drawBoard(t) {
+  ctx.fillStyle = "#0b0805"; ctx.fillRect(0, 0, W, H);
+  const { c, ox, oy } = geo();
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) {
+    const ch = MAP[y][x], n = rnd(x * 31 + y, 4), px = ox + x * c, py = oy + y * c;
+    if (ch === "#") { ctx.fillStyle = `rgb(${34 + n * 10},${29 + n * 8},${24 + n * 6})`; ctx.fillRect(px, py, c, c); if (y < 15 && MAP[y + 1][x] !== "#") { ctx.fillStyle = "#4a3e32"; ctx.fillRect(px, py + c * .7, c, c * .3); } continue; }
+    ctx.fillStyle = `rgb(${86 + n * 18},${76 + n * 14},${60 + n * 10})`; ctx.fillRect(px, py, c, c);
+    if (ch === ",") { ctx.strokeStyle = "#7da35a"; ctx.lineWidth = 1.2; for (let i = 0; i < 3; i++) { const bx = px + c * (.25 + .25 * i), by = py + c * .75; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - 2, by - c * .3); ctx.moveTo(bx, by); ctx.lineTo(bx + 2, by - c * .3); ctx.stroke(); } }
+    if (ch === "~") { ctx.fillStyle = "rgba(50,100,140,.85)"; ctx.fillRect(px, py, c, c); }
+    if (ch === "T") { ctx.fillStyle = "#2e5a2c"; ctx.beginPath(); ctx.arc(px + c / 2, py + c / 2, c * .45, 0, 7); ctx.fill(); }
+    if (ch === "D") { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(px + c * .1, py + c * .1, c * .8, c * .8); }
+    if (ch === "C") { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * .2, py + c * .32, c * .6, c * .42); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * .2, py + c * .45, c * .6, c * .07); }
+    if (ch === "?") { ctx.fillStyle = `rgba(255,225,140,${.6 + .4 * Math.sin(t / 300)})`; ctx.font = `${c * .6}px serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); }
+  }
+  // reachable highlight / targets
+  if (board.reach) for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) if (MAP[y][x] !== "#" && Math.max(Math.abs(x - board.me.x), Math.abs(y - board.me.y)) <= 6 && x < 10) { ctx.fillStyle = "rgba(99,176,156,.2)"; ctx.fillRect(ox + x * c, oy + y * c, c, c); }
+  const token = (x, y, ring, label, img, hp, max, glow) => {
+    const cx = ox + x * c + c / 2, cy = oy + y * c + c / 2, r = c * .42;
+    if (glow) { ctx.save(); ctx.shadowColor = glow; ctx.shadowBlur = 18 + 6 * Math.sin(t / 200); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = "#000"; ctx.fill(); ctx.restore(); }
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = "#3b1d1a"; ctx.fill();
+    if (img && img.complete) { ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, 7); ctx.clip(); ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2); ctx.restore(); }
+    else { ctx.fillStyle = "#fff"; ctx.font = `600 ${r * .8}px Mitr, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, cx, cy + 1); }
+    ctx.lineWidth = 2.5; ctx.strokeStyle = ring; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+    if (max) { ctx.fillStyle = "#000"; ctx.fillRect(cx - r, cy + r + 1, r * 2, 4); ctx.fillStyle = hp / max > .5 ? "#6fbf6a" : "#e05a4f"; ctx.fillRect(cx - r, cy + r + 1, r * 2 * hp / max, 4); }
+  };
+  for (const f of board.foes) if (f.hp > 0) token(f.x, f.y, "#d0603f", f.n, null, f.hp, f.max, board.target ? "#d0603f" : null);
+  token(board.me.x, board.me.y, "#e9b44c", "FB", fizzImg, 4, 8, view === "fight" ? "#e9b44c" : null);
+  // fog
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 26; x++) { const d = Math.hypot(x - board.me.x, y - board.me.y); if (x > 10 || y > 11 || d > 7) { ctx.fillStyle = x > 12 ? "rgba(5,4,3,.96)" : "rgba(5,4,3,.6)"; ctx.fillRect(ox + x * c, oy + y * c, c, c); } }
+}
+const fizzImg = new Image(); fizzImg.src = FIZZ;
+function npc(canvas, kind) {
+  const c = canvas.getContext("2d"), w = canvas.width = 300, h = canvas.height = 400;
+  const robe = kind === "temple" ? "#e8dcc0" : kind === "inn" ? "#7a4b2a" : kind === "market" ? "#2a6a58" : "#5a4a7a";
+  c.fillStyle = "rgba(0,0,0,.4)"; c.beginPath(); c.ellipse(150, 392, 110, 12, 0, 0, 7); c.fill();
+  c.fillStyle = robe; c.beginPath(); c.moveTo(40, 400); c.quadraticCurveTo(60, 220, 150, 210); c.quadraticCurveTo(240, 220, 260, 400); c.fill();
+  c.fillStyle = "#e2b58e"; c.beginPath(); c.arc(150, 150, 62, 0, 7); c.fill();
+  c.fillStyle = kind === "temple" ? "#d9d4c8" : "#5a3a22"; c.beginPath(); c.arc(150, 128, 66, Math.PI, 0); c.fill();
+  c.fillStyle = "#2a1d12"; c.beginPath(); c.arc(128, 156, 6, 0, 7); c.arc(172, 156, 6, 0, 7); c.fill();
+  c.strokeStyle = "#7a4a3a"; c.lineWidth = 4; c.beginPath(); c.arc(150, 176, 20, .2, Math.PI - .2); c.stroke();
+  if (kind === "temple") { c.fillStyle = "#e9b44c"; c.beginPath(); c.arc(150, 280, 18, 0, 7); c.fill(); }
+}
+function loop(t) { if (view === "town") drawTown(t); else drawBoard(t); requestAnimationFrame(loop); }
+
+// ---------- HUD per view ----------
+const hud = $("#hud");
+const partyHTML = (now) => `<div class="party">
+  <div class="pc ${now ? "now" : ""}"><div class="face" style="background-image:url(${FIZZ})"></div><div><b>Fizz</b><div class="bar"><i style="width:50%"></i></div></div></div>
+  <div class="pc"><div class="face">BI</div><div><b>Brannoc</b><div class="bar"><i style="width:90%"></i></div></div></div></div>`;
+const menuHTML = `<div class="menu">${[["book", "ประวัติเรื่องเล่า"], ["map", "แผนที่โลก"], ["voice", "เสียง DM"], ["tv", "โหมดทีวี"], ["help", "ช่วยเหลือ"]].map(([k, l]) => `<button class="ic" data-ic="${k}" aria-label="${l}" title="${l}">${ICON[k]}</button>`).join("")}</div>`;
+const SPOTS = [
+  { id: "inn", x: 20, y: 52, name: "The Copper Kettle", th: "โรงเตี๊ยม · พักค้างคืน", who: "Old Pell", line: "นั่งก่อนสิพ่อหนุ่ม ซุปยังร้อน… อยากฟังเรื่องมังกรใต้หอเถ้าถ่านไหมล่ะ?", acts: [["พักค้างคืน", "1 GP/คน"], ["ฟังข่าวลือ", ""]] },
+  { id: "temple", x: 50, y: 34, name: "Temple of the Dawn", th: "วิหาร · ชุบชีวิต รักษา", who: "Sister Maren", line: "แสงรุ่งอรุณคุ้มครองเจ้า ใครบาดเจ็บหรือจากไป พาเขามาที่นี่", acts: [["ชุบชีวิตเพื่อน", "100 GP × Lv"], ["รักษาสภาพผิดปกติ", "10 GP"]] },
+  { id: "market", x: 74, y: 74, name: "Brindle Market", th: "ตลาด · ซื้อขายของ", who: "Bram", line: "ของดีราคาถูก… ก็ไม่ถูกขนาดนั้นหรอก จะเอาอะไรว่ามา", acts: [["ซื้อของ", ""], ["ขายของ", "ครึ่งราคา"]] },
+  { id: "board", x: 37, y: 68, name: "Notice Board", th: "กระดานประกาศ · งานและค่าหัว", who: "Mayor Oswin Hale", line: "ก็อบลินจากโพรงหนามดำลักพาตัวชาวบ้านไปสามคนแล้ว ช่วยพวกเราด้วย", acts: [["รับงาน: Thornback Hollow", "Lv 1–2"], ["ดูแผนที่โลก", ""]] },
+];
+function townHUD() {
+  hud.innerHTML = `<div class="plate"><div class="loc">Brindlemoor</div><div class="th">หมู่บ้านบรินเดิลมัวร์ · เย็นวันที่ 3</div></div>
+  <div class="hint"><span class="mode town">หมู่บ้าน</span><span class="txt">แตะอาคารที่มีแสงเพื่อเข้าไป หรือคุยกับ DM ด้านล่าง</span></div>
+  ${partyHTML(false)}${menuHTML}
+  ${SPOTS.map((s) => `<button class="spot" style="left:${s.x}%;top:${s.y}%" data-spot="${s.id}"><span class="lbl"><b>${s.name}</b><span>${s.th}</span></span><span class="pin"></span></button>`).join("")}
+  <div class="caption"><div class="speech"><span class="who">DM</span><p>ควันจากโรงตีเหล็กลอยขึ้นฟ้าสีส้ม ชาวบ้านมองพวกเจ้าด้วยความหวัง ที่หน้ากระดานประกาศ นายกหมู่บ้านกำลังติดใบประกาศใหม่ด้วยมือสั่น ๆ</p></div>
+  <div class="choices"><button class="choice">ไปดูใบประกาศ</button><button class="choice">เข้าโรงเตี๊ยมพักก่อน</button><button class="choice">แวะตลาดซื้อยา</button></div></div>`;
+  hud.querySelectorAll(".spot").forEach((b) => b.addEventListener("click", () => openRoom(SPOTS.find((s) => s.id === b.dataset.spot))));
+  wireMenu();
+}
+function openRoom(s) {
+  const room = el("div", { class: "room" });
+  room.innerHTML = `<div class="npc"><canvas aria-label="ภาพ ${s.who}"></canvas></div>
+  <div class="side"><div class="mode town" style="align-self:flex-start">${s.th}</div><h2>${s.name}</h2>
+  <div class="speech"><span class="who">${s.who}</span><p>${s.line}</p></div>
+  <div class="acts">${s.acts.map(([a, c]) => `<button class="btn gold">${a}${c ? ` <small>${c}</small>` : ""}</button>`).join("")}<button class="btn" data-back>← กลับจัตุรัส</button></div></div>`;
+  npc(room.querySelector("canvas"), s.id);
+  room.querySelector("[data-back]").addEventListener("click", () => room.remove());
+  hud.append(room);
+}
+function exploreHUD() {
+  board.reach = false; board.target = false;
+  hud.innerHTML = `<div class="plate"><div class="loc">Thornback Hollow</div><div class="th">โพรงหนามดำ · Lv 1–2</div></div>
+  <div class="hint"><span class="mode">สำรวจ</span><span class="txt">แตะพื้นเพื่อเดิน · แตะ ✦ หรือหีบเพื่อตรวจดู</span></div>
+  ${partyHTML(false)}${menuHTML}
+  <div class="caption"><div class="speech"><span class="who">DM</span><p>กลิ่นควันไฟและเนื้อย่างลอยมาตามลม รอยเท้าเล็ก ๆ หลายสิบรอยย่ำโคลนไปทางใต้ ข้างกองกระดูกมีเศษผ้าสีเทาเถ้าวาวแสงประหลาด…</p></div>
+  <div class="choices"><button class="choice">ตรวจเศษผ้า <span class="tag">Investigation</span></button><button class="choice">ย่องตามรอยเท้า <span class="tag">Stealth</span></button><button class="choice">ปรุงยาเตรียมไว้ก่อน</button></div>
+  <div class="say"><input id="say-in" placeholder="หรือพิมพ์เองว่าจะทำอะไร…" aria-label="บอก DM"><button class="btn gold">ส่ง</button></div></div>`;
+  hud.querySelectorAll(".choice").forEach((b) => b.addEventListener("click", () => { if (b.textContent.includes("Investigation")) rollDice({ label: "Fizz · Investigation", die: 14, bonus: 5, dc: 12, kind: "check" }); }));
+  wireMenu();
+}
+let econ = { action: true, bonus: true, move: 30 };
+function fightHUD(first) {
+  board.reach = econ.move > 0; board.target = false;
+  hud.innerHTML = `<div class="order">${[["FB", "pc", 19, FIZZ], ["GM", "foe", 17], ["BI", "pc", 14], ["GM", "foe", 9]].map(([n, s, i, img], k) => `<div class="o ${s} ${k === 0 ? "now" : ""}" style="${img ? `background-image:url(${img})` : ""}">${img ? "" : n}<em>${i}</em></div>`).join("")}</div>
+  <div class="hint" style="top:clamp(62px,9vw,80px)"><span class="mode fight">ต่อสู้ · รอบ 1</span><span class="txt">ตาของคุณ: แตะช่องสีเขียวเพื่อเดิน หรือเลือกท่าด้านล่าง</span></div>
+  ${menuHTML}
+  <div class="me"><div class="big" style="background-image:url(${FIZZ})"></div><div class="stats"><b>Fizz Bubblewick</b><div class="hpbar"><i style="width:50%"></i></div><span>HP 4/8 · AC 12</span>
+    <div class="pips">เวท <span class="pip on"></span><span class="pip on"></span></div>
+    <div class="econ"><span class="${econ.action ? "" : "used"}">Action</span><span class="${econ.bonus ? "" : "used"}">Bonus</span><span>${econ.move} ft</span></div></div></div>
+  <div class="hotbar" role="toolbar" aria-label="ท่าในตานี้">
+    ${[["sword", "โจมตี", "1", "atk"], ["spell", "เวท", "2", "spell"], ["potion", "ยาปรุง", "3", "potion"], ["shield", "หลบ", "4", "dodge"], ["run", "วิ่ง", "5", "dash"], ["end", "จบตา", "⏎", "end"]].map(([i, l, k, id]) => `<button class="slot ${id === "end" ? "end" : ""}" data-act="${id}" ${!econ.action && ["atk", "spell", "potion", "dodge", "dash"].includes(id) ? "disabled" : ""}><kbd>${k}</kbd>${ICON[i]}<span>${l}</span></button>`).join("")}</div>
+  <div class="banner" id="banner">ตาของ Fizz!</div>`;
+  if (first) requestAnimationFrame(() => $("#banner").classList.add("show"));
+  hud.querySelectorAll(".slot").forEach((b) => b.addEventListener("click", () => pickAct(b)));
+  wireMenu();
+}
+function pickAct(b) {
+  hud.querySelectorAll(".slot").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+  hud.querySelector(".step")?.remove();
+  const a = b.dataset.act;
+  if (a === "end") { econ = { action: true, bonus: true, move: 30 }; board.foes.forEach((f) => (f.hp = f.max)); fightHUD(true); return; }
+  if (a === "atk") { board.target = true; board.reach = false; hud.append(el("div", { class: "step" }, "เลือกเป้า: แตะศัตรูที่เรืองแสงสีแดง (Dagger +4 · 1d4+2)")); }
+  else if (a === "potion") hud.append(el("div", { class: "step" }, "แตะตัวเองเพื่อดื่ม หรือแตะเพื่อนที่ยืนติดเพื่อป้อน"));
+  else if (a === "spell") hud.append(el("div", { class: "step" }, "เลือกเวท: Ray of Frost · Magic Missile · Cure Wounds · Grease"));
+  else hud.append(el("div", { class: "step" }, a === "dodge" ? "Dodge: ศัตรูตีคุณเสียเปรียบจนถึงตาหน้า" : "Dash: เดินได้เพิ่มอีก 30 ฟุต"));
+}
+cv.addEventListener("click", (e) => {
+  if (view !== "fight" || !board.target) return;
+  const r = cv.getBoundingClientRect(), { c, ox, oy } = geo();
+  const x = Math.floor((e.clientX - r.left - ox) / c), y = Math.floor((e.clientY - r.top - oy) / c);
+  const f = board.foes.find((q) => q.x === x && q.y === y && q.hp > 0); if (!f) return;
+  board.target = false; hud.querySelector(".step")?.remove();
+  const die = 1 + Math.floor(Math.random() * 20);
+  rollDice({ label: "Fizz โจมตีด้วย Dagger", die, bonus: 4, dc: 13, kind: "attack", onDone: (hit, crit) => {
+    econ.action = false;
+    if (hit) { const dmg = (crit ? 2 : 1) * (1 + Math.floor(Math.random() * 4)) + 2; f.hp = Math.max(0, f.hp - dmg); floatAt(f, crit ? "−" + dmg + " คริ!" : "−" + dmg); }
+    else floatAt(f, "พลาด");
+    setTimeout(() => fightHUD(false), 900);
+  } });
+});
+function floatAt(f, text) {
+  const { c, ox, oy } = geo();
+  const fl = el("div", { class: "float", style: `left:${ox + f.x * c + c / 2}px;top:${oy + f.y * c - 6}px` }, text);
+  hud.append(fl); setTimeout(() => fl.remove(), 1400);
+}
+const D20 = '<svg viewBox="0 0 100 100"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="#efe3c8" stroke="#2a1d12" stroke-width="2.5"/><polygon points="50,22 78,68 22,68" fill="#e2d2b0" stroke="#2a1d12" stroke-width="1.5"/><path d="M50 3 50 22M93 27 78 68M7 27 22 68M50 97 22 68M50 97 78 68M7 73 22 68M93 73 78 68M7 27 50 22 93 27" stroke="#2a1d12" stroke-width="1.3" fill="none"/></svg>';
+function rollDice({ label, die, bonus, dc, kind, onDone }) {
+  const box = el("div", { class: "dice" });
+  box.innerHTML = `<div class="dcard"><div class="small" style="font:500 .9rem var(--f-th);color:var(--muted)">${label}</div><div class="d20 roll">${D20}<b>?</b></div><div class="math"></div><div class="verdict"></div></div>`;
+  hud.append(box); requestAnimationFrame(() => box.classList.add("show"));
+  const b = box.querySelector("b"); let n = 0;
+  const spin = setInterval(() => { b.textContent = 1 + Math.floor(Math.random() * 20); if (++n > 9) { clearInterval(spin); land(); } }, 80);
+  function land() {
+    b.textContent = die; const total = die + bonus, crit = die === 20, ok = crit || (die !== 1 && total >= dc);
+    box.querySelector(".math").textContent = `${die} + ${bonus} = ${total}  vs  ${kind === "attack" ? "AC" : "DC"} ${dc}`;
+    const v = box.querySelector(".verdict"); v.textContent = crit ? "คริติคอล!" : ok ? (kind === "attack" ? "โดน!" : "สำเร็จ!") : (kind === "attack" ? "พลาด" : "ไม่สำเร็จ"); v.className = "verdict " + (crit ? "crit" : ok ? "hit" : "miss");
+    box.classList.add("done");
+    setTimeout(() => { box.classList.remove("show"); setTimeout(() => box.remove(), 250); onDone && onDone(ok, crit); }, 1500);
+  }
+}
+// ---------- help coach marks ----------
+const MARKS = {
+  town: [[2, 18, "ทีมของคุณ: รูป หลอด HP แตะเพื่อดูการ์ด"], [62, 3, "เมนู: ประวัติเรื่องเล่า แผนที่โลก เสียง DM โหมดทีวี"], [30, 30, "อาคารที่มีแสง = เข้าไปได้ แตะเพื่อคุยกับ NPC และใช้บริการ"], [30, 60, "DM เล่าเรื่องตรงนี้ แตะตัวเลือก หรือพิมพ์เองก็ได้"]],
+  explore: [[30, 12, "แถบนี้บอกเสมอว่าตอนนี้อยู่โหมดไหนและทำอะไรได้"], [8, 40, "กระดาน: แตะพื้นเพื่อเดิน ส่วนมืด = ยังไม่สำรวจ"], [30, 58, "ตัวเลือกที่มีป้ายทักษะ = เกมจะทอยเต๋าให้ ลองแตะ Investigation"]],
+  fight: [[34, 14, "ลำดับตา: ใครขยายใหญ่ = ตานั้น"], [2, 54, "ตัวคุณ: HP ช่องเวท และ Action/Bonus ที่เหลือในตานี้"], [36, 64, "เลือกท่า แล้วกระดานจะไฮไลต์เป้าที่ใช้ได้ ลอง โจมตี → แตะก็อบลิน"]],
+};
+function wireMenu() {
+  hud.querySelector('[data-ic="help"]').addEventListener("click", (e) => {
+    const on = e.currentTarget.getAttribute("aria-pressed") === "true"; e.currentTarget.setAttribute("aria-pressed", on ? "false" : "true");
+    hud.querySelector(".coach")?.remove(); if (on) return;
+    const co = el("div", { class: "coach" }); MARKS[view].forEach(([x, y, t], i) => co.append(el("div", { class: "mark", style: `left:${x}%;top:${y}%` }, `<i>${i + 1}</i><span>${t}</span>`)));
+    hud.append(co);
+  });
+}
+const LEGEND = {
+  town: [["ภาพแทนกล่อง", "หมู่บ้านเป็นภาพเต็มจอ อาคารที่เข้าได้มีแสงและป้ายชื่อ"], ["เข้าไปในอาคาร", "ขึ้นภาพ NPC พร้อมคำพูด และปุ่มบริการ (พัก ชุบชีวิต ซื้อขาย รับงาน)"], ["DM อยู่บนภาพ", "คำบรรยายและตัวเลือกอยู่ใต้ภาพแบบ visual novel"]],
+  explore: [["จอเดียว", "กระดานกับคำบรรยายของ DM อยู่ในจอเดียวกัน ไม่ต้องมองสองกล่อง"], ["ตัวเลือกทอยทักษะ", "ป้าย Investigation/Stealth บอกว่าจะทอยอะไร แล้วลูกเต๋ากลิ้งให้เห็น"], ["แถบบอกโหมด", "บอกตลอดว่าตอนนี้สำรวจ ต่อสู้ หรืออยู่ในหมู่บ้าน และแตะอะไรได้"]],
+  fight: [["Hotbar แบบเกม", "ไอคอนท่าเรียงด้านล่าง ท่าที่ใช้ไม่ได้จะจางลง"], ["ทำทีละขั้น", "เลือกท่า → แถบสีทองบอกขั้นต่อไป → กระดานไฮไลต์เป้า"], ["ทอยเต๋าทุกครั้ง", "ลูกเต๋ากลิ้งกลางจอ แสดงตัวเลขเต็ม แล้วตัวเลขดาเมจลอยจากโทเคน"]],
+};
+function show(v) {
+  view = v; ["town", "explore", "fight"].forEach((k) => $("#t-" + k).setAttribute("aria-pressed", k === v ? "true" : "false"));
+  if (v === "town") townHUD(); else if (v === "explore") exploreHUD(); else { econ = { action: true, bonus: true, move: 30 }; fightHUD(true); }
+  $("#legend").innerHTML = LEGEND[v].map(([a, b]) => `<div><b>${a}</b>${b}</div>`).join("");
+}
+$("#t-town").onclick = () => show("town"); $("#t-explore").onclick = () => show("explore"); $("#t-fight").onclick = () => show("fight");
+new ResizeObserver(fit).observe(cv); fit(); show("town"); requestAnimationFrame(loop);
+</script>
