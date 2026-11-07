@@ -19,6 +19,15 @@ const LOOK = {
   "red-dragon-wyrmling": "a young red dragon with crimson scales, horned head and smoke curling from its nostrils",
 };
 const images = [];
+// Town NPCs: shown full height on the left when a player enters a building (background = that building's interior map).
+const NPC_TAIL = " Waist-up character portrait, facing slightly toward the viewer, warm candle and lantern light, softly blurred dark background, painted like a fantasy RPG visual novel character.";
+const NPCS = [
+  ["npc-maren", "Sister Maren · วิหาร", "Sister Maren, a kind middle-aged human priestess of a dawn goddess, warm brown skin, gentle smile, silver-streaked dark hair under a cream hood, white and gold robes with a sunrise emblem on the chest, holding a small glowing lantern"],
+  ["npc-pell", "Old Pell · โรงเตี๊ยม", "Old Pell, a very old halfling storyteller sitting by a tavern hearth, bushy white eyebrows, twinkling eyes, long pipe with a curl of smoke, patched green waistcoat, mug of ale, leaning in as if telling a secret about a dragon"],
+  ["npc-bram", "Bram · ตลาด", "Bram, a grumpy stout dwarf shopkeeper with a braided red-brown beard, leather apron full of tools, one eyebrow raised, arms crossed, shelves of potions, rope and weapons behind him"],
+  ["npc-oswin", "Mayor Oswin Hale · กระดานประกาศ", "Mayor Oswin Hale, a worried but kind human village mayor in his fifties, round face, receding gray hair, tired eyes, plain brown coat with a brass chain of office, holding a crumpled missing-persons notice"],
+];
+for (const [name, label, look] of NPCS) images.push({ group: "npc", name, label, ratio: "3:4", prompt: look + "." + NPC_TAIL });
 for (const p of premades) images.push({ group: "portrait", name: "portrait-" + p.id, label: p.name, ratio: "1:1",
   prompt: (p.portraitPrompt || `Fantasy portrait of ${p.name}`) + ". Head and shoulders, centered, plain dark background." });
 const ids = [...new Set(Object.values(camp.maps).flatMap((m) => Object.values(m.encounters).flatMap((e) => e.monsters.map((x) => x[0]))))];
@@ -33,7 +42,7 @@ const THEME = {
   ruins: "a ruined red stone watchtower courtyard on a cliff with grass, crates, tents and rubble",
   volcanic: "a volcanic obsidian spire interior with glowing lava channels, ash and cult banners",
 };
-for (const [id, m] of Object.entries(camp.maps)) images.push({ group: "map", name: "map-" + id, label: m.name + " · " + m.th, ratio: "3:2", map: id,
+for (const [id, m] of Object.entries({})) images.push({ group: "map", name: "map-" + id, label: m.name + " · " + m.th, ratio: "3:2", map: id,
   prompt: `Top-down tabletop battle map of ${THEME[m.theme] || m.theme}: ${m.name}. ${m.final ? "A huge circular lair at the summit with a dragon hoard of gold. " : ""}Readable floor texture, clear contrast between walls and floor.` });
 const maps = Object.fromEntries(Object.entries(camp.maps).map(([id, m]) => [id, m.rows]));
 const html = r("tools/gen-images.template.html").replace("/*__IMAGES__*/[]", JSON.stringify(images)).replace("/*__MAPS__*/{}", JSON.stringify(maps));
