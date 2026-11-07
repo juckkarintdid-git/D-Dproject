@@ -122,6 +122,7 @@ function render() {
   if (S.view === "build" && !S.draft) S.draft = newCard();
   document.body.classList.toggle("tv", S.view === "play" && !!P.tv);
   document.body.classList.toggle("playing", S.view === "play");
+  document.body.classList.toggle("ingame", S.view === "play" && !!P.cid);
   const v = S.view === "play" ? viewPlay() : S.view === "build" ? viewBuild() : S.view === "sheet" && S.sheet ? viewSheet(S.sheet) : viewShelf();
   app.replaceChildren(v);
 }

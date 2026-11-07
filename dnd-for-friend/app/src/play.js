@@ -148,7 +148,7 @@ async function joinWith(card) {
   const sh = computeSheet(c, D);
   const def = P.scene && mapDef(P.scene.loc);
   const start = def && def.rows ? freeStart(def) : { x: 1, y: 1 };
-  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level, brewsLeft: 2 }, pos: start, revealed: {}, seen: Date.now() });
+  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level, brewsLeft: 2 }, pos: start, revealed: {}, seen: Date.now(), joined: Date.now() });
   P.myCardId = c.id; P.forceJoin = false;
   await say("system", c.name + " (" + classLine(c) + " Lv" + c.level + ") เข้าร่วมทีม");
   render();
@@ -215,7 +215,7 @@ async function act(fn) {
   const u = current(st);
   const res = fn(st, u);
   if (res && res.error) { toast(res.error); return; }
-  P.pending = null; P.attackSel = null; P.spellSel = null;
+  P.pending = null; P.attackSel = null; P.spellSel = null; P.pop = null;
   await commitCombat(st);
 }
 
@@ -231,7 +231,12 @@ function hostTick() {
     if (!u || st.over) return;
     if (u.side === "foe") { hostBusy = true; setTimeout(() => monsterTurn().finally(() => { hostBusy = false; hostTick(); }), 650); return; }
     if (u.side === "pc" && (u.hp <= 0 || u.dead)) { hostBusy = true; setTimeout(async () => { const s2 = combatState(); if (current(s2) && current(s2).id === u.id) { finishTurn(s2); await commitCombat(s2); } hostBusy = false; hostTick(); }, 900); return; }
-  } else if (sc.mode === "explore" && !P.arriving) checkEncounters();
+  } else if (sc.mode === "explore" && !P.arriving) {
+    const ex = exState();
+    if (ex.turn && (sc.ex || {}).turn !== ex.turn) { hostBusy = true; writeScene({ ex: { group: ex.group, turn: ex.turn, moved: 0, acted: false } }).finally(() => { hostBusy = false; }); return; }
+    checkEncounters();
+  }
+  if (sc.vote && sc.mode !== "combat") { const v = voteStatus(); if (v && v.all) { hostBusy = true; const loc = sc.vote.loc; writeScene({ vote: null }).then(() => travelTo(loc)).finally(() => { hostBusy = false; }); return; } }
   maybeDM();
 }
 async function monsterTurn() {
@@ -295,7 +300,7 @@ async function finalizeCombat(st) {
     const cleared = { ...(P.meta.cleared || {}), [clearedKey(st.mapId, st.encounter)]: true };
     const done = st.boss ? { ...(P.meta.done || {}), [st.mapId]: true } : P.meta.done || {};
     await writeMeta({ cleared, done });
-    await writeScene({ mode: "explore", combat: null, finalized: true, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss } });
+    await writeScene({ mode: "explore", combat: null, finalized: true, ex: { ...(P.scene.ex || {}), moved: 0, acted: false }, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss } });
     await say("system", "🏆 ชนะ " + def.encounters[st.encounter].th + " · ได้ EXP คนละ " + share + (milestone ? " (บอสดันเจี้ยน: EXP อย่างน้อย " + milestone + ")" : "") + pcs.filter((u) => u.dead).map((u) => " · " + u.name + " เสียชีวิต ต้องไปชุบที่วิหาร").join(""));
     requestDM({ event: "ชนะการต่อสู้กับ " + def.encounters[st.encounter].th + (st.boss ? " (บอสของสถานที่นี้)" + (def.final ? " นี่คือบอสสุดท้ายของแคมเปญ ให้บรรยายตอนจบ" : "") : "") });
   } else {
@@ -305,7 +310,8 @@ async function finalizeCombat(st) {
       const sh = computeSheet(p.card, D);
       await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...p.live, ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
     }
-    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, lastCombat: { result: "lose" } });
+    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, lastCombat: { result: "lose" }, vote: null });
+    for (const p of Object.values(P.party)) if (P.party[p.cardId].townPlace) await writeParty(p.cardId, { townPlace: null });
     await say("system", "💀 ทีมพ่ายแพ้… ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
     requestDM({ event: "ทีมแพ้และถูกพากลับมาชุบชีวิตที่วิหาร" });
   }
@@ -387,9 +393,10 @@ async function runDM(sample, playerMsgs, events, depth, checkResults) {
   if (text) await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map(String) : [] });
   if (ans && ans.action) await dmAction(ans.action);
   if (!depth && ans && Array.isArray(ans.checks) && ans.checks.length) {
-    const results = ans.checks.slice(0, 4).map(rollCheck).filter(Boolean);
+    const rolls = [];
+    const results = ans.checks.slice(0, 4).map((c) => { const t = rollCheck(c); if (t) rolls.push(rollCheck.last); return t; }).filter(Boolean);
     if (results.length) {
-      await say("system", "🎲 " + results.join("\n🎲 "));
+      await say("system", "🎲 " + results.join("\n🎲 "), { rolls });
       await runDM(sample, [], [], 1, results.join("; "));
     }
   }
@@ -408,6 +415,7 @@ function rollCheck(c) {
   let potion = 0;
   if (p.live.checkBonus && sk) { potion = d(4); bonus += potion; writeParty(p.cardId, { live: { ...p.live, checkBonus: false } }).catch(() => {}); }
   const total = r + bonus; const dc = +c.dc || 10;
+  rollCheck.last = { who: p.card.name, label: sk ? sk.name : ab ? ab + " save" : String(c.skill), roll: r, bonus, total, dc, ok: total >= dc };
   return p.card.name + " " + (sk ? sk.name : ab ? ab + " save" : c.skill) + ": " + r + (bonus >= 0 ? "+" : "") + bonus + " = " + total + " vs DC " + dc + (potion ? " (รวมยาปรุง +" + potion + ")" : "") + (total >= dc ? " ✅ สำเร็จ" : " ❌ ไม่สำเร็จ");
 }
 async function dmAction(a) {
@@ -434,7 +442,8 @@ async function travelTo(loc, quiet) {
   const L0 = CAMP.world.locations.find((l) => l.id === loc) || (CAMP.maps[loc] ? CAMP.maps[loc] : null);
   await say("system", "🧭 ทีมเดินทางไป " + (L0 ? L0.name + " · " + L0.th : loc));
   P.arriving = true;
-  await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null });
+  await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false } });
+  if (isTown) for (const p of Object.values(P.party)) if (p.townPlace || p.ready) await writeParty(p.cardId, { townPlace: null, ready: 0 });
   if (!isTown && def) {
     let i = 0;
     const s = cellsOf(def, "S")[0] || { x: 1, y: 1 };
@@ -458,6 +467,49 @@ async function restParty(kind, quiet) {
   await say("system", kind === "long" ? "🌙 ทีมพักยาว: HP เต็ม ช่องเวทและความสามารถคืนครบ" + (Object.values(P.party).some(canBrew) ? " · นักปรุงยาปรุงได้อีก 2 ขวด (ขวดเก่าหมดฤทธิ์)" : "") : "☕ ทีมพักสั้น 1 ชั่วโมง: ใช้ Hit Dice ฟื้น HP และคืน Second Wind/Action Surge");
   if (!quiet) requestDM({ event: kind === "long" ? "ทีมพักค้างคืน" : "ทีมพักสั้น" });
 }
+
+// ---------- exploration turns: solo (each walks 30 ft) or group (the leader walks, everyone follows) ----------
+const EX_FT = 30;
+const isOnline = (p) => NET.local || p.uid === myUid() || Date.now() - (p.seen || 0) < 150000;
+function exMembers() {
+  return Object.values(P.party).filter((p) => p.pos && !(p.live && p.live.dead) && isOnline(p))
+    .sort((a, b) => (a.joined || 0) - (b.joined || 0) || String(a.cardId).localeCompare(String(b.cardId)));
+}
+function exState() {
+  const ex = (P.scene && P.scene.ex) || {}; const list = exMembers();
+  const turn = list.some((p) => p.cardId === ex.turn) ? ex.turn : (list[0] || {}).cardId || null;
+  const same = turn === ex.turn;
+  return { group: !!ex.group, turn, moved: same ? ex.moved || 0 : 0, acted: same ? !!ex.acted : false, list };
+}
+async function exPass(fromCard) {
+  const s = exState(); if (fromCard && s.turn !== fromCard) return;
+  const i = s.list.findIndex((p) => p.cardId === s.turn); const next = s.list[(i + 1) % Math.max(1, s.list.length)];
+  await writeScene({ ex: { group: s.group, turn: next ? next.cardId : null, moved: 0, acted: false } });
+}
+async function exSetGroup(on) {
+  const s = exState(); if (s.group === on) return;
+  await writeScene({ ex: { group: on, turn: s.turn, moved: 0, acted: false } });
+  const me = P.party[P.myCardId];
+  await say("system", (me ? me.card.name + " เปลี่ยนเป็น" : "เปลี่ยนเป็น") + (on ? "โหมดจับกลุ่ม: ทั้งทีมเดินไปด้วยกัน ผลัดกันนำทาง" : "โหมดแยกเดิน: ผลัดกันเดินคนละ 6 ช่อง"));
+}
+
+// ---------- travel needs everyone ready ----------
+function voteStatus() {
+  const v = P.scene && P.scene.vote; if (!v) return null;
+  const list = Object.values(P.party).filter(isOnline);
+  const ok = list.filter((p) => p.ready === v.id);
+  return { v, list, ok, all: list.length > 0 && ok.length === list.length };
+}
+async function proposeTravel(loc) {
+  const others = Object.values(P.party).filter((p) => isOnline(p) && !(NET.local || p.uid === myUid()));
+  if (NET.local || !others.length) return travelTo(loc);
+  const id = Date.now(); const me = P.party[P.myCardId];
+  await writeScene({ vote: { loc, id, by: me ? me.card.name : "" } });
+  for (const p of myParty()) await writeParty(p.cardId, { ready: id });
+  const L = locInfo(loc);
+  await say("system", "🧭 " + (me ? me.card.name : "มีคน") + " ชวนเดินทางไป " + L.name + " · กด “พร้อม” เมื่อทุกคนพร้อม");
+}
+async function setReady(on) { const v = P.scene.vote; if (!v) return; for (const p of myParty()) await writeParty(p.cardId, { ready: on ? v.id : 0 }); }
 
 // ---------- chat ----------
 async function sendChat(text) {

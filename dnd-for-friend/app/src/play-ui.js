@@ -62,60 +62,192 @@ function viewLobby() {
       : h("div", { class: "empty" }, "ยังไม่มีห้อง ตั้งชื่อแล้วกด “สร้างห้อง” ได้เลย")));
 }
 
-// ---------- persistent play DOM (chat input keeps focus between syncs) ----------
+// ---------- icons (inline SVG, stroke follows the text color) ----------
+const SVG = {
+  sword: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.5 3.5 20.5 3.5 20.5 9.5 9 21 3 15Z"/><path d="M6 12 12 18M4 20l2-2"/></svg>',
+  spell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>',
+  potion: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M9 2h6M10 2v6L5 17a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V2"/><path d="M7.5 14h9"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5Z"/></svg>',
+  run: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="14" cy="4" r="2"/><path d="M8 21l3-6 3 2v5M6 11l3-3h5l3 4M11 15l2-6"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  end: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h12M13 6l6 6-6 6"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4ZM20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7Z"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2Z"/><path d="M9 4v14M15 6v14"/></svg>',
+  voice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4Z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>',
+  tv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>',
+  help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 1-1 1.7V14M12 18h.01"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="M13 7l4 4"/></svg>',
+  door: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M14 3H6v18h8"/><path d="M11 12h10M18 9l3 3-3 3"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  coffee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z"/><path d="M16 11h2a2 2 0 0 1 0 4h-2M8 3v3M12 3v3"/></svg>',
+  next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l7 7-7 7M13 5l7 7-7 7"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h5v-5h5v-5h6"/><path d="M15 4h5v5"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H7M11 6l-6 6 6 6"/></svg>',
+};
+function fill(el, ...kids) { el.replaceChildren(...kids.flat(9).filter((k) => k != null && k !== false && k !== "")); }
+function svg(name) { const s = document.createElement("span"); s.className = "svg"; s.setAttribute("aria-hidden", "true"); s.innerHTML = SVG[name] || ""; return s; }
+const pct = (a, b) => Math.max(0, Math.min(100, (a / Math.max(1, b)) * 100));
+const shortName = (n) => String(n || "").replace(/ \(.*\)/, "");
+const canControlCard = (p) => !!p && (NET.local || p.uid === myUid());
+function face(src, name, cls) { return h("span", { class: cls, style: src ? "background-image:url(" + JSON.stringify(src) + ")" : null }, src ? "" : initials(shortName(name))); }
+const unitImg = (u) => u.portrait || (u.monId && P.maps.tokens && P.maps.tokens[u.monId]) || "";
+
+// ---------- persistent game screen: canvas + HUD layers (typed text survives re-renders) ----------
 function buildPlayDom() {
   const d = { cid: P.cid };
-  d.head = h("div", { class: "play-head" });
-  d.canvas = h("canvas", { class: "board", "aria-label": "กระดานเกม" });
-  d.wrap = h("div", { class: "board-wrap" }, d.canvas);
-  d.overlay = h("div", { class: "stage-ov" });
-  d.ticker = h("div", { class: "ticker", "aria-live": "polite" });
-  d.stageBox = h("div", { class: "stage-box" }, d.wrap, d.overlay, d.ticker);
-  d.bar = h("div", { class: "actbar" });
-  d.stage = h("section", { class: "stage" }, d.stageBox, d.bar);
+  const L = (cls) => h("div", { class: cls });
+  d.canvas = h("canvas", { class: "g-scene", "aria-label": "กระดานเกม" });
+  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.menu = L("g-menu");
+  d.ticker = h("div", { class: "g-ticker", "aria-live": "polite" });
+  d.vote = L("g-vote"); d.spots = L("g-spots"); d.room = L("g-room"); d.tools = L("g-tools"); d.combat = L("g-combat");
+  d.panel = L("g-panelwrap"); d.coach = L("g-coach");
+  d.say = h("input", { type: "text", maxlength: 300, placeholder: "หรือพิมพ์เองว่าจะทำอะไร…", "aria-label": "บอก DM", onkeydown: (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); submitSay(); } } });
+  d.sayForm = h("div", { class: "g-say" }, d.say, h("button", { class: "btn primary", onclick: submitSay }, "ส่ง"));
+  d.cap = L("g-capbox");
+  d.caption = h("div", { class: "g-cap" }, d.cap, d.sayForm);
+  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach);
+  d.fx = L("g-fx");
   d.sideTabs = h("div", { class: "side-tabs", role: "tablist" });
   d.sideBody = h("div", { class: "side-body" });
-  d.input = h("textarea", { id: "chat-in", rows: 2, placeholder: "บอก DM ว่าจะทำอะไร… (Enter ส่ง)", onkeydown: (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitChat(); } } });
+  d.input = h("textarea", { id: "chat-in", rows: 2, placeholder: "บอก DM ว่าจะทำอะไร… (Enter ส่ง)", onkeydown: (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submitChat(); } } });
   d.chatForm = h("div", { class: "chat-form" }, d.input, h("button", { class: "btn primary", onclick: submitChat }, "ส่ง"));
-  d.side = h("aside", { class: "side" }, d.sideTabs, d.sideBody, d.chatForm);
-  d.root = h("div", { class: "play" }, d.head, h("div", { class: "play-grid" }, d.stage, d.side));
-  d.canvas.addEventListener("click", onBoardClick);
-  d.canvas.addEventListener("mousemove", onBoardHover);
-  d.canvas.addEventListener("mouseleave", () => { P.hover = null; drawStage(); });
-  d.canvas.addEventListener("mousedown", (e) => { if (P.mapEdit) { P.painting = true; onBoardClick(e); } });
-  window.addEventListener("mouseup", () => { P.painting = false; });
+  d.drawer = h("aside", { class: "g-drawer", hidden: true, "aria-label": "เรื่องเล่าและทีม" },
+    h("div", { class: "g-drawer-head" }, d.sideTabs, h("button", { class: "g-ic", "aria-label": "ปิด", onclick: () => toggleDrawer(false) }, svg("x"))), d.sideBody, d.chatForm);
+  d.stage = h("section", { class: "gs", "aria-label": "จอเกม" }, d.canvas, h("div", { class: "g-vignette" }), d.hud, d.fx, d.drawer);
+  d.root = h("div", { class: "play" }, d.stage);
+  d.canvas.addEventListener("pointerdown", onPointerDown);
+  d.canvas.addEventListener("pointermove", onPointerMove);
+  d.canvas.addEventListener("pointerleave", () => { if (!ptr) { P.hover = null; P.hoverPath = null; } });
   P.dom = d;
 }
-function submitChat() {
-  const t = P.dom.input.value; if (!t.trim()) return;
-  P.dom.input.value = ""; sendChat(t);
+function submitChat() { const t = P.dom.input.value; if (!t.trim()) return; P.dom.input.value = ""; sendChat(t); }
+function submitSay() { const t = P.dom.say.value; if (!t.trim()) return; P.dom.say.value = ""; sendChat(t); }
+function toggleDrawer(on, tab) {
+  if (tab) P.panel = tab;
+  P.drawer = on == null ? !P.drawer : on;
+  P.dom.drawer.hidden = !P.drawer;
+  if (P.drawer) renderSide();
+  renderMenu();
 }
+function leaveRoom() { closeCampaign(); P.dom = null; P.tv = false; P.drawer = false; P.coach = false; P.townPlace = null; document.body.classList.remove("tv", "ingame"); render(); }
 let resizeT = null;
-window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S.view === "play" && P.cid) drawStage(); }, 120); });
+window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S.view === "play" && P.cid && P.dom) renderPlay(); }, 120); });
 
+// pointer: tap = click, drag = pan the camera, drag in the map editor = paint
+let ptr = null;
+function onPointerDown(e) {
+  ptr = { x: e.clientX, y: e.clientY, pan: { ...(P.pan || { x: 0, y: 0 }) }, drag: false };
+  if (P.mapEdit && P.mapEdit.rows) { const c = cellFromEvent(e); if (c) { paintCell(c); drawStage(); } }
+}
+function onPointerMove(e) {
+  if (ptr && P.mapEdit) { const c = cellFromEvent(e); P.hover = c; if (c && P.mapEdit.rows) paintCell(c); drawStage(); return; }
+  if (ptr && !ptr.drag && P.geo && P.geo.kind === "grid" && Math.hypot(e.clientX - ptr.x, e.clientY - ptr.y) > 9) ptr.drag = true;
+  if (ptr && ptr.drag) { P.pan = { x: ptr.pan.x + e.clientX - ptr.x, y: ptr.pan.y + e.clientY - ptr.y }; return; }
+  if (e.pointerType === "mouse") onBoardHover(e);
+}
+window.addEventListener("pointerup", (e) => {
+  const p = ptr; ptr = null;
+  if (!p || !P.dom || P.mapEdit || p.drag || e.target !== P.dom.canvas) return;
+  onBoardClick(e);
+});
+
+// ---------- render: every sync re-fills the HUD layers ----------
+function renderBar() { renderPlay(); }
+function renderOverlay() { renderPlay(); }
 function renderPlay() {
   if (S.view !== "play") return;
   if (!P.cid) { render(); return; }
   if (!P.dom || P.dom.cid !== P.cid || !P.dom.root.isConnected) { render(); return; }
-  if (!P.meta || !P.scene) { P.dom.head.replaceChildren(h("div", { class: "muted" }, "กำลังโหลดห้อง…")); return; }
+  document.body.classList.add("ingame");
+  if (!P.meta || !P.scene) { fill(P.dom.hint, h("span", { class: "g-txt" }, "กำลังโหลดห้อง…")); return; }
   document.body.classList.toggle("tv", P.tv);
-  renderHead(); renderOverlay(); renderBar(); renderSide(); drawStage(); renderTicker();
+  const sc = P.scene;
+  if (P.lastLoc !== sc.loc + sc.mode) { if (sc.mode !== "town") P.townPlace = null; P.pan = null; P.lastLoc = sc.loc + sc.mode; }
+  if (NET.local && sc.mode === "explore") { const t = exState().turn; if (t && P.party[t]) P.myCardId = t; }
+  if (P.mode !== "move") P.pop = null;
+  P.dom.stage.dataset.mode = P.mapEdit ? "edit" : sc.mode;
+  watchFx();
+  prepFrame();
+  renderParty(); renderPlate(); renderHint(); renderVote(); renderMenu(); renderSpots(); renderRoom();
+  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach();
+  if (P.drawer) renderSide();
+  drawStage();
 }
 
-function renderHead() {
-  const sc = P.scene; const L = locInfo(sc.loc);
-  const where = sc.mode === "world" ? "แผนที่โลก" : L.name + (L.th ? " · " + L.th : "");
-  const hostP = Object.values(P.party).find((p) => p.uid === P.meta.hostUid);
-  P.dom.head.replaceChildren(
-    h("div", { style: "min-width:0" }, h("div", { class: "eyebrow" }, P.meta.name + " · " + ({ town: "หมู่บ้าน", explore: "สำรวจ", combat: "ต่อสู้", world: "เดินทาง" })[sc.mode]),
-      h("h2", null, where)),
-    h("div", { class: "row" },
-      h("span", { class: "tag" + (isHost() ? " ok" : "") }, NET.local ? "ออฟไลน์" : isHost() ? "คุณเป็น host" : "host: " + (hostP ? hostP.card.name : "ไม่อยู่")),
-      !isHost() && !NET.local && h("button", { class: "btn ghost small", onclick: async () => { await writeMeta({ hostUid: myUid() }); toast("คุณเป็น host แล้ว"); } }, "เป็น host แทน"),
-      h("button", { class: "btn small", "aria-pressed": P.tts ? "true" : "false", onclick: () => { P.tts = !P.tts; try { localStorage.setItem("dnd4f-tts", P.tts ? "1" : "0"); } catch (e) {} if (!P.tts) try { speechSynthesis.cancel(); } catch (e) {} renderHead(); } }, P.tts ? "🔊 เสียง DM" : "🔈 เสียง DM"),
-      h("button", { class: "btn small", onclick: toggleTV }, P.tv ? "ออกจากโหมดทีวี" : "📺 โหมดทีวี"),
-      isHost() && sc.mode !== "combat" && sc.mode !== "town" && h("button", { class: "btn small", onclick: () => startEdit(sc.mode === "world" ? "world" : sc.loc) }, "ตั้งค่า Map"),
-      h("button", { class: "btn ghost small", onclick: () => { closeCampaign(); P.dom = null; P.tv = false; document.body.classList.remove("tv"); render(); } }, "ออกจากห้อง")));
+function renderParty() {
+  const sc = P.scene; const st = sc.mode === "combat" ? combatState() : null; const cur = st && current(st);
+  const ex = sc.mode === "explore" ? exState() : null;
+  const box = P.dom.party; box.hidden = !!P.mapEdit;
+  fill(box, ...Object.values(P.party).map((p) => {
+    const u = st && st.units["pc-" + p.cardId]; const sh = safeSheet(p.card) || { hpMax: 1 };
+    const hp = u ? u.hp : p.live.hp ?? sh.hpMax; const max = u ? u.maxHp : sh.hpMax;
+    const now = (cur && cur.id === "pc-" + p.cardId) || (ex && ex.turn === p.cardId);
+    const dead = p.live.dead || (u && u.dead);
+    return h("button", { class: "g-pc" + (now ? " now" : "") + (p.cardId === P.myCardId ? " me" : "") + (dead ? " dead" : "") + (isOnline(p) ? "" : " away"), title: p.card.name + (isOnline(p) ? "" : " (ไม่อยู่)"), onclick: () => toggleDrawer(true, "party") },
+      face(p.card.portrait, p.card.name, "g-face"),
+      h("span", { class: "g-pcinfo" }, h("b", null, p.card.name.split(" ")[0]), h("span", { class: "g-bar" }, h("i", { style: "width:" + pct(hp, max) + "%" }))),
+      ex && ex.group && now && h("em", { class: "g-lead" }, "นำ"));
+  }));
+}
+function renderPlate() {
+  const sc = P.scene; const pl = P.dom.plate;
+  pl.hidden = !!P.mapEdit || (sc.mode === "town" && !!P.townPlace);
+  if (sc.mode === "combat") {
+    const st = combatState(); const cur = st && current(st);
+    pl.className = "g-plate g-order";
+    fill(pl, ...(st ? st.order.map((id) => st.units[id]).filter((x) => x && !(x.kind === "monster" && x.hp <= 0)) : []).map((x) =>
+      h("span", { class: "g-o " + x.side + (cur && x.id === cur.id ? " now" : "") + (x.dead || x.hp <= 0 ? " down" : ""), title: x.name, style: unitImg(x) ? "background-image:url(" + JSON.stringify(unitImg(x)) + ")" : null },
+        unitImg(x) ? "" : initials(shortName(x.name)), h("em", null, x.init))));
+    return;
+  }
+  pl.className = "g-plate";
+  const L = sc.mode === "world" ? { name: CAMP.name, th: "แผนที่โลก · " + CAMP.th } : locInfo(sc.loc);
+  const lv = sc.mode === "explore" && L.level ? " · Lv " + L.level : "";
+  fill(pl, h("div", { class: "g-loc" }, L.name), h("div", { class: "g-th" }, (L.th || "") + lv));
+}
+function renderHint() {
+  const sc = P.scene; const hn = P.dom.hint;
+  let mode = "", cls = "", txt = ""; const extra = [];
+  if (P.mapEdit) { mode = "ตั้งค่า Map"; cls = "town"; txt = "คลิกหรือลากบนกระดานเพื่อวาด"; }
+  else if (!myParty().length) { mode = "เข้าร่วม"; cls = "town"; txt = "เลือกการ์ดของคุณก่อนเริ่มเล่น"; }
+  else if (sc.mode === "town") { mode = "หมู่บ้าน"; cls = "town"; txt = P.townPlace ? "คุยกับ NPC หรือใช้บริการ แล้วกดกลับจัตุรัส" : "แตะอาคารที่มีแสงเพื่อเข้าไป · รับงานที่กระดานประกาศ"; }
+  else if (sc.mode === "world") { mode = "เดินทาง"; cls = "town"; txt = "แตะหมุดบนแผนที่เพื่อเลือกที่หมาย"; }
+  else if (sc.mode === "explore") {
+    const ex = exState(); const hd = P.party[ex.turn]; const mine = canControlCard(hd);
+    mode = ex.group ? "สำรวจ · จับกลุ่ม" : "สำรวจ · แยกเดิน";
+    const left = Math.max(0, Math.floor((EX_FT - ex.moved) / 5));
+    txt = !hd ? "แตะพื้นเพื่อเดิน" : ex.group ? (mine ? hd.card.name + " นำทาง: แตะจุดหมายไม่เกิน 6 ช่อง ทั้งทีมเดินตาม" : hd.card.name + " กำลังนำทาง…")
+      : mine ? "ตาของ " + hd.card.name + ": เดินได้อีก " + left + " ช่อง · แตะ ✦ หรือหีบเพื่อค้น" + (ex.acted ? " (ค้นไปแล้ว)" : "") : "ตาของ " + hd.card.name + " · รอสักครู่";
+    extra.push(h("span", { class: "g-seg", role: "group", "aria-label": "รูปแบบการสำรวจ" },
+      h("button", { "aria-pressed": ex.group ? "false" : "true", onclick: () => exSetGroup(false) }, "แยกเดิน"),
+      h("button", { "aria-pressed": ex.group ? "true" : "false", onclick: () => exSetGroup(true) }, "จับกลุ่ม")));
+  } else if (sc.mode === "combat") {
+    const st = combatState(); const u = st && current(st);
+    mode = "ต่อสู้ · รอบ " + ((st && st.round) || 1); cls = "fight";
+    txt = !st ? "" : st.over ? (st.over === "win" ? "ชนะแล้ว! กำลังสรุปผล…" : "แพ้… กำลังสรุปผล") : u && u.side === "pc" && canControl(u) ? "ตาของคุณ (" + u.name + ")" : u ? "ตาของ " + shortName(u.name) + "…" : "";
+  }
+  fill(hn, h("span", { class: "g-mode " + cls }, mode), h("span", { class: "g-txt" }, txt), ...extra);
+}
+function renderVote() {
+  const v = P.scene.mode !== "combat" && !P.mapEdit && voteStatus(); const box = P.dom.vote;
+  box.hidden = !v; if (!v) return;
+  const L = locInfo(v.v.loc); const meReady = myParty().length > 0 && myParty().every((p) => p.ready === v.v.id);
+  fill(box, 
+    h("div", { class: "g-vote-t" }, h("b", null, "🧭 " + (v.v.by || "ทีม") + " ชวนไป " + L.name), h("small", null, (L.th ? L.th + " · " : "") + "พร้อมแล้ว " + v.ok.length + "/" + v.list.length + " คน")),
+    h("span", { class: "g-vote-faces" }, v.list.map((p) => h("span", { class: "g-vf" + (p.ready === v.v.id ? " ok" : ""), title: p.card.name + (p.ready === v.v.id ? " พร้อม" : " ยังไม่พร้อม") }, face(p.card.portrait, p.card.name, "g-face sm")))),
+    v.all ? h("small", null, "ทุกคนพร้อม กำลังออกเดินทาง…") : h("button", { class: "btn" + (meReady ? "" : " primary"), onclick: () => setReady(!meReady) }, meReady ? "ยังไม่พร้อม" : "พร้อม ✓"),
+    h("button", { class: "btn ghost", onclick: () => writeScene({ vote: null }) }, "ยกเลิก"));
+}
+function renderMenu() {
+  const sc = P.scene; if (!sc) return;
+  const b = (k, label, fn, pressed) => h("button", { class: "g-ic", "aria-label": label, title: label, "aria-pressed": pressed == null ? null : pressed ? "true" : "false", onclick: fn }, svg(k));
+  fill(P.dom.menu, 
+    b("book", "เรื่องเล่า ทีม และบันทึก", () => toggleDrawer(), !!P.drawer),
+    b("voice", "เสียง DM", () => { P.tts = !P.tts; try { localStorage.setItem("dnd4f-tts", P.tts ? "1" : "0"); } catch (e) {} if (!P.tts) try { speechSynthesis.cancel(); } catch (e) {} renderMenu(); }, !!P.tts),
+    b("tv", P.tv ? "ออกจากโหมดทีวี" : "โหมดทีวี (เต็มจอ)", toggleTV, !!P.tv),
+    isHost() && sc.mode !== "combat" && sc.mode !== "town" && !P.mapEdit && b("edit", "ตั้งค่า Map", () => startEdit(sc.mode === "world" ? "world" : sc.loc)),
+    b("help", "วิธีเล่นหน้านี้", () => { P.coach = !P.coach; renderCoach(); renderMenu(); }, !!P.coach),
+    b("door", "ออกจากห้อง", leaveRoom));
 }
 function toggleTV() {
   P.tv = !P.tv;
@@ -123,17 +255,141 @@ function toggleTV() {
   renderPlay();
 }
 
-// ---------- overlay panels over the stage (join, town, results, editor) ----------
-function renderOverlay() {
-  const ov = P.dom.overlay; const sc = P.scene;
+// ---------- town: painted village with lit buildings, rooms with the NPC ----------
+const TOWN_IMG = "assets/town-brindlemoor.webp";
+const TOWN_SPOTS = [
+  { id: "inn", x: 75, y: 25.5, npc: "pell", who: "Old Pell", line: "นั่งก่อนสิ ซุปยังร้อน… อยากฟังเรื่องมังกรใต้หอเถ้าถ่านไหมล่ะ?" },
+  { id: "temple", x: 15, y: 34, npc: "maren", who: "Sister Maren", line: "แสงรุ่งอรุณคุ้มครองเจ้า ใครบาดเจ็บหรือจากไป พาเขามาที่นี่" },
+  { id: "market", x: 79, y: 45.8, npc: "bram", who: "Bram", line: "ของดีราคาถูก… ก็ไม่ถูกขนาดนั้นหรอก จะเอาอะไรว่ามา" },
+  { id: "board", x: 58, y: 55.9, npc: "oswin", who: "Mayor Oswin Hale", line: "ก็อบลินจากโพรงหนามดำลักพาตัวชาวบ้านไปแล้วสามคน ช่วยพวกเราด้วยเถิด" },
+];
+// where the village image sits on the stage: cover on wide screens, keep every building visible on phones
+function townXform() {
+  const W = Math.max(200, P.dom.stage.clientWidth), H = Math.max(200, P.dom.stage.clientHeight); const iw = 1600, ih = 1067;
+  const cover = Math.max(W / iw, H / ih); const k = Math.min(cover, W / (iw * 0.8));
+  const w = iw * k, hh = ih * k;
+  const ox = w <= W ? (W - w) / 2 : Math.min(0, Math.max(W - w, W / 2 - 0.47 * w));
+  const oy = hh <= H ? (H - hh) * 0.32 : (H - hh) / 2;
+  return { ox, oy, w, h: hh, cover, W, H };
+}
+async function enterPlace(id) {
+  P.townPlace = id; renderPlay();
+  for (const p of NET.local ? [myMember()].filter(Boolean) : myParty()) writeParty(p.cardId, { townPlace: id }).catch(() => {});
+}
+async function leavePlace() {
+  P.townPlace = null; renderPlay();
+  for (const p of NET.local ? [myMember()].filter(Boolean) : myParty()) writeParty(p.cardId, { townPlace: null }).catch(() => {});
+}
+function renderSpots() {
+  const show = P.scene.mode === "town" && !P.mapEdit && myParty().length > 0 && !P.townPlace;
+  const box = P.dom.spots; box.hidden = !show; if (!show) return;
+  const T = townXform();
+  fill(box, ...TOWN_SPOTS.map((s) => {
+    const pl = CAMP.town.places.find((p) => p.id === s.id) || { name: s.id, th: "" };
+    const here = Object.values(P.party).filter((p) => p.townPlace === s.id);
+    const x = Math.round(T.ox + (s.x / 100) * T.w), y = Math.round(T.oy + (s.y / 100) * T.h);
+    const shift = x < 74 ? 74 - x : x > T.W - 74 ? T.W - 74 - x : 0; // keep the name label on screen near the edges
+    return h("button", { class: "g-spot", style: "left:" + x + "px;top:" + y + "px;--shift:" + shift + "px", onclick: () => enterPlace(s.id) },
+      here.length > 0 && h("span", { class: "g-spot-who", title: here.map((p) => p.card.name).join(", ") + " อยู่ข้างใน" }, here.map((p) => face(p.card.portrait, p.card.name, "g-face sm"))),
+      h("span", { class: "g-lbl" }, h("b", null, pl.name), h("span", null, pl.th)), h("span", { class: "g-pin" }));
+  }));
+}
+function renderRoom() {
+  const id = P.scene.mode === "town" && !P.mapEdit && myParty().length ? P.townPlace : null;
+  const box = P.dom.room; box.hidden = !id;
+  if (!id) { fill(box, ); box.dataset.id = ""; return; }
+  const s = TOWN_SPOTS.find((x) => x.id === id); const pl = CAMP.town.places.find((p) => p.id === id);
+  const old = box.querySelector(".g-room-body"); const top = old ? old.scrollTop : 0;
+  const fresh = box.dataset.id !== id; box.dataset.id = id;
+  const body = id === "inn" ? innPanel() : id === "temple" ? templePanel() : id === "market" ? marketPanel() : boardPanel();
+  const mine = new Set(myParty().map((p) => p.cardId));
+  const others = Object.values(P.party).filter((p) => p.townPlace === id && !mine.has(p.cardId));
+  const me = myMember();
+  box.style.backgroundImage = "url(assets/room-" + id + ".webp)";
+  fill(box, 
+    h("div", { class: "g-npc" }, h("div", { class: "g-portrait" + (fresh ? " enter" : ""), role: "img", "aria-label": "ภาพ " + s.who, style: "background-image:url(assets/npc-" + s.npc + ".webp)" })),
+    h("div", { class: "g-room-side" },
+      h("div", { class: "row" }, h("span", { class: "g-mode town" }, pl.th), others.length > 0 && h("span", { class: "g-here" }, others.map((p) => face(p.card.portrait, p.card.name, "g-face sm")), others.map((p) => p.card.name.split(" ")[0]).join(", ") + " อยู่ที่นี่ด้วย")),
+      h("h2", null, pl.name),
+      h("div", { class: "g-speech" }, h("span", { class: "g-who" }, s.who), h("p", null, s.line)),
+      me && h("div", { class: "small muted" }, "คุณเล่นเป็น " + me.card.name + " · เงิน " + fmtGp(me.card.gp || 0)),
+      h("div", { class: "g-room-body" }, body),
+      h("div", { class: "row" }, h("button", { class: "btn", onclick: leavePlace }, "← กลับจัตุรัส"))));
+  const nb = box.querySelector(".g-room-body"); if (nb && !fresh) nb.scrollTop = top;
+}
+
+// ---------- bottom right tools, DM caption, centered panels ----------
+const tb = (icon, label, fn, gold) => h("button", { class: "g-tool" + (gold ? " gold" : ""), onclick: fn }, svg(icon), h("span", null, label));
+function renderTools() {
+  const sc = P.scene; const out = [];
+  if (!P.mapEdit && myParty().length) {
+    if (sc.mode === "town" && !P.townPlace) out.push(tb("map", "แผนที่โลก", () => writeScene({ mode: "world" })));
+    else if (sc.mode === "world") {
+      const l = P.worldSel && locInfo(P.worldSel);
+      if (l) out.push(h("div", { class: "g-card" }, h("b", null, l.name), h("small", null, (l.th || "") + (l.level ? " · Lv " + l.level : "") + ((P.meta.done || {})[l.id] ? " · ✓ จบแล้ว" : "")),
+        h("button", { class: "btn primary", onclick: () => { P.worldSel = null; if (l.id === sc.loc) writeScene({ mode: l.type === "town" ? "town" : "explore" }); else proposeTravel(l.id); } }, l.id === sc.loc ? "กลับเข้าไป" : "เดินทางไปที่นี่")));
+      if (sc.loc === CAMP.town.id) out.push(tb("back", "กลับหมู่บ้าน", () => writeScene({ mode: "town" })));
+      else if (CAMP.maps[sc.loc]) out.push(tb("back", "กลับเข้า " + locInfo(sc.loc).name, () => writeScene({ mode: "explore" })));
+    } else if (sc.mode === "explore") {
+      const ex = exState(); const hd = P.party[ex.turn]; const def = mapDef(sc.loc);
+      if (sc.lastCombat && sc.lastCombat.result === "win") out.push(h("span", { class: "g-won" }, "🏆 ชนะ " + sc.lastCombat.enc + " +" + sc.lastCombat.xp + " EXP"));
+      if (hd && canControlCard(hd)) out.push(tb("next", ex.group ? "ให้คนถัดไปนำ" : "ส่งตาต่อ", () => exPass(ex.turn), true));
+      else if (hd && isHost() && !isOnline(hd)) out.push(tb("next", "ข้ามตา " + hd.card.name.split(" ")[0], () => exPass(ex.turn)));
+      out.push(tb("coffee", "พักสั้น", () => restParty("short")));
+      if (def && def.next && (P.meta.done || {})[def.id]) out.push(tb("up", "ขึ้นไปต่อ", () => travelTo(def.next), true));
+      out.push(tb("map", "แผนที่โลก", () => writeScene({ mode: "world" })));
+    }
+  }
+  fill(P.dom.tools, ...out); P.dom.tools.hidden = !out.length;
+}
+const firstLine = (t) => { const s = String(t || "").split("\n")[0]; return s.length > 150 ? s.slice(0, 148) + "…" : s; };
+function renderCaption() {
+  const sc = P.scene;
+  const show = !P.mapEdit && myParty().length > 0 && sc.mode !== "combat" && !(sc.mode === "town" && P.townPlace);
+  P.dom.caption.hidden = !show; if (!show) return;
+  const lastDm = [...P.chat].reverse().find((m) => m.kind === "dm");
+  const after = P.chat.slice(lastDm ? P.chat.lastIndexOf(lastDm) + 1 : 0).filter((m) => m.kind !== "dm" && m.ts > Date.now() - 300000).slice(-2);
+  const fallback = sc.mode === "town" ? CAMP.town.intro : sc.mode === "world" ? "เลือกที่หมายบนแผนที่ แล้วชวนเพื่อนออกเดินทาง ทุกคนต้องกด “พร้อม” ก่อน" : ((mapDef(sc.loc) || {}).intro || "");
+  const text = lastDm ? lastDm.text : fallback;
+  const min = !!P.capMin;
+  P.dom.caption.classList.toggle("min", min);
+  fill(P.dom.cap, 
+    after.length > 0 && h("div", { class: "g-recent" }, after.map((m) => h("div", { class: m.kind }, (m.kind === "player" ? (m.who || "") + ": " : "") + firstLine(m.text)))),
+    h("div", { class: "g-speech" }, h("span", { class: "g-who" }, "DM"),
+      h("span", { class: "g-sp-tools" },
+        lastDm && h("button", { class: "g-mini", "aria-label": "อ่านออกเสียง", title: "อ่านออกเสียง", onclick: () => speak(lastDm.text) }, svg("voice")),
+        h("button", { class: "g-mini", "aria-label": min ? "ขยายคำบรรยาย" : "ย่อคำบรรยาย", title: min ? "ขยาย" : "ย่อ", onclick: () => { P.capMin = !P.capMin; renderCaption(); } }, min ? "▲" : "▼")),
+      h("p", null, min ? firstLine(text) : text),
+      dmRunning && h("small", { class: "g-think" }, "DM กำลังคิด…")),
+    !min && lastDm && (lastDm.options || []).length > 0 && h("div", { class: "g-choices" }, lastDm.options.map((o) => h("button", { class: "g-choice", onclick: () => sendChat(o) }, o))));
+  P.dom.sayForm.hidden = min;
+}
+function renderPanel() {
   let content = null;
   if (P.mapEdit) content = editorPanel();
   else if (!myParty().length || P.forceJoin) content = joinPanel();
-  else if (sc.mode === "town") content = townPanel();
-  ov.hidden = !content;
-  ov.replaceChildren(...(content ? [content] : []));
-  P.dom.wrap.hidden = sc.mode === "town" && !P.mapEdit;
+  const box = P.dom.panel; box.hidden = !content; box.classList.toggle("edit", !!P.mapEdit);
+  fill(box, ...(content ? [content] : []));
 }
+function renderTicker() {
+  const st = P.scene.mode === "combat" && !P.mapEdit ? combatState() : null;
+  const lines = st ? st.log.slice(-3) : [];
+  fill(P.dom.ticker, ...lines.map((l) => h("div", { class: l.kind || "" }, l.text)));
+  P.dom.ticker.hidden = !lines.length;
+}
+const MARKS = {
+  town: [[2, 15, "ทีมของคุณ: รูปและหลอด HP แตะเพื่อดูรายละเอียดทีม"], [64, 11, "เมนู: เรื่องเล่าย้อนหลัง เสียง DM โหมดทีวี วิธีเล่น ออกจากห้อง"], [30, 30, "อาคารที่มีแสง = เข้าไปได้ หน้าเพื่อนบนป้าย = เพื่อนอยู่ข้างในตอนนี้"], [28, 60, "DM เล่าเรื่องตรงนี้ แตะตัวเลือก หรือพิมพ์เองก็ได้"], [66, 70, "รับงานที่กระดานประกาศ หรือเปิดแผนที่โลกเพื่อชวนเพื่อนออกเดินทาง"]],
+  world: [[30, 14, "แตะหมุดเพื่อเลือกที่หมาย"], [60, 62, "กด “เดินทางไปที่นี่” แล้วรอเพื่อนกด “พร้อม” ครบทุกคน"]],
+  explore: [[24, 14, "ป้ายโหมด: บอกว่าตาใคร เดินได้อีกกี่ช่อง และสลับ แยกเดิน / จับกลุ่ม ได้"], [6, 38, "แตะพื้นเพื่อเดิน ช่องสีเขียว = เดินถึงในตานี้ ลากจอเพื่อเลื่อนดูแผนที่"], [60, 52, "ส่งตาต่อ พักสั้น ขึ้นชั้นต่อไป และแผนที่โลก"], [24, 66, "DM เล่าเรื่อง แตะตัวเลือกที่มีป้ายทักษะ เกมจะทอยเต๋าให้"]],
+  combat: [[34, 15, "ลำดับตา: รูปที่ขยายใหญ่ = ตานั้น"], [2, 54, "ตัวคุณ: HP ช่องเวท และ Action / Bonus / ระยะเดินที่เหลือ"], [34, 62, "เลือกท่า แล้วกระดานจะเรืองแสงที่เป้าที่ใช้ได้ กด 1-6 บนคีย์บอร์ดก็ได้"], [64, 24, "บันทึกการทอยล่าสุด"]],
+};
+function renderCoach() {
+  const box = P.dom.coach; const list = P.coach && !P.mapEdit && P.scene ? MARKS[P.scene.mode] || [] : [];
+  box.hidden = !list.length; if (!list.length) return;
+  fill(box, ...list.map(([x, y, t], i) => h("div", { class: "g-mark", style: "left:" + x + "%;top:" + y + "%" }, h("i", null, i + 1), h("span", null, t))),
+    h("button", { class: "btn primary g-coach-x", onclick: () => { P.coach = false; renderCoach(); renderMenu(); } }, "เข้าใจแล้ว"));
+}
+
 function joinPanel() {
   const ready = S.cards.filter((c) => !validate(c, D).length);
   const inUse = new Set(Object.keys(P.party));
@@ -149,22 +405,6 @@ function joinPanel() {
     h("button", { class: "btn", onclick: () => go("shelf") }, "ไปที่การ์ดตัวละคร"));
 }
 
-// ---------- town ----------
-function townPanel() {
-  const T = CAMP.town; const place = P.townPlace;
-  const me = myMember();
-  const body = !place ? h("div", { class: "pick-grid" }, T.places.map((p) => h("button", { class: "pick place", onclick: () => { P.townPlace = p.id; renderOverlay(); } },
-      h("span", { class: "nm" }, p.name), h("span", { class: "th" }, p.th), h("span", { class: "small muted" }, p.desc))))
-    : place === "inn" ? innPanel() : place === "temple" ? templePanel() : place === "market" ? marketPanel() : boardPanel();
-  return h("div", { class: "panel ov-panel town" },
-    h("div", { class: "row", style: "justify-content:space-between" },
-      h("div", null, h("div", { class: "eyebrow" }, "หมู่บ้าน"), h("h2", null, place ? T.places.find((p) => p.id === place).name : CAMP.world.locations[0].name)),
-      h("div", { class: "row" }, place && h("button", { class: "btn", onclick: () => { P.townPlace = null; renderOverlay(); } }, "← กลับจัตุรัส"),
-        h("button", { class: "btn", onclick: () => writeScene({ mode: "world" }) }, "🗺 ออกเดินทาง"))),
-    !place && h("p", { style: "margin:0" }, T.intro),
-    me && h("div", { class: "small muted" }, "คุณเล่นเป็น " + me.card.name + " · เงิน " + fmtGp(me.card.gp || 0)),
-    body);
-}
 const fmtGp = (g) => (Math.round(g * 100) / 100) + " GP";
 function innPanel() {
   const n = Object.values(P.party).length;
@@ -239,32 +479,177 @@ function boardPanel() {
     h("ul", { class: "traits" }, CAMP.town.rumors.map((r) => h("li", null, r))),
     h("div", { class: "pick-grid" }, CAMP.world.locations.filter((l) => l.type !== "town").map((l) => h("div", { class: "pick" },
       h("span", { class: "nm" }, l.name), h("span", { class: "th" }, l.th), h("span", { class: "small muted" }, "เลเวลแนะนำ " + l.level + ((P.meta.done || {})[l.id] ? " · ✓ จบแล้ว" : "")),
-      h("button", { class: "btn small", onclick: () => travelTo(l.id) }, "เดินทางไป")))));
+      h("button", { class: "btn small", onclick: () => proposeTravel(l.id) }, "ชวนทีมไปที่นี่")))));
 }
 
-// ---------- board drawing ----------
-function stageGeometry() {
+// ---------- stage: town art, world map, or the grid board under a camera that follows the action ----------
+// a/b = HUD space at the start/end of the axis the map may scroll under (so tokens never hide behind the caption or hotbar)
+const fitAxis = (o, view, size, a = 0, b = 0) => (size + a + b <= view ? a + (view - a - b - size) / 2 : Math.min(a, Math.max(view - b - size, o)));
+function camFocus(def) {
   const sc = P.scene;
-  const wrapW = Math.max(280, P.dom.wrap.clientWidth || 800);
-  if (P.mapEdit && P.mapEdit.id === "world" || (!P.mapEdit && sc.mode === "world")) { const w = Math.min(wrapW, 1100); return { kind: "world", w, h: Math.round(w * 0.62) }; }
+  if (sc.mode === "combat") { const st = combatState(); const u = st && current(st); if (u) return { x: u.x + ((u.size || 1) - 1) / 2, y: u.y + ((u.size || 1) - 1) / 2 }; }
+  const ex = exState(); const hd = P.party[ex.turn] || myMember();
+  return (hd && hd.pos) || cellsOf(def, "S")[0] || { x: def.rows[0].length / 2, y: def.rows.length / 2 };
+}
+function stageGeometry() {
+  const sc = P.scene; const W = Math.max(200, P.dom.stage.clientWidth), H = Math.max(200, P.dom.stage.clientHeight);
+  if (P.mapEdit ? P.mapEdit.id === "world" : sc.mode === "world") { const top = 64, bottom = Math.max(120, Math.min(210, H * 0.27)); return { kind: "world", w: W, h: H, x0: 0, y0: top, ww: W, wh: Math.max(160, H - top - bottom) }; }
+  if (!P.mapEdit && sc.mode === "town") return { kind: "town", w: W, h: H };
   const def = P.mapEdit ? { ...mapDef(P.mapEdit.id), rows: P.mapEdit.rows } : mapDef(sc.loc);
   if (!def || !def.rows) return null;
-  const W = def.rows[0].length, H = def.rows.length;
-  const cell = Math.max(22, Math.min(52, Math.floor(wrapW / W)));
-  return { kind: "grid", def, W, H, cell, w: cell * W, h: cell * H };
+  const MW = def.rows[0].length, MH = def.rows.length;
+  let cell, ox, oy;
+  if (P.mapEdit) {
+    const aw = W > 900 ? W - 430 : W; cell = Math.min(aw / MW, (H - 70) / MH);
+    ox = (aw - MW * cell) / 2; oy = 60 + (H - 70 - MH * cell) / 2;
+  } else {
+    cell = Math.max(W / MW, H / MH, W < 700 ? 38 : 0);
+    const f = camFocus(def); const fk = f.x + "," + f.y;
+    if (P.focusKey !== fk) { P.focusKey = fk; P.pan = null; }
+    const top = W < 700 ? 110 : 100;
+    const capH = P.dom.caption && !P.dom.caption.hidden ? P.dom.caption.offsetHeight + 16 : 0;
+    const bot = sc.mode === "combat" ? (W < 700 ? 150 : 104) : Math.max(capH, 60);
+    const bx = W / 2 - (f.x + 0.5) * cell, by = top + (H - top - bot) / 2 - (f.y + 0.5) * cell;
+    const pan = P.pan || { x: 0, y: 0 };
+    ox = fitAxis(bx + pan.x, W, MW * cell); oy = fitAxis(by + pan.y, H, MH * cell, Math.min(top, 60), bot);
+    if (P.pan) P.pan = { x: ox - bx, y: oy - by };
+  }
+  return { kind: "grid", def, W: MW, H: MH, cell, ox, oy, w: W, h: H, mw: MW * cell, mh: MH * cell };
 }
-function drawStage() {
+let rafOn = false;
+function kick() { if (!rafOn) { rafOn = true; requestAnimationFrame((t) => { rafOn = false; if (P.dom && P.dom.root.isConnected && S.view === "play" && P.scene && !document.hidden) drawStage(t); }); } }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) kick(); });
+function drawStage(t) {
   if (!P.dom || !P.scene || S.view !== "play") return;
-  if (P.scene.mode === "town" && !P.mapEdit) return;
   const g = stageGeometry(); if (!g) return;
-  const cv = P.dom.canvas; const dpr = window.devicePixelRatio || 1;
-  if (cv.width !== Math.round(g.w * dpr) || cv.height !== Math.round(g.h * dpr)) { cv.width = Math.round(g.w * dpr); cv.height = Math.round(g.h * dpr); cv.style.width = g.w + "px"; cv.style.height = g.h + "px"; }
+  const cv = P.dom.canvas; const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(g.w * dpr) || cv.height !== Math.round(g.h * dpr)) { cv.width = Math.round(g.w * dpr); cv.height = Math.round(g.h * dpr); }
   const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (g.kind === "grid") {
+    const key = (P.mapEdit ? "e" : "g") + g.def.id + ":" + Math.round(g.cell);
+    if (!P.cam || P.cam.key !== key || P.mapEdit || (ptr && ptr.drag)) P.cam = { key, ox: g.ox, oy: g.oy };
+    else { P.cam.ox += (g.ox - P.cam.ox) * 0.16; P.cam.oy += (g.oy - P.cam.oy) * 0.16; if (Math.abs(g.ox - P.cam.ox) < 0.4) P.cam.ox = g.ox; if (Math.abs(g.oy - P.cam.oy) < 0.4) P.cam.oy = g.oy; }
+    g.ox = P.cam.ox; g.oy = P.cam.oy;
+  }
   P.geo = g;
-  if (g.kind === "world") drawWorld(ctx, g); else drawGrid(ctx, g);
+  const now = t || performance.now();
+  if (g.kind === "world") drawWorld(ctx, g); else if (g.kind === "town") drawTown(ctx, g, now); else drawGrid(ctx, g, now);
+  kick();
+}
+let smoke = [];
+function drawTown(ctx, g, t) {
+  const W = g.w, H = g.h; const T = townXform();
+  ctx.fillStyle = "#0b0805"; ctx.fillRect(0, 0, W, H);
+  const im = img(TOWN_IMG);
+  if (im) {
+    if (T.w < W - 1 || T.h < H - 1) { const w = 1600 * T.cover, hh = 1067 * T.cover; ctx.globalAlpha = 0.3; ctx.drawImage(im, (W - w) / 2, (H - hh) / 2, w, hh); ctx.globalAlpha = 1; ctx.fillStyle = "rgba(11,8,5,.5)"; ctx.fillRect(0, 0, W, H); }
+    ctx.drawImage(im, T.ox, T.oy, T.w, T.h);
+  }
+  const gr = ctx.createLinearGradient(0, 0, W, H); gr.addColorStop(0, "rgba(255,150,70,.16)"); gr.addColorStop(0.6, "rgba(40,30,60,.1)"); gr.addColorStop(1, "rgba(10,10,30,.35)");
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  // chimney smoke over the inn, fireflies over the square (positions are fractions of the image)
+  if (smoke.length < 30 && Math.random() < 0.3) smoke.push({ u: 0.66, v: 0.196, r: 0.002, a: 0.35 });
+  for (const s of smoke) { s.v -= 0.0005; s.u += 0.0002; s.r += 0.00006; s.a -= 0.003; ctx.fillStyle = "rgba(220,210,200," + Math.max(0, s.a) + ")"; ctx.beginPath(); ctx.arc(T.ox + s.u * T.w, T.oy + s.v * T.h, s.r * T.w, 0, 7); ctx.fill(); }
+  smoke = smoke.filter((s) => s.a > 0);
+  for (let i = 0; i < 18; i++) { const a = t / 1000 + i; ctx.fillStyle = "rgba(255,220,120," + (0.35 + 0.4 * Math.sin(a * 2)) + ")"; ctx.beginPath(); ctx.arc(T.ox + T.w * hash(i, 9) + Math.sin(a) * 10, T.oy + T.h * hash(i, 7) + Math.cos(a * 1.3) * 6, 1.8, 0, 7); ctx.fill(); }
+}
+
+// heavy per-sync work for the board (field of view, reach, tokens), so animation frames stay cheap
+const inRange = (a, u, t) => !!a && ((a.melee && dist(u, t) <= a.reach) || (a.range && dist(u, t) <= a.range[1]));
+function prepFrame() {
+  const sc = P.scene; P.frame = null;
+  if (P.mapEdit || (sc.mode !== "explore" && sc.mode !== "combat")) return;
+  const def = mapDef(sc.loc); if (!def || !def.rows) return;
+  const grid = gridOf(def); const st = sc.mode === "combat" ? combatState() : null;
+  const vis = currentVisible(def, grid); const bits = revealedBits(def);
+  const cur = st && current(st); const mine = !!(cur && cur.side === "pc" && canControl(cur) && !st.over);
+  let reach = null, holder = null, exLeft = 0; const targets = new Set();
+  if (st) {
+    if (mine && P.mode === "move" && cur.turn) {
+      reach = reachableCells(st, cur);
+      if (cur.turn.action || cur.turn.attacksLeft > 0) for (const f of Object.values(st.units)) if (f.side === "foe" && alive(f) && (P.attackSel != null ? inRange(cur.attacks[P.attackSel], cur, f) : cur.attacks.some((a) => inRange(a, cur, f)))) targets.add(f.id);
+    }
+    if (mine && (P.mode === "offhand" || P.mode === "spiritual")) for (const f of Object.values(st.units)) if (f.side === "foe" && alive(f)) targets.add(f.id);
+    if (mine && P.mode === "spell" && P.spellSel) { const need = spellNeed(P.spellSel.id); if (need.kind === "units") for (const f of Object.values(st.units)) if (alive(f) && (need.ally ? f.side === "pc" : f.side === "foe") && dist(cur, f) <= (need.range || 5)) targets.add(f.id); }
+    if (mine && (P.mode === "help" || P.mode === "chaos")) for (const f of Object.values(st.units)) if (f.side === "pc" && alive(f) && (P.mode === "chaos" ? dist(cur, f) <= 5 : f.id !== cur.id && dist(cur, f) <= 5)) targets.add(f.id);
+  } else {
+    const ex = exState(); holder = P.party[ex.turn] || null;
+    if (holder && canControlCard(holder) && holder.pos) { exLeft = EX_FT - ex.moved; reach = exLeft > 0 ? reachableCells({ map: grid, units: {} }, { id: "me", side: "pc", x: holder.pos.x, y: holder.pos.y, turn: { move: EX_FT, moved: ex.moved } }) : {}; }
+  }
+  const tokens = [];
+  if (st) for (const u of Object.values(st.units)) { if (u.kind === "monster" && u.hp <= 0) continue; tokens.push({ u, x: u.x, y: u.y, size: u.size || 1 }); }
+  else {
+    for (const p of Object.values(P.party)) if (p.pos) tokens.push({ u: { id: "pc-" + p.cardId, side: "pc", name: p.card.name, portrait: p.card.portrait, hp: p.live.hp, maxHp: (safeSheet(p.card) || { hpMax: 1 }).hpMax, dead: p.live.dead, conditions: [] }, x: p.pos.x, y: p.pos.y, size: 1, lead: holder && holder.cardId === p.cardId });
+    for (const L of Object.keys(def.encounters || {})) {
+      if ((P.meta.cleared || {})[clearedKey(def.id, L)]) continue;
+      for (const s of encounterSpawns(def, L, Math.max(1, Object.keys(P.party).length))) if (vis.has(s.x + "," + s.y)) { const m = MON[s.id]; tokens.push({ u: { id: "s" + s.x + "_" + s.y, side: "foe", name: m.name, monId: m.id, tier: s.tier, hp: 1, maxHp: 1, conditions: [] }, x: s.x, y: s.y, size: ({ Large: 2, Huge: 3, Gargantuan: 4 })[(m.type || "").split(" ")[0]] || 1 }); }
+    }
+  }
+  P.frame = { def, grid, st, vis, bits, cur, mine, reach, targets, holder, exLeft, tokens };
+}
+function drawGrid(ctx, g, t) {
+  const { def, W, H, cell: c } = g;
+  const th = THEMES[def.theme] || THEMES.cave;
+  const edit = !!P.mapEdit;
+  const rows = edit ? P.mapEdit.rows : def.rows;
+  const bg = bgImg(edit ? P.mapEdit.bg : def.bg);
+  ctx.fillStyle = "#0b0805"; ctx.fillRect(0, 0, g.w, g.h);
+  ctx.save(); ctx.translate(Math.round(g.ox), Math.round(g.oy));
+  if (bg) ctx.drawImage(bg, 0, 0, g.mw, g.mh);
+  const opened = P.meta.opened || {}, found = P.meta.found || {};
+  const glowA = 0.6 + 0.4 * Math.sin(t / 300);
+  let ci = 0, qi = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const ch = rows[y][x]; const px = x * c, py = y * c; const n = hash(x, y);
+    const wall = ch === "#" || ch === " ";
+    if (!bg) {
+      ctx.fillStyle = wall ? rgb(th.wall, 0.9 + n * 0.2) : rgb(n > 0.5 ? th.floor : th.floor2, 0.92 + hash(y, x) * 0.16);
+      ctx.fillRect(px, py, c + 0.5, c + 0.5);
+      if (wall) { const below = y + 1 < H && rows[y + 1][x] !== "#" && rows[y + 1][x] !== " "; if (below) { ctx.fillStyle = rgb(th.wallTop); ctx.fillRect(px, py + c * 0.72, c, c * 0.28); } }
+      if (ch === ",") { ctx.strokeStyle = rgb(th.brush, 1.2); ctx.lineWidth = Math.max(1, c / 16); for (let i = 0; i < 4; i++) { const bx = px + c * (0.2 + 0.6 * hash(x, y, i)), by = py + c * (0.35 + 0.5 * hash(y, x, i)); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - c * 0.08, by - c * 0.22); ctx.moveTo(bx, by); ctx.lineTo(bx + c * 0.08, by - c * 0.22); ctx.stroke(); } }
+      if (ch === "~") { ctx.fillStyle = rgb(th.water, 1, 0.85); ctx.fillRect(px, py, c, c); }
+      if (ch === "T") { ctx.fillStyle = "#2f4a26"; ctx.beginPath(); ctx.arc(px + c / 2, py + c / 2, c * 0.42, 0, 7); ctx.fill(); }
+      if (ch === "D") { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(px + c * 0.1, py + c * 0.1, c * 0.8, c * 0.8); }
+    }
+    if (ch === "C") { const k = def.id + ":C" + ci++; if (!opened[k] || edit) { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * 0.2, py + c * 0.3, c * 0.6, c * 0.45); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * 0.2, py + c * 0.45, c * 0.6, c * 0.08); ctx.fillRect(px + c * 0.46, py + c * 0.4, c * 0.08, c * 0.2); } }
+    if (ch === "?") { const k = def.id + ":?" + qi++; if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140," + (edit ? 0.9 : glowA) + ")"; ctx.font = "bold " + Math.round(c * 0.6) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
+    if (edit && /[a-zSBE]/.test(ch)) { ctx.fillStyle = ch === "B" ? "rgba(214,179,102,.85)" : ch === "S" ? "rgba(92,191,166,.85)" : "rgba(231,131,120,.8)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4); ctx.fillStyle = "#111"; ctx.font = "bold " + Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, px + c / 2, py + c / 2); }
+    if (edit && bg && (wall || ch === "T")) { ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(px, py, c, c); }
+    if (ch === "E" && !edit) { ctx.fillStyle = "rgba(99,176,156," + (0.3 + 0.25 * glowA) + ")"; ctx.fillRect(px + 3, py + 3, c - 6, c - 6); ctx.fillStyle = "#fff"; ctx.font = "bold " + Math.round(c * 0.45) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⇧", px + c / 2, py + c / 2); }
+  }
+  ctx.strokeStyle = "rgba(0,0,0,.2)"; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x * c + 0.5, 0); ctx.lineTo(x * c + 0.5, g.mh); ctx.stroke(); }
+  for (let y = 0; y <= H; y++) { ctx.beginPath(); ctx.moveTo(0, y * c + 0.5); ctx.lineTo(g.mw, y * c + 0.5); ctx.stroke(); }
+  if (edit) { if (P.hover) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(P.hover.x * c + 1, P.hover.y * c + 1, c - 2, c - 2); } ctx.restore(); return; }
+  const F = P.frame; if (!F || F.def.id !== def.id) { ctx.restore(); return; }
+  if (F.reach) { ctx.fillStyle = "rgba(99,176,156,.22)"; for (const k of Object.keys(F.reach)) { const [x, y] = k.split(",").map(Number); ctx.fillRect(x * c, y * c, c, c); } }
+  if (F.mine && P.hover && P.mode === "spell" && P.spellSel) {
+    const need = spellNeed(P.spellSel.id);
+    if (need.area) { const cells = areaCells(F.st, need.area[0], need.area[1], { x: F.cur.x, y: F.cur.y }, P.hover); ctx.fillStyle = "rgba(230,120,60,.35)"; for (const q of cells) ctx.fillRect(q.x * c, q.y * c, c, c); }
+  }
+  const pulse = 0.5 + 0.5 * Math.sin(t / 220);
+  for (const tk of F.tokens) drawToken(ctx, tk, c, F.st, F.cur, F.targets.has(tk.u.id) ? "#ff5a3c" : tk.lead ? "#e9b44c" : null, pulse);
+  // fog: unexplored stays dark, explored-but-unseen is dimmed; painted art still shows through faintly
+  const art = !!bg;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (F.vis.has(x + "," + y)) continue;
+    ctx.fillStyle = F.bits[y * W + x] ? "rgba(8,10,12,.5)" : art ? "rgba(6,7,9,.84)" : "rgba(6,7,9,.97)";
+    ctx.fillRect(x * c, y * c, c + 0.5, c + 0.5);
+  }
+  const hp = P.hoverPath;
+  if (hp && hp.steps.length) {
+    ctx.lineWidth = 3; ctx.lineCap = "round"; let prev = hp.from;
+    for (const s of hp.steps) { ctx.strokeStyle = s.ok ? "rgba(244,210,122,.95)" : "rgba(200,190,170,.45)"; ctx.setLineDash(s.ok ? [] : [4, 5]); ctx.beginPath(); ctx.moveTo(prev.x * c + c / 2, prev.y * c + c / 2); ctx.lineTo(s.x * c + c / 2, s.y * c + c / 2); ctx.stroke(); prev = s; }
+    ctx.setLineDash([]);
+    const last = [...hp.steps].reverse().find((s) => s.ok); if (last) { ctx.fillStyle = "rgba(244,210,122,.95)"; ctx.beginPath(); ctx.arc(last.x * c + c / 2, last.y * c + c / 2, c * 0.14, 0, 7); ctx.fill(); }
+  }
+  if (P.hover) { ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 2; ctx.strokeRect(P.hover.x * c + 1, P.hover.y * c + 1, c - 2, c - 2); }
+  ctx.restore();
 }
 function drawWorld(ctx, g) {
-  const W = g.w, H = g.h;
+  ctx.fillStyle = "#0b0805"; ctx.fillRect(0, 0, g.w, g.h);
+  ctx.save(); ctx.translate(g.x0, g.y0);
+  const W = g.ww, H = g.wh;
   const bg = bgImg((P.maps.world || {}).bg);
   if (bg) ctx.drawImage(bg, 0, 0, W, H);
   else {
@@ -295,84 +680,9 @@ function drawWorld(ctx, g) {
     ctx.fillStyle = "rgba(30,20,10,.75)"; ctx.fillRect(p.x - tw / 2 - 5, p.y + 17, tw + 10, 34);
     ctx.fillStyle = "#fff"; ctx.fillText(label, p.x, p.y + 19); ctx.font = "11px 'IBM Plex Sans Thai', system-ui"; ctx.fillStyle = "#e8dcb8"; ctx.fillText(l.type === "town" ? "ปลอดภัย" : "Lv " + l.level, p.x, p.y + 35);
   }
+  ctx.restore();
 }
-function drawGrid(ctx, g) {
-  const { def, W, H, cell: c } = g;
-  const th = THEMES[def.theme] || THEMES.cave;
-  const edit = !!P.mapEdit;
-  const rows = edit ? P.mapEdit.rows : def.rows;
-  const bg = bgImg(edit ? P.mapEdit.bg : def.bg);
-  ctx.clearRect(0, 0, g.w, g.h);
-  if (bg) ctx.drawImage(bg, 0, 0, g.w, g.h);
-  const opened = P.meta.opened || {}, found = P.meta.found || {};
-  let ci = 0, qi = 0;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const ch = rows[y][x]; const px = x * c, py = y * c; const n = hash(x, y);
-    const wall = ch === "#" || ch === " ";
-    if (!bg) {
-      ctx.fillStyle = wall ? rgb(th.wall, 0.9 + n * 0.2) : rgb(n > 0.5 ? th.floor : th.floor2, 0.92 + hash(y, x) * 0.16);
-      ctx.fillRect(px, py, c, c);
-      if (wall) { const below = y + 1 < H && rows[y + 1][x] !== "#" && rows[y + 1][x] !== " "; if (below) { ctx.fillStyle = rgb(th.wallTop); ctx.fillRect(px, py + c * 0.72, c, c * 0.28); } }
-      else if (n > 0.86) { ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.beginPath(); ctx.arc(px + c * hash(x, y, 2), py + c * hash(x, y, 3), c * 0.08, 0, 7); ctx.fill(); }
-      if (ch === ",") { ctx.strokeStyle = rgb(th.brush, 1.2); ctx.lineWidth = Math.max(1, c / 16); for (let i = 0; i < 4; i++) { const bx = px + c * (0.2 + 0.6 * hash(x, y, i)), by = py + c * (0.35 + 0.5 * hash(y, x, i)); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - c * .08, by - c * .22); ctx.moveTo(bx, by); ctx.lineTo(bx + c * .08, by - c * .22); ctx.stroke(); } }
-      if (ch === "~") { ctx.fillStyle = rgb(th.water, 1, 0.85); ctx.fillRect(px, py, c, c); ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px + c * .15, py + c * .5); ctx.quadraticCurveTo(px + c * .35, py + c * .35, px + c * .55, py + c * .5); ctx.quadraticCurveTo(px + c * .75, py + c * .65, px + c * .9, py + c * .5); ctx.stroke(); }
-      if (ch === "T") { ctx.fillStyle = rgb(th.floor2); ctx.fillRect(px, py, c, c); ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.arc(px + c * .55, py + c * .6, c * .42, 0, 7); ctx.fill(); ctx.fillStyle = rgb([52, 92, 48], 0.9 + n * 0.3); ctx.beginPath(); ctx.arc(px + c / 2, py + c / 2, c * .42, 0, 7); ctx.fill(); }
-      if (ch === "D") { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(px + c * .1, py + c * .1, c * .8, c * .8); ctx.strokeStyle = "#3d2a17"; ctx.lineWidth = 1; ctx.strokeRect(px + c * .1, py + c * .1, c * .8, c * .8); ctx.beginPath(); ctx.moveTo(px + c / 2, py + c * .1); ctx.lineTo(px + c / 2, py + c * .9); ctx.stroke(); }
-    }
-    if (ch === "C") { const k = def.id + ":C" + ci++; if (!opened[k] || edit) { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * .2, py + c * .3, c * .6, c * .45); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * .2, py + c * .45, c * .6, c * .08); ctx.fillRect(px + c * .46, py + c * .4, c * .08, c * .2); } }
-    if (ch === "?") { const k = def.id + ":?" + qi++; if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140,.9)"; ctx.font = `bold ${Math.round(c * .6)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
-    if (edit && /[a-zSBE]/.test(ch)) { ctx.fillStyle = ch === "B" ? "rgba(214,179,102,.85)" : ch === "S" ? "rgba(92,191,166,.85)" : "rgba(231,131,120,.8)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4); ctx.fillStyle = "#111"; ctx.font = `bold ${Math.round(c * .5)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, px + c / 2, py + c / 2); }
-    if (ch === "E" && !edit) { ctx.fillStyle = "rgba(92,191,166,.5)"; ctx.fillRect(px + 3, py + 3, c - 6, c - 6); ctx.fillStyle = "#fff"; ctx.font = `bold ${Math.round(c * .45)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⇧", px + c / 2, py + c / 2); }
-  }
-  ctx.strokeStyle = "rgba(0,0,0,.18)"; ctx.lineWidth = 1;
-  for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x * c + .5, 0); ctx.lineTo(x * c + .5, g.h); ctx.stroke(); }
-  for (let y = 0; y <= H; y++) { ctx.beginPath(); ctx.moveTo(0, y * c + .5); ctx.lineTo(g.w, y * c + .5); ctx.stroke(); }
-  if (edit) { if (P.hover) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(P.hover.x * c + 1, P.hover.y * c + 1, c - 2, c - 2); } return; }
-
-  const grid = gridOf(def);
-  const st = P.scene.mode === "combat" ? combatState() : null;
-  const vis = currentVisible(def, grid);
-  // combat overlays: reachable cells, ranges, area preview
-  const cur = st && current(st);
-  const mine = cur && cur.side === "pc" && canControl(cur) && !st.over;
-  if (mine && P.mode === "move" && cur.turn) {
-    const reach = reachableCells(st, cur);
-    ctx.fillStyle = "rgba(92,191,166,.22)";
-    for (const k of Object.keys(reach)) { const [x, y] = k.split(",").map(Number); ctx.fillRect(x * c, y * c, c, c); }
-  }
-  if (mine && P.hover && P.mode === "spell" && P.spellSel) {
-    const need = spellNeed(P.spellSel.id);
-    if (need.area) {
-      const cells = areaCells(st, need.area[0], need.area[1], { x: cur.x, y: cur.y }, P.hover);
-      ctx.fillStyle = "rgba(230,120,60,.35)"; for (const q of cells) ctx.fillRect(q.x * c, q.y * c, c, c);
-    }
-  }
-  // tokens
-  const tokens = [];
-  if (st) for (const u of Object.values(st.units)) { if (u.kind === "monster" && u.hp <= 0) continue; tokens.push({ u, x: u.x, y: u.y, size: u.size || 1 }); }
-  else {
-    for (const p of Object.values(P.party)) if (p.pos) tokens.push({ u: { id: "pc-" + p.cardId, side: "pc", name: p.card.name, portrait: p.card.portrait, hp: p.live.hp, maxHp: computeSheet(p.card, D).hpMax, dead: p.live.dead, conditions: [] }, x: p.pos.x, y: p.pos.y, size: 1 });
-    for (const L of Object.keys(def.encounters || {})) {
-      if ((P.meta.cleared || {})[clearedKey(def.id, L)]) continue;
-      for (const s of encounterSpawns(def, L, Math.max(1, Object.keys(P.party).length))) if (vis.has(s.x + "," + s.y)) { const m = MON[s.id]; tokens.push({ u: { id: "s" + s.x + s.y, side: "foe", name: m.name, monId: m.id, tier: s.tier, hp: 1, maxHp: 1, conditions: [] }, x: s.x, y: s.y, size: ({ Large: 2, Huge: 3, Gargantuan: 4 })[(m.type || "").split(" ")[0]] || 1 }); }
-    }
-  }
-  for (const t of tokens) drawToken(ctx, t, c, st, cur);
-  // fog
-  const bits = revealedBits(def);
-  const art = !!bgImg(def.bg); // with painted map art, keep the unexplored area faintly visible so the map reads as a place
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const k = x + "," + y;
-    if (vis.has(k)) continue;
-    ctx.fillStyle = bits[y * W + x] ? "rgba(8,10,12,.5)" : art ? "rgba(6,7,9,.84)" : "rgba(6,7,9,.97)";
-    ctx.fillRect(x * c, y * c, c, c);
-  }
-  if (P.hover) {
-    ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 2; ctx.strokeRect(P.hover.x * c + 1, P.hover.y * c + 1, c - 2, c - 2);
-    if (st && mine && P.mode === "move" && cur.turn) { const path = findPath(st, cur, P.hover, { maxCost: cur.turn.move - cur.turn.moved }); if (path && path.length) { ctx.strokeStyle = "rgba(244,210,122,.9)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cur.x * c + c / 2, cur.y * c + c / 2); for (const s of path) ctx.lineTo(s.x * c + c / 2, s.y * c + c / 2); ctx.stroke(); } }
-  }
-}
-function drawToken(ctx, t, c, st, cur) {
+function drawToken(ctx, t, c, st, cur, glow, pulse) {
   const u = t.u; const s = t.size * c; const px = t.x * c, py = t.y * c; const r = s / 2 - Math.max(2, c * 0.08);
   const cx = px + s / 2, cy = py + s / 2;
   const isCur = cur && cur.id === u.id;
@@ -380,6 +690,7 @@ function drawToken(ctx, t, c, st, cur) {
   ctx.save();
   if (u.dead || (u.side === "pc" && u.hp <= 0)) ctx.globalAlpha = 0.45;
   if (isCur) { ctx.shadowColor = "#fff"; ctx.shadowBlur = 14; }
+  if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 12 + 12 * (pulse || 0); }
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = u.side === "pc" ? "#1d3a33" : "#3b1d1a"; ctx.fill();
   ctx.shadowBlur = 0;
   const im = img(u.portrait || (u.monId && P.maps.tokens && P.maps.tokens[u.monId]) || "");
@@ -400,64 +711,101 @@ function drawToken(ctx, t, c, st, cur) {
 function cellFromEvent(e) {
   const g = P.geo; if (!g || g.kind !== "grid") return null;
   const r = P.dom.canvas.getBoundingClientRect();
-  const x = Math.floor((e.clientX - r.left) / g.cell), y = Math.floor((e.clientY - r.top) / g.cell);
+  const x = Math.floor((e.clientX - r.left - Math.round(g.ox)) / g.cell), y = Math.floor((e.clientY - r.top - Math.round(g.oy)) / g.cell);
   return x >= 0 && y >= 0 && x < g.W && y < g.H ? { x, y } : null;
 }
+const stepCost = (grid, s) => (grid.difficult && grid.difficult[s.x + "," + s.y] ? 10 : 5);
 function onBoardHover(e) {
-  if (P.geo && P.geo.kind === "world") return;
+  if (!P.geo || P.geo.kind !== "grid") return;
   const c = cellFromEvent(e);
-  const same = c && P.hover && c.x === P.hover.x && c.y === P.hover.y;
-  if (same) return;
-  P.hover = c;
-  if (P.mapEdit && P.painting && c) paintCell(c);
-  drawStage();
+  if (c && P.hover && c.x === P.hover.x && c.y === P.hover.y) return;
+  P.hover = c; P.hoverPath = null;
+  const F = P.frame;
+  if (!c || !F || P.mapEdit) return;
+  if (F.st && F.mine && P.mode === "move" && F.cur.turn && !unitAt(F.st, c.x, c.y)) {
+    const p = findPath(F.st, F.cur, c, { maxCost: F.cur.turn.move - F.cur.turn.moved });
+    if (p && p.length) P.hoverPath = { from: F.cur, steps: p.map((s) => ({ x: s.x, y: s.y, ok: true })) };
+  } else if (!F.st && F.reach && F.holder && F.holder.pos && !F.grid.walls[c.x + "," + c.y]) {
+    const p = findPath({ map: F.grid, units: {} }, { id: "me", side: "pc", x: F.holder.pos.x, y: F.holder.pos.y }, c, {});
+    if (p && p.length) { let used = 0; P.hoverPath = { from: F.holder.pos, steps: p.map((s) => { used += stepCost(F.grid, s); return { x: s.x, y: s.y, ok: used <= F.exLeft }; }) }; }
+  }
 }
 function unitAt(st, x, y) { return Object.values(st.units).find((u) => !(u.kind === "monster" && u.hp <= 0) && x >= u.x && x < u.x + (u.size || 1) && y >= u.y && y < u.y + (u.size || 1)); }
 
 function onBoardClick(e) {
-  if (!P.scene) return;
-  if (P.geo && P.geo.kind === "world") {
+  if (!P.scene || !P.geo) return;
+  const g = P.geo;
+  if (g.kind === "world") {
     if (P.mapEdit) return;
-    const r = P.dom.canvas.getBoundingClientRect(); const mx = e.clientX - r.left, my = e.clientY - r.top;
-    const hit = CAMP.world.locations.find((l) => Math.hypot(l.x / 100 * P.geo.w - mx, l.y / 100 * P.geo.h - my) < 26);
-    P.worldSel = hit ? hit.id : null; renderBar(); drawStage(); return;
+    const r = P.dom.canvas.getBoundingClientRect(); const mx = e.clientX - r.left - g.x0, my = e.clientY - r.top - g.y0;
+    const hit = CAMP.world.locations.find((l) => Math.hypot((l.x / 100) * g.ww - mx, (l.y / 100) * g.wh - my) < 28);
+    P.worldSel = hit ? hit.id : null; renderPlay(); return;
   }
+  if (g.kind !== "grid") return;
   const c = cellFromEvent(e); if (!c) return;
-  if (P.mapEdit) { if (e.type === "click") return; paintCell(c); drawStage(); return; }
+  P.hoverPath = null;
   if (P.scene.mode === "explore") return exploreClick(c);
-  if (P.scene.mode === "combat") return combatClick(c);
+  if (P.scene.mode === "combat") { const before = P.inspect; const r = combatClick(c); if (P.inspect && P.inspect !== before) toggleDrawer(true, "party"); return r; }
 }
 
-// ---------- exploration ----------
+// ---------- exploration: take turns (solo: 30 ft each) or move as a group behind the leader ----------
+function formation(grid, c, n) {
+  const out = []; const seen = new Set([c.x + "," + c.y]); const q = [c];
+  while (q.length && out.length < n) {
+    const p = q.shift();
+    for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      const x = p.x + dx, y = p.y + dy, k = x + "," + y;
+      if (x < 0 || y < 0 || x >= grid.w || y >= grid.h || seen.has(k) || grid.walls[k]) continue;
+      seen.add(k); q.push({ x, y }); if (out.length < n) out.push({ x, y });
+    }
+  }
+  return out;
+}
 async function exploreClick(c) {
-  const me = myMember();
+  let me = myMember();
   if (!me) return toast("เลือกการ์ดเข้าร่วมทีมก่อน");
+  const ex = exState();
+  if (NET.local && ex.turn && P.party[ex.turn]) { P.myCardId = ex.turn; me = myMember(); }
+  if (ex.turn && ex.turn !== me.cardId) { const hd = P.party[ex.turn]; return toast("ยังไม่ถึงตาคุณ · " + (ex.group ? hd.card.name + " กำลังนำทาง" : "ตอนนี้ตาของ " + hd.card.name)); }
   if (me.live.dead) return toast(me.card.name + " เสียชีวิตอยู่ ต้องกลับไปชุบที่วิหาร");
   if (P.busy) return;
   const def = mapDef(P.scene.loc); const grid = gridOf(def);
   const ch = def.rows[c.y][c.x];
-  const start = me.pos || freeStart(def);
-  const ghost = { map: grid, units: {} };
-  const self = { id: "me", side: "pc", x: start.x, y: start.y };
-  let path;
   if (grid.walls[c.x + "," + c.y]) return;
-  if (c.x === start.x && c.y === start.y) path = [];
-  else path = findPath(ghost, self, c, {});
+  const start = me.pos || freeStart(def);
+  const here = c.x === start.x && c.y === start.y;
+  const path = here ? [] : findPath({ map: grid, units: {} }, { id: "me", side: "pc", x: start.x, y: start.y }, c, {});
   if (!path) return toast("ไปตรงนั้นไม่ได้");
+  const left = EX_FT - ex.moved; const steps = []; let budget = 0;
+  for (const s of path) { const k = stepCost(grid, s); if (budget + k > left) break; budget += k; steps.push(s); }
+  if (path.length && !steps.length) return toast("เดินครบ 6 ช่องแล้วในตานี้ กด “ส่งตาต่อ”");
   const bits = revealedBits(def);
+  const reveal = (p) => { for (const k of visibleCells(grid, p, 8)) { const [x, y] = k.split(",").map(Number); bits[y * grid.w + x] = 1; } };
   const enc = Object.keys(def.encounters || {}).filter((L) => !(P.meta.cleared || {})[clearedKey(def.id, L)]).flatMap((L) => encounterSpawns(def, L, Math.max(1, Object.keys(P.party).length)));
-  let end = { x: start.x, y: start.y }; let stopped = false;
-  for (const step of path) {
-    end = { x: step.x, y: step.y };
-    for (const k of visibleCells(grid, end, 8)) { const [x, y] = k.split(",").map(Number); bits[y * grid.w + x] = 1; }
-    if (enc.some((s) => dist(end, s) <= 40 && hasLOS({ map: grid }, end, s))) { stopped = true; break; }
+  let end = { x: start.x, y: start.y }; let stopped = false; let used = 0;
+  reveal(end);
+  for (const s of steps) {
+    end = { x: s.x, y: s.y }; used += stepCost(grid, s); reveal(end);
+    if (enc.some((m) => dist(end, m) <= 40 && hasLOS({ map: grid }, end, m))) { stopped = true; break; }
   }
-  if (!path.length) for (const k of visibleCells(grid, end, 8)) { const [x, y] = k.split(",").map(Number); bits[y * grid.w + x] = 1; }
+  const moves = [];
+  if (ex.group) { const others = ex.list.filter((p) => p.cardId !== me.cardId); const spots = formation(grid, end, others.length); others.forEach((p, i) => { const sp = spots[i] || end; reveal(sp); moves.push([p.cardId, sp]); }); }
+  const reached = end.x === c.x && end.y === c.y && !stopped;
+  const search = reached && (ch === "C" || ch === "?");
+  if (search && ex.acted) toast("ค้นไปแล้วในตานี้ ไว้ตาหน้าค่อยค้นต่อ");
+  const acted = ex.acted || (search && !ex.acted);
+  const moved = ex.moved + used;
+  const pass = !stopped && (ex.group || moved >= EX_FT);
+  const nextTurn = () => { const i = ex.list.findIndex((p) => p.cardId === me.cardId); const nx = ex.list[(i + 1) % Math.max(1, ex.list.length)]; return nx ? nx.cardId : me.cardId; };
   P.busy = true;
   try {
+    // the scene goes first so a combat started by the host can never be overwritten by this turn's bookkeeping
+    await writeScene({ ex: pass ? { group: ex.group, turn: nextTurn(), moved: 0, acted: false } : { group: ex.group, turn: me.cardId, moved, acted } });
     await writeParty(me.cardId, { pos: end, revealed: { ...(me.revealed || {}), [def.id]: bitsToStr(bits) } });
+    for (const [id, sp] of moves) await writeParty(id, { pos: { x: sp.x, y: sp.y } });
     if (stopped) { toast("⚠️ เจอศัตรู!"); return; }
-    if (end.x === c.x && end.y === c.y) await interact(def, c, ch);
+    if (reached && ch === "E") await interact(def, c, ch);
+    else if (search && !ex.acted) await interact(def, c, ch);
   } finally { P.busy = false; }
 }
 async function interact(def, c, ch) {
@@ -615,108 +963,218 @@ async function drinkChaosOutside(cardId, itemId) {
   requestDM({ event: p.card.name + " ดื่มยาปรุง " + r.name + " ได้ผล " + side + " (" + fx.txt.replace("ELEMENT", r.element || "") + ")" });
 }
 
-// ---------- action bar ----------
-function renderBar() {
-  const bar = P.dom.bar; const sc = P.scene;
-  const parts = [];
-  if (P.mapEdit) { bar.replaceChildren(h("span", { class: "small muted" }, "โหมดตั้งค่า Map: คลิกหรือลากบนกระดานเพื่อวาด")); return; }
-  if (sc.mode === "world") {
-    const l = P.worldSel && locInfo(P.worldSel);
-    parts.push(h("span", { class: "small" }, l ? l.name + " · " + l.th + (l.level ? " · Lv " + l.level : "") + ((P.meta.done || {})[l.id] ? " · ✓ จบแล้ว" : "") : "แตะหมุดบนแผนที่เพื่อเลือกที่หมาย"));
-    if (l) parts.push(h("button", { class: "btn primary", onclick: () => { P.worldSel = null; travelTo(l.id); } }, "เดินทางไป " + l.name));
-    if (sc.loc !== CAMP.town.id && CAMP.maps[sc.loc]) parts.push(h("button", { class: "btn", onclick: () => writeScene({ mode: "explore" }) }, "กลับเข้า " + locInfo(sc.loc).name));
-  } else if (sc.mode === "explore") {
-    const def = mapDef(sc.loc); const me = myMember();
-    parts.push(h("span", { class: "small muted" }, me ? "แตะช่องบนกระดานเพื่อเดิน · แตะหีบ ✦ เพื่อสำรวจ" : "เข้าร่วมทีมก่อน"));
-    if (sc.lastCombat && sc.lastCombat.result === "win" && P.dismissed !== sc.lastCombat.enc + sc.rev) parts.push(h("span", { class: "tag ok" }, "🏆 ชนะ " + sc.lastCombat.enc + " +" + sc.lastCombat.xp + " EXP"));
-    parts.push(h("button", { class: "btn", onclick: () => restParty("short") }, "☕ พักสั้น"));
-    if (def && def.next && (P.meta.done || {})[def.id]) parts.push(h("button", { class: "btn primary", onclick: () => travelTo(def.next) }, "ขึ้นไปต่อ: " + locInfo(def.next).name));
-    parts.push(h("button", { class: "btn", onclick: () => writeScene({ mode: "world" }) }, "🗺 แผนที่โลก"));
-  } else if (sc.mode === "combat") {
-    const st = combatState(); if (!st) return bar.replaceChildren();
-    const u = current(st);
-    parts.push(h("div", { class: "init-strip" }, st.order.map((id) => st.units[id]).filter((x) => x && !(x.kind === "monster" && x.hp <= 0)).map((x) =>
-      h("span", { class: "init-chip " + x.side + (u && x.id === u.id ? " now" : "") + (x.dead || x.hp <= 0 ? " down" : ""), title: x.name }, x.name.replace(/ \(.*\)/, "").split(" ")[0] + " " + x.init))));
-    if (st.over) parts.push(h("b", null, st.over === "win" ? "🏆 ชนะ! กำลังสรุปผล…" : "💀 แพ้… กำลังสรุปผล"));
-    else if (u && u.side === "pc" && canControl(u)) parts.push(...myTurnBar(st, u));
-    else if (u) {
-      parts.push(h("span", { class: "small" }, u.side === "foe" ? "ตาของ " + u.name + "…" : "รอ " + u.name + " เล่น"));
-      if (isHost() && u.side === "pc") parts.push(h("button", { class: "btn ghost small", onclick: async () => { const s2 = combatState(); log(s2, u.name + " ข้ามตา"); finishTurn(s2); await commitCombat(s2); } }, "ข้ามตานี้"));
-    }
-  }
-  bar.replaceChildren(...parts);
-  bar.hidden = !parts.length;
+// ---------- combat HUD: my character plate, hotbar with popovers, step prompt ----------
+function renderCombat() {
+  const box = P.dom.combat; const sc = P.scene;
+  const st = sc.mode === "combat" && !P.mapEdit ? combatState() : null;
+  box.hidden = !st; if (!st) { P.pop = null; fill(box, ); return; }
+  const cur = current(st); const mine = !!(cur && cur.side === "pc" && canControl(cur) && !st.over);
+  const meU = mine ? cur : st.units["pc-" + P.myCardId];
+  const out = [];
+  if (meU) out.push(mePlate(st, meU));
+  if (st.over) out.push(h("div", { class: "g-wait" }, st.over === "win" ? "🏆 ชนะ! กำลังสรุปผล…" : "💀 แพ้… กำลังสรุปผล"));
+  else if (mine) out.push(...hotbar(st, cur));
+  else if (cur) out.push(h("div", { class: "g-wait" }, h("span", null, cur.side === "foe" ? "ตาของ " + shortName(cur.name) + "…" : "รอ " + cur.name + " เล่น"),
+    isHost() && cur.side === "pc" && h("button", { class: "btn small", onclick: async () => { const s2 = combatState(); log(s2, cur.name + " ข้ามตา"); finishTurn(s2); await commitCombat(s2); } }, "ข้ามตานี้")));
+  fill(box, ...out);
 }
-function myTurnBar(st, u) {
+function mePlate(st, u) {
+  const T = u.turn || {}; const isCur = current(st) && current(st).id === u.id;
+  const slots = (u.slots || []).map((n, i) => ({ lv: i + 1, max: n, left: slotsLeft(u, i + 1) })).filter((s) => s.max > 0);
+  return h("div", { class: "g-me" + (isCur ? " now" : "") },
+    face(u.portrait, u.name, "g-big"),
+    h("div", { class: "g-stats" }, h("b", null, u.name),
+      h("span", { class: "g-hpbar" }, h("i", { style: "width:" + pct(u.hp, u.maxHp) + "%" })),
+      h("span", { class: "num" }, "HP " + u.hp + "/" + u.maxHp + (u.tempHp ? " +" + u.tempHp : "") + " · AC " + u.ac),
+      slots.length > 0 && h("span", { class: "g-pips", title: "ช่องเวทที่เหลือ" }, "เวท", slots.map((s) => h("span", { class: "g-slv" }, slots.length > 1 && h("small", null, s.lv), Array.from({ length: s.max }, (_, i) => h("i", { class: i < s.left ? "on" : "" }))))),
+      isCur && h("span", { class: "g-econ" },
+        h("span", { class: T.action || T.attacksLeft > 0 ? "" : "used" }, "Action" + (T.attacksLeft > 0 && !T.action ? " ×" + T.attacksLeft : "")),
+        h("span", { class: T.bonus ? "" : "used" }, "Bonus"), h("span", { class: u.reactionUsed ? "used" : "" }, "React"),
+        h("span", null, Math.max(0, (T.move || 0) - (T.moved || 0)) + " ft"))));
+}
+function spellList(st, u) { return [...u.cantrips.map((id) => ({ id, lv: 0 })), ...u.spells.map((id) => ({ id, lv: (st.spellIndex[id] || {}).level || 1 }))].filter((s) => SPELLFX[s.id] && SPELLFX[s.id].t !== "util"); }
+function hotbar(st, u) {
   const T = u.turn || {}; const out = [];
-  const pip = (on, l) => h("span", { class: "pip" + (on ? " on" : "") }, l);
-  out.push(h("div", { class: "row turn-info" }, h("b", null, "ตาของ " + u.name), pip(T.action || T.attacksLeft > 0, "Action" + (T.attacksLeft > 0 ? " (ตีอีก " + T.attacksLeft + ")" : "")), pip(T.bonus, "Bonus"), pip(!u.reactionUsed, "Reaction"),
-    h("span", { class: "pip on num" }, "เดิน " + Math.max(0, T.move - T.moved) + " ft"), h("span", { class: "num small" }, "HP " + u.hp + "/" + u.maxHp + (u.tempHp ? " +" + u.tempHp : "") + " · AC " + u.ac)));
-  if (u.hp <= 0) { out.push(h("span", { class: "small" }, "หมดสติ: ทอย Death Save อัตโนมัติ"), h("button", { class: "btn primary", onclick: () => act((s) => finishTurn(s)) }, "จบตา")); return out; }
-  out.push(h("div", { class: "row" }, h("span", { class: "eyebrow" }, "โจมตี"), u.attacks.map((a, i) => h("button", { class: "chip", "aria-pressed": P.attackSel === i && P.mode === "move" ? "true" : "false",
-    onclick: () => { P.attackSel = P.attackSel === i ? null : i; P.mode = "move"; P.spellSel = null; renderBar(); drawStage(); } }, a.name + " " + fmt(a.hit) + " · " + a.dmg)),
-    h("span", { class: "small muted" }, P.attackSel != null ? "แตะศัตรูเพื่อตี" : "แตะศัตรู = ตีด้วยอาวุธที่ดีที่สุด")));
-  const spells = [...u.cantrips.map((id) => ({ id, lv: 0 })), ...u.spells.map((id) => ({ id, lv: (st.spellIndex[id] || {}).level || 1 }))].filter((s) => SPELLFX[s.id] && SPELLFX[s.id].t !== "util");
-  if (spells.length) {
-    const slotSel = h("select", { id: "slot-sel", "aria-label": "ช่องเวท" });
-    const spSel = h("select", { id: "spell-sel", "aria-label": "เลือกเวท", onchange: () => fillSlots() }, h("option", { value: "" }, "เลือกเวท…"),
-      spells.map((s) => h("option", { value: s.id, selected: P.spellSel && P.spellSel.id === s.id }, (st.spellIndex[s.id] || { name: s.id }).name + (s.lv ? " (Lv" + s.lv + ")" : " (cantrip)"))));
-    const fillSlots = () => {
-      const id = spSel.value; const lv = id ? (st.spellIndex[id] || {}).level || 0 : 0;
-      const opts = [];
-      if (lv > 0) {
-        for (let l = lv; l <= (u.slots || []).length; l++) if (slotsLeft(u, l) > 0) opts.push(h("option", { value: "s" + l }, "ช่อง Lv" + l + " (เหลือ " + slotsLeft(u, l) + ")"));
-        if (u.mi && !u.miUsed && lv === 1) opts.push(h("option", { value: "mi" }, "Magic Initiate (ฟรีวันละครั้ง)"));
-        if (!opts.length) opts.push(h("option", { value: "" }, "ช่องเวทหมด"));
-      } else opts.push(h("option", { value: "c" }, "ไม่ใช้ช่อง"));
-      slotSel.replaceChildren(...opts);
-    };
-    fillSlots();
-    out.push(h("div", { class: "row" }, h("span", { class: "eyebrow" }, "เวท"), spSel, slotSel,
-      h("button", { class: "btn", onclick: () => { const id = spSel.value; if (!id) return toast("เลือกเวทก่อน"); const v = slotSel.value; if (v === "") return toast("ช่องเวทหมด"); pickSpell(id, v[0] === "s" ? +v.slice(1) : undefined, v === "mi"); } }, "ร่าย"),
-      P.mode === "spell" && P.spellSel && spellHint(P.spellSel),
-      P.mode === "spell" && P.spellSel && (P.spellSel.targets || []).length > 0 && h("button", { class: "btn primary", onclick: () => castNow({}) }, "ร่ายใส่ " + P.spellSel.targets.length + " เป้า"),
-      P.mode === "spell" && h("button", { class: "btn ghost", onclick: () => { P.mode = "move"; P.spellSel = null; renderBar(); drawStage(); } }, "ยกเลิก")));
-  }
-  const res = u.resources || {};
-  const hasPotion = ((P.party[u.cardId] || {}).card || { inventory: [] }).inventory.some((x) => x.id === "potion-healing" && x.qty > 0);
-  out.push(h("div", { class: "row" },
-    h("button", { class: "btn small", disabled: !T.action, onclick: () => act(doDash) }, "Dash"),
-    h("button", { class: "btn small", disabled: !T.action, onclick: () => act(doDodge) }, "Dodge"),
-    h("button", { class: "btn small", disabled: !T.action, onclick: () => act((s, a) => doDisengage(s, a)) }, "Disengage"),
-    h("button", { class: "btn small" + (P.mode === "help" ? " primary" : ""), disabled: !T.action, onclick: () => { P.mode = P.mode === "help" ? "move" : "help"; renderBar(); toast("แตะเพื่อนที่ยืนติดคุณ"); } }, "Help"),
-    res.secondWind && h("button", { class: "btn small", disabled: !T.bonus || res.secondWind.used >= res.secondWind.max, onclick: () => act(secondWind) }, "Second Wind"),
-    res.actionSurge && h("button", { class: "btn small", disabled: res.actionSurge.used >= res.actionSurge.max, onclick: () => act(actionSurge) }, "Action Surge"),
-    u.features.includes("Cunning Action") && h("button", { class: "btn small", disabled: !T.bonus, onclick: () => act((s, a) => doDisengage(s, a, true)) }, "Disengage (Bonus)"),
-    u.attacks.filter((a) => a.light && a.melee).length >= 2 && h("button", { class: "btn small" + (P.mode === "offhand" ? " primary" : ""), onclick: () => { P.mode = P.mode === "offhand" ? "move" : "offhand"; renderBar(); toast("แตะศัตรูเพื่อตีมือรอง"); } }, "ตีมือรอง"),
-    u.spiritualWeapon && u.effects.some((e) => e.spiritual) && h("button", { class: "btn small" + (P.mode === "spiritual" ? " primary" : ""), disabled: !T.bonus, onclick: () => { P.mode = P.mode === "spiritual" ? "move" : "spiritual"; renderBar(); } }, "Spiritual Weapon"),
-    hasCond(u, "Prone") && h("button", { class: "btn small", onclick: () => act(standUp) }, "ลุกขึ้น"),
-    hasPotion && h("button", { class: "btn small", disabled: !T.bonus, onclick: drinkPotion }, "🧪 ดื่มยา"),
-    ...chaosBar(u, T),
-    h("button", { class: "btn primary", onclick: () => { P.mode = "move"; P.attackSel = null; act((s) => finishTurn(s)); } }, "จบตา ⏎")));
+  const endBtn = h("button", { class: "g-slot end", "data-act": "end", onclick: endTurnNow }, h("kbd", null, "⏎"), svg("end"), h("span", null, "จบตา"));
+  if (u.hp <= 0) { out.push(h("div", { class: "g-step" }, h("span", null, "หมดสติ: ระบบทอย Death Save ให้อัตโนมัติ")), h("div", { class: "g-hot" }, endBtn)); return out; }
+  const inv = ((P.party[u.cardId] || {}).card || { inventory: [] }).inventory || [];
+  const hasPotion = inv.some((x) => x.id === "potion-healing" && x.qty > 0);
+  const chaos = homebrewOn() && chaosBottles({ inventory: inv }).length > 0;
+  const canAct = T.action || T.attacksLeft > 0;
+  const list = [["atk", "sword", "โจมตี", !canAct], spellList(st, u).length && ["spell", "spell", "เวท", false], (hasPotion || chaos) && ["potion", "potion", "ยา", false],
+    ["dodge", "shield", "หลบ", !T.action], ["dash", "run", "วิ่ง", !T.action], ["more", "more", "อื่นๆ", false]].filter(Boolean);
+  const pressed = (id) => P.pop === id || (id === "atk" && P.mode === "move" && P.attackSel != null) || (id === "spell" && P.mode === "spell");
+  out.push(stepFor(st, u));
+  if (P.pop) out.push(popover(st, u, P.pop, hasPotion));
+  out.push(h("div", { class: "g-hot", role: "toolbar", "aria-label": "ท่าในตานี้" },
+    list.map(([id, icon, label, dis], i) => h("button", { class: "g-slot", "data-act": id, disabled: dis, "aria-pressed": pressed(id) ? "true" : "false", onclick: () => hotAct(u, id) }, h("kbd", null, i + 1), svg(icon), h("span", null, label))), endBtn));
   return out;
 }
-function spellHint(sel) {
-  const need = spellNeed(sel.id);
-  const t = need.kind === "units" ? (need.ally ? "แตะเพื่อน" : "แตะศัตรู") + (need.n > 1 ? " สูงสุด " + need.n + " เป้า" : "") : need.kind === "dir" ? "แตะทิศทางที่จะปล่อยเวท" : "แตะจุดที่จะร่าย";
-  return h("span", { class: "small", style: "color:var(--gold)" }, t + (need.range ? " (ระยะ " + need.range + " ft)" : ""));
+function hotAct(u, id) {
+  if (id === "dodge") { P.pop = null; return act(doDodge); }
+  if (id === "dash") { P.pop = null; return act(doDash); }
+  P.mode = "move"; P.spellSel = null; P.chaosSel = null;
+  if (id === "atk" && u.attacks.length <= 1) { P.pop = null; P.attackSel = P.attackSel === 0 ? null : 0; return renderPlay(); }
+  P.pop = P.pop === id ? null : id; renderPlay();
 }
-function renderTicker() {
-  const st = P.scene.mode === "combat" ? combatState() : null;
-  const lines = st ? st.log.slice(-3).map((l) => l.text) : [];
-  P.dom.ticker.replaceChildren(...lines.map((t) => h("div", null, t)));
-  P.dom.ticker.hidden = !lines.length;
+function endTurnNow() { P.mode = "move"; P.attackSel = null; P.pop = null; P.spellSel = null; act((s) => finishTurn(s)); }
+function popover(st, u, id, hasPotion) {
+  const T = u.turn || {}; let body;
+  const opt = (label, sub, dis, fn, on) => h("button", { class: "g-opt", disabled: dis, "aria-pressed": on ? "true" : null, onclick: fn }, h("b", null, label), sub && h("small", null, sub));
+  if (id === "atk") body = [h("div", { class: "g-pop-t" }, "เลือกอาวุธ แล้วแตะศัตรูที่เรืองแสง"), h("div", { class: "g-pop-list" }, u.attacks.map((a, i) =>
+    opt(a.name, fmt(a.hit) + " · " + a.dmg + (a.range ? " · ระยะ " + a.range[0] + "/" + a.range[1] + " ft" : " · ประชิด " + a.reach + " ft"), false, () => { P.attackSel = i; P.pop = null; renderPlay(); }, P.attackSel === i)))];
+  else if (id === "spell") body = spellPicker(st, u);
+  else if (id === "potion") body = [h("div", { class: "g-pop-t" }, "ยา"), h("div", { class: "g-pop-list" },
+    hasPotion && opt("🧪 Potion of Healing", "Bonus Action · ฟื้น 2d4+2", !T.bonus, () => { P.pop = null; drinkPotion(); }),
+    ...chaosBar(u, T).map((x) => h("div", { class: "g-opt-row" }, x)))];
+  else {
+    const res = u.resources || {};
+    const go2 = (fn) => () => { P.pop = null; fn(); };
+    body = [h("div", { class: "g-pop-t" }, "ท่าอื่น ๆ"), h("div", { class: "g-pop-list" },
+      opt("Disengage", "Action · ถอยออกโดยไม่โดนฉวยโอกาสตี", !T.action, go2(() => act((s, a) => doDisengage(s, a)))),
+      opt("Help", "Action · ช่วยเพื่อนที่ยืนติด ให้ได้เปรียบ", !T.action, go2(() => { P.mode = "help"; renderPlay(); })),
+      res.secondWind && opt("Second Wind", "Bonus · ฟื้น 1d10+Lv (เหลือ " + (res.secondWind.max - res.secondWind.used) + ")", !T.bonus || res.secondWind.used >= res.secondWind.max, go2(() => act(secondWind))),
+      res.actionSurge && opt("Action Surge", "ได้ Action เพิ่มอีก 1 ครั้ง", res.actionSurge.used >= res.actionSurge.max, go2(() => act(actionSurge))),
+      u.features.includes("Cunning Action") && opt("Disengage (Bonus)", "Cunning Action", !T.bonus, go2(() => act((s, a) => doDisengage(s, a, true)))),
+      u.attacks.filter((a) => a.light && a.melee).length >= 2 && opt("ตีมือรอง", "Bonus · แล้วแตะศัตรู", !T.bonus, go2(() => { P.mode = "offhand"; renderPlay(); })),
+      u.spiritualWeapon && u.effects.some((e) => e.spiritual) && opt("Spiritual Weapon", "Bonus · แล้วแตะศัตรู", !T.bonus, go2(() => { P.mode = "spiritual"; renderPlay(); })),
+      hasCond(u, "Prone") && opt("ลุกขึ้น", "ใช้ระยะเดินครึ่งหนึ่ง", false, go2(() => act(standUp))),
+      opt("ดูข้อมูลศัตรูและบันทึก", "เปิดแผงด้านข้าง", false, go2(() => toggleDrawer(true, "log"))))];
+  }
+  return h("div", { class: "g-pop" }, h("button", { class: "g-pop-x", "aria-label": "ปิด", onclick: () => { P.pop = null; renderPlay(); } }, "✕"), body);
+}
+function spellPicker(st, u) {
+  const canSlot = (lv) => (u.slots || []).some((n, i) => i + 1 >= lv && slotsLeft(u, i + 1) > 0) || (u.mi && !u.miUsed && lv === 1);
+  return [h("div", { class: "g-pop-t" }, "เลือกเวท"), h("div", { class: "g-pop-list" }, spellList(st, u).map((s) => {
+    const sp = st.spellIndex[s.id] || { name: s.id }; const open = P.spPick === s.id && s.lv > 0;
+    const chips = [];
+    if (open) {
+      for (let l = s.lv; l <= (u.slots || []).length; l++) if (slotsLeft(u, l) > 0) chips.push(h("button", { class: "chip", onclick: () => { P.pop = null; P.spPick = null; pickSpell(s.id, l, false); } }, "ช่อง Lv" + l + " (เหลือ " + slotsLeft(u, l) + ")"));
+      if (u.mi && !u.miUsed && s.lv === 1) chips.push(h("button", { class: "chip", onclick: () => { P.pop = null; P.spPick = null; pickSpell(s.id, undefined, true); } }, "Magic Initiate (ฟรีวันละครั้ง)"));
+    }
+    return h("div", { class: "g-sp" }, h("button", { class: "g-opt", "aria-expanded": s.lv ? (open ? "true" : "false") : null, disabled: s.lv > 0 && !canSlot(s.lv), onclick: () => { if (!s.lv) { P.pop = null; pickSpell(s.id); } else { P.spPick = open ? null : s.id; renderPlay(); } } },
+      h("b", null, sp.name), h("small", null, s.lv ? "Lv " + s.lv + (canSlot(s.lv) ? " · เลือกช่องเวท" : " · ช่องเวทหมด") : "cantrip · ใช้ได้ไม่จำกัด")), open && h("div", { class: "chips" }, chips));
+  }))];
+}
+function stepFor(st, u) {
+  const T = u.turn || {}; let t; const extra = [];
+  if (P.mode === "spell" && P.spellSel) {
+    const need = spellNeed(P.spellSel.id); const sp = st.spellIndex[P.spellSel.id] || { name: P.spellSel.id };
+    t = sp.name + ": " + (need.kind === "units" ? (need.ally ? "แตะเพื่อน" : "แตะศัตรูที่เรืองแสง") + (need.n > 1 ? " สูงสุด " + need.n + " เป้า" : "") : need.kind === "dir" ? "แตะทิศที่จะปล่อยเวท" : "แตะจุดที่จะร่าย") + (need.range ? " (ระยะ " + need.range + " ft)" : "");
+    if ((P.spellSel.targets || []).length) extra.push(h("button", { class: "btn small primary", onclick: () => castNow({}) }, "ร่ายใส่ " + P.spellSel.targets.length + " เป้า"));
+  } else if (P.mode === "help") t = "แตะเพื่อนที่ยืนติดเพื่อช่วย (Help)";
+  else if (P.mode === "offhand") t = "แตะศัตรูเพื่อตีมือรอง";
+  else if (P.mode === "spiritual") t = "แตะศัตรูให้ Spiritual Weapon ตี";
+  else if (P.mode === "chaos") t = "แตะตัวเองเพื่อดื่ม หรือแตะเพื่อนที่ยืนติดเพื่อป้อนยาปรุง";
+  else if (P.attackSel != null && u.attacks[P.attackSel]) t = "แตะศัตรูที่เรืองแสงเพื่อตีด้วย " + u.attacks[P.attackSel].name;
+  else t = ((T.move || 0) - (T.moved || 0) > 0 ? "แตะช่องสีเขียวเพื่อเดิน · " : "") + (T.action || T.attacksLeft > 0 ? "แตะศัตรูเพื่อตี หรือเลือกท่าด้านล่าง" : "ใช้ Action แล้ว · เดินต่อ หรือกดจบตา");
+  if (P.mode !== "move" || P.attackSel != null) extra.push(h("button", { class: "btn small ghost", onclick: () => { P.mode = "move"; P.spellSel = null; P.chaosSel = null; P.attackSel = null; renderPlay(); } }, "ยกเลิก"));
+  return h("div", { class: "g-step" }, h("span", null, t), extra);
 }
 
-// ---------- side panel ----------
+// ---------- effects everyone sees: dice for attacks and checks, floating numbers, turn banner ----------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let fxChain = Promise.resolve();
+// effects that fall more than a few seconds behind are skipped so the screen never lags behind the game
+function fxQueue(fn) { const t = Date.now(); fxChain = fxChain.then(() => (Date.now() - t > 4500 ? null : fn())).catch(() => {}); }
+const D20 = '<svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="#efe3c8" stroke="#2a1d12" stroke-width="2.5"/><polygon points="50,22 78,68 22,68" fill="#e2d2b0" stroke="#2a1d12" stroke-width="1.5"/><path d="M50 3 50 22M93 27 78 68M7 27 22 68M50 97 22 68M50 97 78 68M7 73 22 68M93 73 78 68M7 27 50 22 93 27" stroke="#2a1d12" stroke-width="1.3" fill="none"/></svg>';
+function diceAnim({ label, roll, bonus, total, vs, verdict, fast }) {
+  return new Promise((done) => {
+    const fx = P.dom && P.dom.fx; if (!fx) return done();
+    const box = h("div", { class: "g-dice", role: "status" });
+    box.innerHTML = '<div class="g-dcard"><div class="g-dlabel"></div><div class="g-d20 roll">' + D20 + '<b>?</b></div><div class="g-math"></div><div class="g-verdict"></div></div>';
+    box.querySelector(".g-dlabel").textContent = label;
+    fx.append(box); requestAnimationFrame(() => box.classList.add("show"));
+    const b = box.querySelector("b"); let n = 0;
+    const spin = setInterval(() => { b.textContent = 1 + Math.floor(Math.random() * 20); if (++n > (fast ? 5 : 9)) { clearInterval(spin); land(); } }, 70);
+    function land() {
+      b.textContent = roll;
+      box.querySelector(".g-math").textContent = roll + (bonus >= 0 ? " + " + bonus : " − " + -bonus) + " = " + total + "   vs   " + vs;
+      const v = box.querySelector(".g-verdict");
+      v.textContent = { crit: "คริติคอล!", hit: "โดน!", miss: "พลาด", ok: "สำเร็จ!", fail: "ไม่สำเร็จ" }[verdict] || "";
+      v.className = "g-verdict " + (verdict === "crit" ? "crit" : verdict === "hit" || verdict === "ok" ? "hit" : "miss");
+      box.classList.add("done");
+      setTimeout(() => { box.classList.remove("show"); setTimeout(() => { box.remove(); done(); }, 220); }, fast ? 850 : 1350);
+    }
+  });
+}
+function floatAt(unitId, text, cls) {
+  const g = P.geo; const st = combatState(); const u = st && st.units[unitId];
+  if (!g || g.kind !== "grid" || !u || !P.dom) return;
+  const s = (u.size || 1) * g.cell;
+  P.dom.fx.append(h("div", { class: "g-float " + (cls || ""), style: "left:" + Math.round(g.ox + u.x * g.cell + s / 2) + "px;top:" + Math.round(g.oy + u.y * g.cell - 4) + "px" }, text));
+  const el = P.dom.fx.lastChild; setTimeout(() => el.remove(), 1400);
+}
+function banner(text, side) {
+  if (!P.dom) return Promise.resolve();
+  const b = h("div", { class: "g-banner " + (side || "") }, text); P.dom.fx.append(b);
+  requestAnimationFrame(() => b.classList.add("show")); setTimeout(() => b.remove(), 1700);
+  return sleep(1150);
+}
+function watchFx() {
+  const lastTs = P.chat.length ? P.chat[P.chat.length - 1].ts : 0;
+  if (P.fxChatCid !== P.cid) { P.fxChat = lastTs; P.fxChatCid = P.cid; }
+  else if (lastTs > (P.fxChat || 0)) {
+    for (const m of P.chat) if (m.ts > (P.fxChat || 0) && Array.isArray(m.rolls)) for (const r of m.rolls.slice(0, 4))
+      fxQueue(() => diceAnim({ label: r.who + " · " + r.label, roll: r.roll, bonus: r.bonus, total: r.total, vs: "DC " + r.dc, verdict: r.ok ? "ok" : "fail" }));
+    P.fxChat = lastTs;
+  }
+  const st = P.scene.mode === "combat" ? combatState() : null;
+  if (!st) { P.fxCombat = null; return; }
+  const key = P.cid + ":" + st.mapId + ":" + st.encounter; const hp = {};
+  for (const u of Object.values(st.units)) hp[u.id] = u.hp;
+  const cur = current(st); const prev = P.fxCombat && P.fxCombat.key === key ? P.fxCombat : null;
+  if (prev && st.seq > prev.seq) {
+    const fresh = st.log.filter((l) => l.n > prev.seq);
+    const atks = fresh.filter((l) => l.kind === "attack").slice(-3);
+    for (const l of atks) {
+      const a = st.units[l.a], tg = st.units[l.t]; if (!a || !tg) continue;
+      fxQueue(() => diceAnim({ label: shortName(a.name) + " → " + shortName(tg.name), roll: l.roll, bonus: l.total - l.roll, total: l.total, vs: "AC " + tg.ac, verdict: l.crit ? "crit" : l.hit ? "hit" : "miss", fast: a.side === "foe" }));
+    }
+    const diffs = Object.keys(hp).filter((id) => prev.hp[id] != null && hp[id] !== prev.hp[id]).map((id) => [id, hp[id] - prev.hp[id]]);
+    const missed = atks.filter((l) => !l.hit).map((l) => l.t);
+    if (diffs.length || missed.length) fxQueue(async () => {
+      for (const [id, d] of diffs) floatAt(id, d > 0 ? "+" + d : "−" + -d, d > 0 ? "heal" : "");
+      for (const id of missed) if (!diffs.some((x) => x[0] === id)) floatAt(id, "พลาด", "miss");
+      await sleep(250);
+    });
+  }
+  if (cur && !st.over && (!prev || prev.cur !== cur.id)) fxQueue(() => banner(cur.side === "pc" && canControl(cur) ? "ตาของคุณ!" : "ตาของ " + shortName(cur.name), cur.side));
+  P.fxCombat = { key, seq: st.seq, hp, cur: cur && cur.id };
+}
+
+// keyboard: 1-6 pick hotbar actions, Enter ends the turn, Esc backs out
+document.addEventListener("keydown", (e) => {
+  if (!P.dom || S.view !== "play" || !document.body.classList.contains("ingame")) return;
+  if (e.target.closest && e.target.closest("input, textarea, select")) return;
+  if (e.key === "Escape") {
+    if (P.coach) P.coach = false; else if (P.pop) P.pop = null;
+    else if (P.mode !== "move" || P.attackSel != null) { P.mode = "move"; P.spellSel = null; P.chaosSel = null; P.attackSel = null; }
+    else if (P.drawer) { P.drawer = false; P.dom.drawer.hidden = true; }
+    else if (P.townPlace) { leavePlace(); return; }
+    renderPlay(); return;
+  }
+  const slots = [...P.dom.combat.querySelectorAll(".g-hot .g-slot")]; if (!slots.length) return;
+  if (e.key === "Enter") { const end = slots.find((s) => s.dataset.act === "end"); if (end) { e.preventDefault(); end.click(); } return; }
+  const n = +e.key; if (n >= 1 && n <= 9) { const s = slots.filter((x) => x.dataset.act !== "end")[n - 1]; if (s && !s.disabled) { e.preventDefault(); s.click(); } }
+});
+
+// ---------- drawer: DM story history, party, combat log ----------
 function renderSide() {
-  const tabs = [["dm", "DM"], ["party", "ทีม"], ["log", "บันทึก"]];
-  P.dom.sideTabs.replaceChildren(...tabs.map(([k, l]) => h("button", { class: "tab", role: "tab", "aria-selected": P.panel === k ? "true" : "false", "aria-current": P.panel === k ? "true" : "false", onclick: () => { P.panel = k; renderSide(); } }, l)));
+  if (!P.dom) return;
+  const tabs = [["dm", "เรื่องเล่า"], ["party", "ทีม"], ["log", "บันทึก"]];
+  fill(P.dom.sideTabs, ...tabs.map(([k, l]) => h("button", { class: "tab", role: "tab", "aria-selected": P.panel === k ? "true" : "false", "aria-current": P.panel === k ? "true" : "false", onclick: () => { P.panel = k; renderSide(); } }, l)));
   P.dom.chatForm.hidden = P.panel !== "dm";
-  const body = P.panel === "party" ? partyPanel() : P.panel === "log" ? logPanel() : chatPanel();
-  const atBottom = P.dom.sideBody.scrollHeight - P.dom.sideBody.scrollTop - P.dom.sideBody.clientHeight < 60;
-  P.dom.sideBody.replaceChildren(body);
-  if (P.panel !== "party" && (atBottom || P.lastPanel !== P.panel)) P.dom.sideBody.scrollTop = P.dom.sideBody.scrollHeight;
+  const hostP = Object.values(P.party).find((p) => p.uid === (P.meta || {}).hostUid);
+  const body = P.panel === "party" ? h("div", null,
+      h("div", { class: "row small", style: "margin-bottom:8px" }, h("span", { class: "tag" + (isHost() ? " ok" : "") }, NET.local ? "ออฟไลน์ (เครื่องนี้คุมทุกตัว)" : isHost() ? "คุณเป็น host" : "host: " + (hostP ? hostP.card.name : "ไม่อยู่")),
+        !isHost() && !NET.local && h("button", { class: "btn tiny", onclick: async () => { await writeMeta({ hostUid: myUid() }); toast("คุณเป็น host แล้ว"); } }, "เป็น host แทน")),
+      partyPanel())
+    : P.panel === "log" ? logPanel() : chatPanel();
+  const sb = P.dom.sideBody;
+  const atBottom = sb.scrollHeight - sb.scrollTop - sb.clientHeight < 60;
+  fill(sb, body);
+  if (P.panel !== "party" && (atBottom || P.lastPanel !== P.panel)) sb.scrollTop = sb.scrollHeight;
   P.lastPanel = P.panel;
 }
 function chatPanel() {
