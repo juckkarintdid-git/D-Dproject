@@ -449,6 +449,10 @@ body.ingame main { max-width: none; padding: 0 }
 .room-faces .portrait { width: 40px; height: 40px; font-size: .8rem; border: 2px solid var(--surface); margin-left: -10px }
 .room-faces .portrait:first-child { margin-left: 0 }
 .crumb { margin-bottom: 10px }
+.bag { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 }
+.bag-bar { display: block; height: 6px; border-radius: 999px; background: var(--sunk); overflow: hidden }
+.bag-bar i { display: block; height: 100%; background: var(--accent) }
+.bag.over .small { color: var(--danger); font-weight: 600 } .bag.over .bag-bar i { background: var(--danger) }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
 .info-q { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: min(100%, 320px) }
@@ -696,6 +700,36 @@ function speciesCantrips(card, data) {
 }
 
 // ---------- equipment ----------
+// Inventory slots (house rule, YOD 2026-11-08): carrying space counted in slots instead of pounds.
+// Base 10 + STR mod (min 6); a pack (*-pack) adds 10, a pouch adds 2. Worn armor/shield costs nothing.
+// Small things stack 5 per slot (potions, ammo, torches, rations, thrown light weapons); big weapons and spare armor cost more.
+const STACK5 = new Set(["potion-healing", "arrows", "bolts", "torch", "rations", "parchment"]);
+function itemSlots(x, it) {
+  if (!it) return /^chaos-/.test(x.id) ? Math.ceil(x.qty / 5) : x.qty;
+  if (x.equipped) return 0;
+  if (it.kind === "armor") return x.qty * (it.cat === "shield" ? 2 : it.cat === "light" ? 2 : it.cat === "medium" ? 3 : 4);
+  if (it.kind === "weapon") {
+    const props = it.props || [];
+    if (props.includes("Thrown") && props.includes("Light")) return Math.ceil(x.qty / 5);
+    if (it.id === "javelin" || it.id === "dart") return Math.ceil(x.qty / 5);
+    return x.qty * (props.includes("Heavy") || props.includes("Two-Handed") ? 2 : 1);
+  }
+  if (/-pack$/.test(it.id) || it.id === "pouch" || it.id === "quiver") return 0;
+  if (STACK5.has(it.id)) return Math.ceil(x.qty / 5);
+  return x.qty * ((it.wt || 0) >= 5 ? 2 : 1);
+}
+function invSlots(card, data) {
+  const I = index(data);
+  const inv = card.inventory || [];
+  const strMod = mod(finalScores(card, data).STR);
+  let cap = Math.max(6, 10 + strMod); const bonus = [];
+  if (inv.some((x) => /-pack$/.test(x.id) || x.id === "backpack")) { cap += 10; bonus.push("กระเป๋าเป้ +10"); }
+  if (inv.some((x) => x.id === "pouch")) { cap += 2; bonus.push("ถุงย่าม +2"); }
+  const hasQuiver = inv.some((x) => x.id === "quiver");
+  const rows = inv.map((x) => { const it = I.items[x.id]; const n = hasQuiver && (x.id === "arrows" || x.id === "bolts") ? 0 : itemSlots(x, it); return { id: x.id, slots: n }; });
+  const used = rows.reduce((a, r) => a + r.slots, 0);
+  return { used, cap, over: used > cap, base: Math.max(6, 10 + strMod), bonus, rows };
+}
 function equipped(card, data) {
   const I = index(data);
   const inv = (card.inventory || []).map((x) => ({ ...x, item: I.items[x.id] })).filter((x) => x.item);
@@ -775,6 +809,8 @@ function computeSheet(card, data) {
   let speed = (opt && opt.speed) || sp.speed;
   const { armor } = equipped(card, data);
   if (armor && armor.str && scores.STR < armor.str) speed -= 10;
+  const bag = invSlots(card, data);
+  if (bag.over) speed -= 10;
   const init = mods.DEX + (feats.includes("alert") ? pb : 0);
   const perception = skills.find((s) => s.name === "Perception").bonus;
   const features = [
@@ -791,7 +827,7 @@ function computeSheet(card, data) {
     resources["sp:" + t.name] = { name: t.name, max: t.uses === "PB" ? pb : t.uses, recharge: t.recharge };
   }
   return {
-    level: lv, pb, scores, mods, saves, skills, hpMax, ac: ac.ac, acNotes: ac.notes, speed, init,
+    level: lv, pb, scores, mods, saves, skills, hpMax, ac: ac.ac, acNotes: ac.notes, speed, init, bag,
     passivePerception: 10 + perception, darkvision: (opt && opt.darkvision) || sp.darkvision || 0,
     size: card.size || sp.size, features, feats: feats.map((id) => I.feat[id]).filter(Boolean),
     casting: castingInfo(card, data, scores, pb), alwaysPrepared: alwaysPrepared(card, data),
@@ -2807,15 +2843,22 @@ function stepEquipment(c) {
   if (c.inventory.length) parts.push(inventoryPanel(c, true));
   return h("div", { class: "work" }, parts);
 }
+function bagMeter(c) {
+  let b; try { b = invSlots(c, D); } catch (e) { return null; }
+  return h("div", { class: "bag" + (b.over ? " over" : ""), title: "ช่องพื้นฐาน " + b.base + " (10 + STR)" + (b.bonus.length ? " · " + b.bonus.join(" · ") : "") },
+    h("span", { class: "small" }, "🎒 ช่องเก็บของ " + b.used + "/" + b.cap + (b.over ? " · ของเกิน! เดินช้าลง 10 ft" : "")),
+    h("span", { class: "bag-bar" }, h("i", { style: "width:" + Math.min(100, Math.round((b.used / b.cap) * 100)) + "%" })));
+}
 function inventoryPanel(c, editable) {
-  return h("div", { class: "panel" }, h("div", { class: "row" }, h("h3", null, "กระเป๋า"), h("span", { class: "tag num" }, c.gp + " GP")),
+  let bag = null; try { bag = invSlots(c, D); } catch (e) {}
+  return h("div", { class: "panel" }, h("div", { class: "row" }, h("h3", null, "กระเป๋า"), h("span", { class: "tag num" }, c.gp + " GP")), bagMeter(c),
     h("div", { class: "tbl" }, h("table", null,
-      h("thead", null, h("tr", null, h("th", null, "ของ"), h("th", null, "จำนวน"), h("th", null, "รายละเอียด"), editable && h("th", null, "สวมใส่"))),
+      h("thead", null, h("tr", null, h("th", null, "ของ"), h("th", null, "จำนวน"), h("th", null, "ช่อง"), h("th", null, "รายละเอียด"), editable && h("th", null, "สวมใส่"))),
       h("tbody", null, c.inventory.map((x, i) => {
         const it = IX.items[x.id] || { name: x.id };
         const det = it.kind === "weapon" ? it.dmg + " " + it.dtype + (it.props.length ? " · " + it.props.join(", ") : "")
           : it.kind === "armor" ? (it.cat === "shield" ? "+2 AC" : "AC " + it.ac + (it.dex ? (it.dexMax !== undefined ? " + DEX (สูงสุด " + it.dexMax + ")" : " + DEX") : "")) : "";
-        return h("tr", null, h("td", null, it.name), h("td", { class: "num" }, x.qty), h("td", { class: "small muted" }, det),
+        return h("tr", null, h("td", null, it.name), h("td", { class: "num" }, x.qty), h("td", { class: "num" }, bag && bag.rows[i] ? (bag.rows[i].slots || "–") : ""), h("td", { class: "small muted" }, det),
           editable && h("td", null, it.kind === "armor" ? h("input", { type: "checkbox", id: "eq-" + i, checked: x.equipped, "aria-label": "สวม " + it.name,
             onchange: () => update((d) => {
               const inv = d.inventory; const now = !inv[i].equipped;
@@ -4408,6 +4451,7 @@ function marketPanel() {
   const buy = async (it0) => {
     const p = P.party[me.cardId]; const it = { ...it0, cost: price(it0) };
     if ((p.card.gp || 0) + 1e-9 < it.cost) return toast("เงินไม่พอ");
+    { const trial = { ...p.card, inventory: [...(p.card.inventory || []), { id: it.id, qty: 1, equipped: false }] }; try { const b = invSlots(trial, D); if (b.over) toast("กระเป๋าเต็มแล้ว (" + b.used + "/" + b.cap + ") ของเกินจะทำให้เดินช้าลง 10 ft"); } catch (e) {} }
     const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === it.id);
     if (e) e.qty++; else inv.push({ id: it.id, qty: 1, equipped: false });
     await writeParty(me.cardId, { card: { ...p.card, gp: Math.round((p.card.gp - it.cost) * 100) / 100, inventory: inv } });
@@ -4434,7 +4478,7 @@ function marketPanel() {
       h("td", null, it.name, h("div", { class: "small muted" }, it.dmg ? it.dmg + " " + it.dtype : it.ac ? (it.cat === "shield" ? "+2 AC" : "AC " + it.ac) : "")),
       h("td", { class: "num" }, (() => { const c = price(it); return (c >= 1 ? c + " GP" : Math.round(c * 10) >= 1 ? Math.round(c * 10) + " SP" : Math.round(c * 100) + " CP") + (disc && c !== it.cost ? " ↓" : ""); })()),
       h("td", null, h("button", { class: "btn small", disabled: (me.card.gp || 0) + 1e-9 < price(it), onclick: () => buy(it) }, "ซื้อ"))))))),
-    h("h3", null, "ของของ " + me.card.name),
+    h("h3", null, "ของของ " + me.card.name), bagMeter(me.card),
     h("div", { class: "tbl shop" }, h("table", null, h("tbody", null, (me.card.inventory || []).map((x, i) => { const it = IX.items[x.id] || { name: x.id, cost: 0 };
       return h("tr", null, h("td", null, it.name + (x.equipped ? " (สวมอยู่)" : "")), h("td", { class: "num" }, "×" + x.qty),
         h("td", null, h("div", { class: "row" }, it.kind === "armor" && h("button", { class: "btn small", onclick: () => equip(i) }, x.equipped ? "ถอด" : "สวม"),

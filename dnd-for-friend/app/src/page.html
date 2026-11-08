@@ -449,6 +449,10 @@ body.ingame main { max-width: none; padding: 0 }
 .room-faces .portrait { width: 40px; height: 40px; font-size: .8rem; border: 2px solid var(--surface); margin-left: -10px }
 .room-faces .portrait:first-child { margin-left: 0 }
 .crumb { margin-bottom: 10px }
+.bag { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 }
+.bag-bar { display: block; height: 6px; border-radius: 999px; background: var(--sunk); overflow: hidden }
+.bag-bar i { display: block; height: 100%; background: var(--accent) }
+.bag.over .small { color: var(--danger); font-weight: 600 } .bag.over .bag-bar i { background: var(--danger) }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
 .info-q { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: min(100%, 320px) }

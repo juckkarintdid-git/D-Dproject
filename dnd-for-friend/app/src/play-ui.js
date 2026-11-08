@@ -499,6 +499,7 @@ function marketPanel() {
   const buy = async (it0) => {
     const p = P.party[me.cardId]; const it = { ...it0, cost: price(it0) };
     if ((p.card.gp || 0) + 1e-9 < it.cost) return toast("เงินไม่พอ");
+    { const trial = { ...p.card, inventory: [...(p.card.inventory || []), { id: it.id, qty: 1, equipped: false }] }; try { const b = invSlots(trial, D); if (b.over) toast("กระเป๋าเต็มแล้ว (" + b.used + "/" + b.cap + ") ของเกินจะทำให้เดินช้าลง 10 ft"); } catch (e) {} }
     const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === it.id);
     if (e) e.qty++; else inv.push({ id: it.id, qty: 1, equipped: false });
     await writeParty(me.cardId, { card: { ...p.card, gp: Math.round((p.card.gp - it.cost) * 100) / 100, inventory: inv } });
@@ -525,7 +526,7 @@ function marketPanel() {
       h("td", null, it.name, h("div", { class: "small muted" }, it.dmg ? it.dmg + " " + it.dtype : it.ac ? (it.cat === "shield" ? "+2 AC" : "AC " + it.ac) : "")),
       h("td", { class: "num" }, (() => { const c = price(it); return (c >= 1 ? c + " GP" : Math.round(c * 10) >= 1 ? Math.round(c * 10) + " SP" : Math.round(c * 100) + " CP") + (disc && c !== it.cost ? " ↓" : ""); })()),
       h("td", null, h("button", { class: "btn small", disabled: (me.card.gp || 0) + 1e-9 < price(it), onclick: () => buy(it) }, "ซื้อ"))))))),
-    h("h3", null, "ของของ " + me.card.name),
+    h("h3", null, "ของของ " + me.card.name), bagMeter(me.card),
     h("div", { class: "tbl shop" }, h("table", null, h("tbody", null, (me.card.inventory || []).map((x, i) => { const it = IX.items[x.id] || { name: x.id, cost: 0 };
       return h("tr", null, h("td", null, it.name + (x.equipped ? " (สวมอยู่)" : "")), h("td", { class: "num" }, "×" + x.qty),
         h("td", null, h("div", { class: "row" }, it.kind === "armor" && h("button", { class: "btn small", onclick: () => equip(i) }, x.equipped ? "ถอด" : "สวม"),

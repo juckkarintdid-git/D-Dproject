@@ -631,15 +631,22 @@ function stepEquipment(c) {
   if (c.inventory.length) parts.push(inventoryPanel(c, true));
   return h("div", { class: "work" }, parts);
 }
+function bagMeter(c) {
+  let b; try { b = invSlots(c, D); } catch (e) { return null; }
+  return h("div", { class: "bag" + (b.over ? " over" : ""), title: "ช่องพื้นฐาน " + b.base + " (10 + STR)" + (b.bonus.length ? " · " + b.bonus.join(" · ") : "") },
+    h("span", { class: "small" }, "🎒 ช่องเก็บของ " + b.used + "/" + b.cap + (b.over ? " · ของเกิน! เดินช้าลง 10 ft" : "")),
+    h("span", { class: "bag-bar" }, h("i", { style: "width:" + Math.min(100, Math.round((b.used / b.cap) * 100)) + "%" })));
+}
 function inventoryPanel(c, editable) {
-  return h("div", { class: "panel" }, h("div", { class: "row" }, h("h3", null, "กระเป๋า"), h("span", { class: "tag num" }, c.gp + " GP")),
+  let bag = null; try { bag = invSlots(c, D); } catch (e) {}
+  return h("div", { class: "panel" }, h("div", { class: "row" }, h("h3", null, "กระเป๋า"), h("span", { class: "tag num" }, c.gp + " GP")), bagMeter(c),
     h("div", { class: "tbl" }, h("table", null,
-      h("thead", null, h("tr", null, h("th", null, "ของ"), h("th", null, "จำนวน"), h("th", null, "รายละเอียด"), editable && h("th", null, "สวมใส่"))),
+      h("thead", null, h("tr", null, h("th", null, "ของ"), h("th", null, "จำนวน"), h("th", null, "ช่อง"), h("th", null, "รายละเอียด"), editable && h("th", null, "สวมใส่"))),
       h("tbody", null, c.inventory.map((x, i) => {
         const it = IX.items[x.id] || { name: x.id };
         const det = it.kind === "weapon" ? it.dmg + " " + it.dtype + (it.props.length ? " · " + it.props.join(", ") : "")
           : it.kind === "armor" ? (it.cat === "shield" ? "+2 AC" : "AC " + it.ac + (it.dex ? (it.dexMax !== undefined ? " + DEX (สูงสุด " + it.dexMax + ")" : " + DEX") : "")) : "";
-        return h("tr", null, h("td", null, it.name), h("td", { class: "num" }, x.qty), h("td", { class: "small muted" }, det),
+        return h("tr", null, h("td", null, it.name), h("td", { class: "num" }, x.qty), h("td", { class: "num" }, bag && bag.rows[i] ? (bag.rows[i].slots || "–") : ""), h("td", { class: "small muted" }, det),
           editable && h("td", null, it.kind === "armor" ? h("input", { type: "checkbox", id: "eq-" + i, checked: x.equipped, "aria-label": "สวม " + it.name,
             onchange: () => update((d) => {
               const inv = d.inventory; const now = !inv[i].equipped;

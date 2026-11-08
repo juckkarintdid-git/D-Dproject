@@ -150,3 +150,16 @@ test("example card in the AI template imports cleanly", () => {
   assert.ok(card.inventory.some((x) => x.id === "longbow"));
   assert.ok(card.id);
 });
+
+test("inventory slots", () => {
+  const c = fighter();
+  const s = R.computeSheet(c, data);
+  const b = R.invSlots(c, data);
+  assert.ok(b.cap >= 10, "cap " + b.cap);
+  assert.ok(!b.over, `starting kit fits: ${b.used}/${b.cap}`);
+  for (const p of premades) assert.ok(!R.invSlots(p, data).over, p.name + " over");
+  const heavy = { ...c, inventory: [...c.inventory, { id: "plate", qty: 3 }, { id: "greatsword", qty: 5 }] };
+  const hb = R.invSlots(heavy, data);
+  assert.ok(hb.over);
+  assert.equal(R.computeSheet(heavy, data).speed, s.speed - 10);
+});

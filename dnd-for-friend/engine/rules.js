@@ -145,6 +145,36 @@ export function speciesCantrips(card, data) {
 }
 
 // ---------- equipment ----------
+// Inventory slots (house rule, YOD 2026-11-08): carrying space counted in slots instead of pounds.
+// Base 10 + STR mod (min 6); a pack (*-pack) adds 10, a pouch adds 2. Worn armor/shield costs nothing.
+// Small things stack 5 per slot (potions, ammo, torches, rations, thrown light weapons); big weapons and spare armor cost more.
+const STACK5 = new Set(["potion-healing", "arrows", "bolts", "torch", "rations", "parchment"]);
+export function itemSlots(x, it) {
+  if (!it) return /^chaos-/.test(x.id) ? Math.ceil(x.qty / 5) : x.qty;
+  if (x.equipped) return 0;
+  if (it.kind === "armor") return x.qty * (it.cat === "shield" ? 2 : it.cat === "light" ? 2 : it.cat === "medium" ? 3 : 4);
+  if (it.kind === "weapon") {
+    const props = it.props || [];
+    if (props.includes("Thrown") && props.includes("Light")) return Math.ceil(x.qty / 5);
+    if (it.id === "javelin" || it.id === "dart") return Math.ceil(x.qty / 5);
+    return x.qty * (props.includes("Heavy") || props.includes("Two-Handed") ? 2 : 1);
+  }
+  if (/-pack$/.test(it.id) || it.id === "pouch" || it.id === "quiver") return 0;
+  if (STACK5.has(it.id)) return Math.ceil(x.qty / 5);
+  return x.qty * ((it.wt || 0) >= 5 ? 2 : 1);
+}
+export function invSlots(card, data) {
+  const I = index(data);
+  const inv = card.inventory || [];
+  const strMod = mod(finalScores(card, data).STR);
+  let cap = Math.max(6, 10 + strMod); const bonus = [];
+  if (inv.some((x) => /-pack$/.test(x.id) || x.id === "backpack")) { cap += 10; bonus.push("กระเป๋าเป้ +10"); }
+  if (inv.some((x) => x.id === "pouch")) { cap += 2; bonus.push("ถุงย่าม +2"); }
+  const hasQuiver = inv.some((x) => x.id === "quiver");
+  const rows = inv.map((x) => { const it = I.items[x.id]; const n = hasQuiver && (x.id === "arrows" || x.id === "bolts") ? 0 : itemSlots(x, it); return { id: x.id, slots: n }; });
+  const used = rows.reduce((a, r) => a + r.slots, 0);
+  return { used, cap, over: used > cap, base: Math.max(6, 10 + strMod), bonus, rows };
+}
 export function equipped(card, data) {
   const I = index(data);
   const inv = (card.inventory || []).map((x) => ({ ...x, item: I.items[x.id] })).filter((x) => x.item);
@@ -224,6 +254,8 @@ export function computeSheet(card, data) {
   let speed = (opt && opt.speed) || sp.speed;
   const { armor } = equipped(card, data);
   if (armor && armor.str && scores.STR < armor.str) speed -= 10;
+  const bag = invSlots(card, data);
+  if (bag.over) speed -= 10;
   const init = mods.DEX + (feats.includes("alert") ? pb : 0);
   const perception = skills.find((s) => s.name === "Perception").bonus;
   const features = [
@@ -240,7 +272,7 @@ export function computeSheet(card, data) {
     resources["sp:" + t.name] = { name: t.name, max: t.uses === "PB" ? pb : t.uses, recharge: t.recharge };
   }
   return {
-    level: lv, pb, scores, mods, saves, skills, hpMax, ac: ac.ac, acNotes: ac.notes, speed, init,
+    level: lv, pb, scores, mods, saves, skills, hpMax, ac: ac.ac, acNotes: ac.notes, speed, init, bag,
     passivePerception: 10 + perception, darkvision: (opt && opt.darkvision) || sp.darkvision || 0,
     size: card.size || sp.size, features, feats: feats.map((id) => I.feat[id]).filter(Boolean),
     casting: castingInfo(card, data, scores, pb), alwaysPrepared: alwaysPrepared(card, data),
