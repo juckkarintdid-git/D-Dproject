@@ -3,6 +3,7 @@ const THEMES = {
   cave: { floor: [86, 78, 66], floor2: [72, 65, 55], wall: [38, 34, 30], wallTop: [64, 58, 50], brush: [74, 98, 52], water: [40, 78, 104] },
   crypt: { floor: [92, 92, 98], floor2: [76, 76, 84], wall: [30, 30, 38], wallTop: [58, 58, 70], brush: [70, 84, 60], water: [44, 70, 80] },
   ruins: { floor: [118, 112, 84], floor2: [100, 96, 70], wall: [70, 56, 46], wallTop: [120, 96, 76], brush: [84, 116, 56], water: [48, 92, 118] },
+  field: { floor: [92, 118, 62], floor2: [80, 106, 54], wall: [70, 66, 58], wallTop: [112, 106, 92], brush: [58, 96, 40], water: [52, 104, 132] },
   volcanic: { floor: [70, 52, 46], floor2: [58, 42, 38], wall: [28, 20, 20], wallTop: [70, 40, 32], brush: [96, 70, 40], water: [190, 72, 30] },
 };
 const EDIT_TOOLS = [["#", "กำแพง"], [".", "พื้น"], [",", "พุ่มไม้ (เดินช้า)"], ["~", "น้ำ/ลาวา (เดินช้า)"], ["T", "ต้นไม้"], ["D", "ประตู"], ["C", "หีบ"], ["?", "เบาะแส"], ["S", "จุดเริ่ม"], ["B", "จุดบอส"]];
@@ -18,7 +19,7 @@ function bgImg(src) { return img(src); }
 const hash = (x, y, s = 0) => { let n = x * 374761393 + y * 668265263 + s * 982451653; n = (n ^ (n >> 13)) * 1274126177; return ((n ^ (n >> 16)) >>> 0) / 4294967296; };
 const rgb = (c, k = 1, a = 1) => `rgba(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)},${a})`;
 const myMember = () => P.party[P.myCardId] || null;
-const locInfo = (id) => CAMP.world.locations.find((l) => l.id === id) || (CAMP.maps[id] ? { id, name: CAMP.maps[id].name, th: CAMP.maps[id].th } : { id, name: id, th: "" });
+const locInfo = (id) => { const m = CAMP.world.locations.find((l) => l.id === id); if (m) return m; const d = CAMP.maps[id] || (CAMP.fields || {})[id]; return d ? { id, name: d.name, th: d.th } : { id, name: id, th: "" }; };
 
 // ---------- fog of war: one bit string per map in each party doc ----------
 function revealedBits(def) {
@@ -434,7 +435,9 @@ function renderRoom() {
     if (fresh || atBottom) R.body.scrollTop = R.body.scrollHeight;
   } else {
     const top = R.body.firstChild === R.service ? R.body.scrollTop : 0;
+    const fights = questsBy("active").filter((q) => q.goal && q.goal.t === "field" && giverSpot(q) && giverSpot(q).id === id);
     fill(R.service, ready.length > 0 && h("div", { class: "quests" }, h("h3", null, "ส่งเควสให้ " + s.who), ready.map((q) => questRow(q, [h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส รับรางวัล")]))),
+      fights.length > 0 && h("div", { class: "quests" }, h("h3", null, "งานที่ต้องออกไปสู้"), fights.map((q) => questRow(q, [fightBtn(q)]))),
       ({ inn: innPanel, temple: templePanel, market: marketPanel, forge: forgePanel, alchemist: alchemistPanel, stable: stablePanel, night: nightPanel }[id] || boardPanel)());
     if (R.body.firstChild !== R.service) fill(R.body, R.service);
     R.body.scrollTop = top;
@@ -1783,6 +1786,13 @@ function questRow(q, actions) {
     (r.gp || (r.items || []).length) && st !== "turned" && h("div", { class: "small muted" }, "รางวัล (ทุกคน): " + [r.gp ? r.gp + " GP" : "", ...(r.items || []).map(([iid, n]) => n + "× " + iname(iid))].filter(Boolean).join(" · ")),
     actions && actions.length > 0 && h("div", { class: "row" }, actions));
 }
+// side quests with a field fight: a button that cuts straight to the battle (only from the village or the world map)
+function fightBtn(q) {
+  const f = q.goal && q.goal.t === "field" && q.goal.fight; if (!f || questStatus(q) !== "active") return null;
+  const ok = ["town", "world"].includes(P.scene.mode);
+  return ok ? h("button", { class: "btn small primary", onclick: () => { toggleDrawer(false); startSkirmish(f.map, f.monsters, f.th, { quest: q.id }); } }, "⚔️ ออกไปจัดการ (" + locInfo(f.map).th + ")")
+    : h("span", { class: "small muted" }, "ออกไปจัดการได้จากหมู่บ้านหรือแผนที่โลก");
+}
 function questPanel() {
   const main = QD.main.map((q) => ({ ...q, kind: "main" }));
   const nm = nextMainQuest();
@@ -1796,7 +1806,7 @@ function questPanel() {
     main.filter((q) => questStatus(q) !== "active" || (nm && q.id === nm.id)).map((q) => questRow(q, [turnBtn(q)])),
     main.filter((q) => questStatus(q) === "active" && !(nm && q.id === nm.id)).length > 0 && h("p", { class: "small muted" }, "ยังมีอีก " + main.filter((q) => questStatus(q) === "active" && !(nm && q.id === nm.id)).length + " บทข้างหน้า"),
     h("h3", null, "เควสที่รับไว้"),
-    side.length ? side.map((q) => questRow(q, [turnBtn(q), q.kind === "side" && questStatus(q) === "active" && h("button", { class: "btn ghost tiny", onclick: () => dropQuest(q.id) }, "ยกเลิกเควส")])) : h("p", { class: "small muted" }, "ยังไม่ได้รับ ไปดูที่กระดานประกาศในหมู่บ้าน"),
+    side.length ? side.map((q) => questRow(q, [turnBtn(q), fightBtn(q), q.kind === "side" && questStatus(q) === "active" && h("button", { class: "btn ghost tiny", onclick: () => dropQuest(q.id) }, "ยกเลิกเควส")])) : h("p", { class: "small muted" }, "ยังไม่ได้รับ ไปดูที่กระดานประกาศในหมู่บ้าน"),
     turned.length > 0 && h("details", null, h("summary", { class: "small" }, "ส่งแล้ว " + turned.length + " เควส"), turned.map((q) => questRow(q))));
 }
 function questBoard() {

@@ -48,7 +48,7 @@ const THEME = {
 };
 for (const [id, m] of Object.entries({})) images.push({ group: "map", name: "map-" + id, label: m.name + " · " + m.th, ratio: "3:2", map: id,
   prompt: `Top-down tabletop battle map of ${THEME[m.theme] || m.theme}: ${m.name}. ${m.final ? "A huge circular lair at the summit with a dragon hoard of gold. " : ""}Readable floor texture, clear contrast between walls and floor.` });
-const maps = Object.fromEntries(Object.entries(camp.maps).map(([id, m]) => [id, m.rows]));
+const maps = Object.fromEntries(Object.entries({ ...camp.maps, ...(camp.fields || {}) }).map(([id, m]) => [id, m.rows]));
 // Welcome art for the home page (text is overlaid at the bottom-left, keep that area calm and darker)
 images.push({ group: "welcome", name: "welcome", label: "รูปต้อนรับหน้าเข้าเล่น", ratio: "16:9",
   prompt: "Epic wide establishing shot of Ember Vale at dusk: a cozy log village with warm lit windows by a stream in the foreground left, a dark thorny forest in the middle, a red stone tower on a sea cliff to the right, and far away a black volcanic spire glowing with lava and smoke where a red dragon silhouette circles. Five adventurers seen from behind on a hill in the lower right (a dwarf fighter with a greatsword, a halfling rogue, a human cleric with a shining shield, an elf ranger with a bow, a gnome wizard with a staff light). Cinematic painted fantasy key art, warm amber and teal palette, the lower-left third is darker and simpler so title text can sit there." });

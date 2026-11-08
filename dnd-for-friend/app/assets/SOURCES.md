@@ -11,3 +11,4 @@ From the free "3k free Maps" bundle by Sacred Arts Designs (The GM Craft Tavern 
 | map-summit | Volcanic surfaces/LavPit__battlemap_style_g_ba4dc4b2-7bc7-_2-design-by-sacred-arts-designs-Etsy.webp |
 
 Images were cropped to the grid aspect (26x16, summit 24x12) and resized. Grids are traced in tools/trace_maps.py.
+- field-meadow.webp: "Fantasy Forest Clearing" (Forest - various nature), field-forest.webp: "road in forest" (Roads - passages), field-creek.webp: "Ruins of a destroyed bridge" (Bridges), field-ruins.webp: "Ruins of an old tower" (Ruins) — Sacred Arts Designs free 3k maps bundle, cropped to 1400x1000 for the 14x10 skirmish grid.

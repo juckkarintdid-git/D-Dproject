@@ -951,6 +951,163 @@
       ]
      ]
     }
+   },
+   {
+    "id": "s9",
+    "title": "หมาป่ากินแกะ",
+    "giver": "Garrick Hale",
+    "loc": null,
+    "level": "1",
+    "story": "ฝูงหมาป่าลงมาจากเนินเขา ไล่กินแกะในทุ่งนอกหมู่บ้านทุกคืน",
+    "goal": {
+     "t": "field",
+     "fight": {
+      "map": "meadow",
+      "th": "ฝูงหมาป่าในทุ่ง",
+      "monsters": [
+       [
+        "wolf"
+       ],
+       [
+        "wolf"
+       ],
+       [
+        "wolf",
+        "normal",
+        3
+       ],
+       [
+        "wolf",
+        "normal",
+        4
+       ]
+      ]
+     }
+    },
+    "goalTh": "ไล่ฝูงหมาป่าในทุ่งหญ้านอกหมู่บ้าน",
+    "reward": {
+     "gp": 15,
+     "items": []
+    }
+   },
+   {
+    "id": "s10",
+    "title": "หนูยักษ์ริมลำธาร",
+    "giver": "Mirelle Quickdraught",
+    "loc": null,
+    "level": "1",
+    "story": "Mirelle เก็บสมุนไพรริมลำธารไม่ได้ เพราะฝูงหนูกินจนเกลี้ยง",
+    "goal": {
+     "t": "field",
+     "fight": {
+      "map": "creek",
+      "th": "ฝูงหนูริมลำธาร",
+      "monsters": [
+       [
+        "swarm-of-rats"
+       ],
+       [
+        "swarm-of-rats"
+       ],
+       [
+        "swarm-of-rats",
+        "normal",
+        3
+       ]
+      ]
+     }
+    },
+    "goalTh": "กำจัดฝูงหนูที่ริมลำธาร",
+    "reward": {
+     "gp": 15,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
+   },
+   {
+    "id": "s11",
+    "title": "โจรดักทางป่า",
+    "giver": "Hilda Emberheart",
+    "loc": null,
+    "level": "1–2",
+    "story": "เกวียนถ่านหินของ Hilda โดนโจรดักปล้นบนทางในป่าสองรอบแล้ว",
+    "goal": {
+     "t": "field",
+     "fight": {
+      "map": "forest",
+      "th": "โจรดักปล้นในป่า",
+      "monsters": [
+       [
+        "bandit"
+       ],
+       [
+        "bandit"
+       ],
+       [
+        "scout",
+        "normal",
+        3
+       ],
+       [
+        "bandit",
+        "normal",
+        4
+       ]
+      ]
+     }
+    },
+    "goalTh": "ไล่โจรที่ดักปล้นบนทางในป่า",
+    "reward": {
+     "gp": 25,
+     "items": []
+    }
+   },
+   {
+    "id": "s12",
+    "title": "โบสถ์ร้างข้างทาง",
+    "giver": "Sister Maren",
+    "loc": null,
+    "level": "2",
+    "story": "มีคนเห็นศพเดินได้วนเวียนในซากโบสถ์เก่าริมทาง Maren อยากให้พวกมันได้พัก",
+    "goal": {
+     "t": "field",
+     "fight": {
+      "map": "ruins",
+      "th": "ศพเดินได้ในซากโบสถ์",
+      "monsters": [
+       [
+        "skeleton"
+       ],
+       [
+        "zombie"
+       ],
+       [
+        "skeleton",
+        "normal",
+        3
+       ],
+       [
+        "zombie",
+        "normal",
+        4
+       ]
+      ]
+     }
+    },
+    "goalTh": "ปลดปล่อยศพเดินได้ในซากโบสถ์ข้างทาง",
+    "reward": {
+     "gp": 30,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
    }
   ],
   "maxSide": 3
@@ -996,5 +1153,95 @@
    "id": "scroll-magic-missile",
    "cost": 60
   }
- ]
+ ],
+ "fields": {
+  "meadow": {
+   "name": "Open Meadow",
+   "th": "ทุ่งหญ้าโล่ง",
+   "theme": "field",
+   "intro": "ทุ่งหญ้าสูงระดับเอว ลมพัดเป็นคลื่น มีพุ่มไม้กับต้นไม้โดดเดี่ยวไม่กี่ต้น",
+   "rows": [
+    "TT.......TTTTT",
+    "T........TTTTT",
+    ".........TT.TT",
+    "TTT~~.....,..T",
+    "TTT~~.~~...mmT",
+    "TT,S.....~~.m.",
+    "T.SS......~~m.",
+    ".T.S.......mm.",
+    "TTT.......~~.T",
+    "TTT,......,.TT"
+   ],
+   "w": 14,
+   "h": 10,
+   "bg": "assets/field-meadow.webp",
+   "encounters": {}
+  },
+  "forest": {
+   "name": "Forest Path",
+   "th": "ทางในป่า",
+   "theme": "field",
+   "intro": "ทางดินแคบลัดเลาะผ่านป่าทึบ รากไม้โผล่ ต้นไม้บังสายตาเป็นระยะ",
+   "rows": [
+    "TTSS.,TTTTTTTT",
+    "T,.SS,,TTTTTTT",
+    "T,,...,,TTTTTT",
+    ",,,,...,,TTTTT",
+    "T,,,....,,TTTT",
+    "TT,,,....,,,TT",
+    "TTT,,.....,,,T",
+    "TTT,,,.....,,T",
+    "TTTT,,,..mmm,T",
+    "TTTTT,,,.mmm.,"
+   ],
+   "w": 14,
+   "h": 10,
+   "bg": "assets/field-forest.webp",
+   "encounters": {}
+  },
+  "creek": {
+   "name": "Creekside",
+   "th": "ริมลำธาร",
+   "theme": "field",
+   "intro": "ลำธารตื้นไหลเอื่อย ก้อนหินลื่นและกกสูงขึ้นสองฝั่ง มีจุดข้ามน้ำตื้น",
+   "rows": [
+    "~~~~~~~..,,,..",
+    "~~~~~,,..mmmm.",
+    ",,~~~,....mm,.",
+    ",,~~,.....,,,,",
+    "~~~,.....,,,,,",
+    "~~,.....~,,,,,",
+    ",,SS..~~~~,,~~",
+    ",SS..~~~~~~~~~",
+    ",,,,,~~~~~~~,,",
+    ",,,,,~~~~~~~,,"
+   ],
+   "w": 14,
+   "h": 10,
+   "bg": "assets/field-creek.webp",
+   "encounters": {}
+  },
+  "ruins": {
+   "name": "Roadside Ruins",
+   "th": "ซากปรักหักพังข้างทาง",
+   "theme": "field",
+   "intro": "ซากโบสถ์หินเก่าริมทาง กำแพงพังเหลือเป็นแนวกำบัง หญ้าขึ้นเต็มพื้น",
+   "rows": [
+    "TTTT.####.TTTT",
+    "TTTT#.....#TTT",
+    "TT##.......TTT",
+    "T,#.....mm..,T",
+    "T,#......m.#,T",
+    "T,#...##..m#,,",
+    "T,#...##.m.#,T",
+    "SSS#....m..,TT",
+    "TTS,##.##.#.TT",
+    "TTT,,,,,,,,TTT"
+   ],
+   "w": 14,
+   "h": 10,
+   "bg": "assets/field-ruins.webp",
+   "encounters": {}
+  }
+ }
 }

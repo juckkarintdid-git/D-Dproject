@@ -223,7 +223,7 @@ async function runQueue(list) {
 }
 
 // ---------- UI ----------
-const GROUPS = [["welcome", "รูปต้อนรับ (หน้าเข้าเล่น)"], ["npc", "NPC ในหมู่บ้าน (ขึ้นตอนเข้าอาคาร)"], ["room", "ภายในอาคารใหม่ในหมู่บ้าน"], ["travel", "หน้าจอเดินทาง + เหตุการณ์ระหว่างทาง"], ["portrait", "รูปตัวละครสำเร็จรูป (ใส่ในการ์ด)"], ["token", "โทเคนมอนสเตอร์ (แคมเปญ Ember Vale)"], ["world", "แผนที่โลก"], ["object", "ของบนแผนที่ต่อสู้"], ["scene", "ฉากเนื้อเรื่อง (จบเกม / แพ้)"], ["quest", "ภาพประจำบทเควสหลัก (สมุดเควส)"], ["map", "แผนที่ต่อสู้ (วาดตามภาพโครงของเกม)"]];
+const GROUPS = [["welcome", "รูปต้อนรับ (หน้าเข้าเล่น)"], ["npc", "NPC ในหมู่บ้าน (ขึ้นตอนเข้าอาคาร)"], ["room", "ภายในอาคารใหม่ในหมู่บ้าน"], ["travel", "หน้าจอเดินทาง + เหตุการณ์ระหว่างทาง"], ["field", "ฉากสู้ทั่วไป (เควสย่อย)"], ["portrait", "รูปตัวละครสำเร็จรูป (ใส่ในการ์ด)"], ["token", "โทเคนมอนสเตอร์ (แคมเปญ Ember Vale)"], ["world", "แผนที่โลก"], ["object", "ของบนแผนที่ต่อสู้"], ["scene", "ฉากเนื้อเรื่อง (จบเกม / แพ้)"], ["quest", "ภาพประจำบทเควสหลัก (สมุดเควส)"], ["map", "แผนที่ต่อสู้ (วาดตามภาพโครงของเกม)"]];
 function render() {
   const sum = $("sum"); if (sum) { sum.replaceChildren(); for (const im of IMAGES.filter((i) => i.note === "redo" || i.note === "new")) { const b = document.createElement("span"); b.className = "review " + im.note; b.textContent = (im.note === "new" ? "🆕 ต้องทำ: " : "🔁 ทำใหม่: ") + im.name; sum.appendChild(b); } }
   const box = $("groups"); box.replaceChildren();

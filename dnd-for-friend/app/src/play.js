@@ -98,7 +98,7 @@ function canControl(unit) {
 
 // ---------- map data ----------
 function mapDef(id) {
-  const base = CAMP.maps[id];
+  const base = CAMP.maps[id] || (CAMP.fields || {})[id];
   const ov = P.maps[id];
   if (!base && !ov) return null;
   return { ...(base || {}), ...(ov || {}), id };
@@ -304,6 +304,7 @@ async function startCombat(def, L) {
   await say("system", "⚔️ เริ่มการต่อสู้: " + def.encounters[L].th + " · " + st.order.map((id) => st.units[id].name + " " + st.units[id].init).join(" · "));
 }
 async function finalizeCombat(st) {
+  if (st.skirmish) return finalizeSkirmish(st);
   const def = mapDef(st.mapId);
   const pcs = Object.values(st.units).filter((u) => u.side === "pc");
   if (st.over === "win") {
@@ -329,6 +330,57 @@ async function finalizeCombat(st) {
     await say("system", "💀 ทีมพ่ายแพ้ใน " + def.encounters[st.encounter].th + "…");
   }
 }
+// ---------- skirmish: a quick fight on a small reusable field map (side quests, road ambushes, DM scenes) ----------
+// XP budget per hero (2024 "high" difficulty) keeps a DM-picked fight from flattening the party
+const FIGHT_BUDGET = [0, 100, 200, 400, 500, 1100, 1400, 1700, 2100];
+function capFight(list, partySize, level) {
+  const budget = FIGHT_BUDGET[Math.min(8, Math.max(1, level))] * Math.max(1, partySize);
+  const maxCr = Math.max(1, level);
+  const out = []; let xp = 0;
+  for (const [id, tier = "normal", minParty = 0] of list) {
+    const m = MON[id]; if (!m || partySize < minParty || (m.cr || 0) > maxCr) continue;
+    if (xp + (m.xp || 0) > budget && out.length) continue;
+    out.push([id, tier]); xp += m.xp || 0; if (out.length >= 8) break;
+  }
+  if (!out.length) out.push(["wolf", "normal"]);
+  return out;
+}
+async function startSkirmish(field, monsters, title, extra = {}) {
+  const def = mapDef(field) || mapDef("meadow"); if (!def) return;
+  const sc = P.scene; if (sc.mode === "combat") return;
+  const members = Object.values(P.party).filter((p) => !(p.live && p.live.dead) && (p.live.hp ?? 1) > 0);
+  if (!members.length) return toast("ทุกคนบาดเจ็บหนัก ไปพักก่อน");
+  const lv = partyMaxLevel(); const list = capFight(monsters, members.length, lv);
+  const grid = gridOf(def); const starts = cellsOf(def, "S"); const spawns = cellsOf(def, "m");
+  const units = members.map((p, i) => { const u = pcUnit({ ...p.card, owner: p.uid }, D, p.live); const c = starts[i] || starts[0]; u.x = c.x + (i >= starts.length ? 1 : 0); u.y = c.y; u.owner = p.uid; return u; });
+  list.forEach(([id, tier], i) => { const c = spawns[i % spawns.length]; const m = monsterUnit(MON[id], tier, i + 1, members.length); m.x = c.x - (i >= spawns.length ? 1 : 0); m.y = c.y; units.push(m); });
+  const st = newCombat(grid, units, D);
+  st.encounter = "skirmish-" + Date.now(); st.mapId = def.id; st.boss = false; st.skirmish = true; st.encTh = String(title || def.th).slice(0, 60);
+  log(st, "⚔️ " + st.encTh + "!", { kind: "start" });
+  rollInitiative(st);
+  const from = { mode: sc.mode === "explore" ? "explore" : sc.mode === "world" ? "world" : "town", loc: sc.loc, quest: extra.quest || null, place: P.townPlace || null };
+  if (P.townPlace) for (const p of Object.values(P.party)) if (p.townPlace) await writeParty(p.cardId, { townPlace: null });
+  await writeScene({ mode: "combat", loc: def.id, combat: serialize(st), finalized: false, skirmish: from, vote: null,
+    journey: { ts: Date.now(), to: def.id, ev: null, caravan: false, night: isNight() } });
+  await say("system", "⚔️ " + st.encTh + " ที่ " + def.name + " · " + def.th + " · " + st.order.map((id) => st.units[id].name + " " + st.units[id].init).join(" · "));
+}
+async function finalizeSkirmish(st) {
+  const from = P.scene.skirmish || { mode: "town", loc: CAMP.town.id }; const def = mapDef(st.mapId) || { name: "" };
+  const pcs = Object.values(st.units).filter((u) => u.side === "pc");
+  if (st.over === "win") {
+    const share = Math.floor(st.xpPool / Math.max(1, pcs.length));
+    for (const u of pcs) { const p = P.party[u.cardId]; if (!p) continue; await writeParty(u.cardId, { card: { ...p.card, xp: (p.card.xp || 0) + share }, live: { ...p.live, ...liveOf(u) } }); }
+    await countKills(st);
+    if (from.quest) await writeQuests({ won: { ...(qState().won || {}), [from.quest]: true } });
+    await writeScene({ mode: from.mode, loc: from.loc, combat: null, finalized: true, skirmish: null, lastCombat: { result: "win", xp: share, enc: st.encTh, ts: Date.now() } });
+    await say("system", "🏆 ชนะ " + st.encTh + " · ได้ EXP คนละ " + share + pcs.filter((u) => u.dead).map((u) => " · " + u.name + " เสียชีวิต ต้องไปชุบที่วิหาร").join(""));
+    await questCheck();
+    requestDM({ event: "ชนะการต่อสู้ " + st.encTh + " ที่ " + def.name + " แล้วทีมกลับมาที่เดิม" + (from.quest ? " (งานของเควสเสร็จแล้ว ให้กลับไปส่งเควสกับคนให้งาน)" : "") });
+  } else {
+    await writeScene({ finalized: true, defeat: { ts: Date.now(), enc: st.encTh } });
+    await say("system", "💀 ทีมพ่ายแพ้ใน " + st.encTh + "…");
+  }
+}
 async function returnAfterDefeat() {
   const sc = P.scene; if (!sc || !sc.defeat || P.returning) return;
   P.returning = true;
@@ -341,7 +393,7 @@ async function returnAfterDefeat() {
       const sh = computeSheet(p.card, D);
       await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...p.live, ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
     }
-    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, defeat: null, lastCombat: { result: "lose", ts: Date.now() }, vote: null });
+    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, defeat: null, skirmish: null, lastCombat: { result: "lose", ts: Date.now() }, vote: null });
     for (const p of Object.values(P.party)) if (P.party[p.cardId].townPlace) await writeParty(p.cardId, { townPlace: null });
     await say("system", "💀 ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
     requestDM({ event: "ทีมแพ้และถูกพากลับมาชุบชีวิตที่วิหาร" });
@@ -544,6 +596,7 @@ function dmContext() {
   lines.push("สถานที่บนแผนที่โลก: " + CAMP.world.locations.map((l) => l.id + "=" + l.name + " (Lv " + l.level + ")").join(", "));
   lines.push("ทีม:\n" + partySummary());
   if (homebrewOn() && Object.values(P.party).some(canBrew)) lines.push("Homebrew ที่อนุญาต: ระบบปรุงยา Controlled Chaos V2.1 ของ " + Object.values(P.party).filter(canBrew).map((p) => p.card.name).join(", ") + " ปรุงได้ 2 ขวด/พักยาว สูตร 001–006 ดื่มแล้วทอย d6 ได้ผล A หรือ B (มีทั้งข้อดีและข้อเสีย) นาน 1 นาที หน้าเว็บคิดผลให้ คุณแค่เล่าฉากให้สนุกตามบุคลิกนักปรุงยาที่ไม่ยอมลองยากับตัวเอง");
+  if (sc.mode !== "combat" && !(def && Object.keys(def.encounters || {}).length)) { const lv = partyMaxLevel(); lines.push("มอนสำหรับ action fight (CR ไม่เกิน " + lv + "): " + Object.values(MON).filter((m) => (m.cr || 0) <= lv && (m.cr || 0) > 0).sort((a, b) => a.cr - b.cr).slice(0, 60).map((m) => m.id + "(" + m.crText + ")").join(", ")); }
   const qc = questContext(); if (qc) lines.push(qc);
   if (P.meta.flags && Object.keys(P.meta.flags).length) lines.push("ธงเนื้อเรื่อง: " + JSON.stringify(P.meta.flags));
   return lines.join("\n");
@@ -556,6 +609,7 @@ const DM_RULES = `คุณคือ Dungeon Master ของเกม D&D (ก�
 - ให้รางวัลอย่างสมเหตุสมผล (เงินเล็กน้อย, potion-healing) ผ่าน action give
 - ตอบไม่เกิน 120 คำ
 - คำพูดทุกประโยคต้องขึ้นต้นด้วยชื่อผู้พูดตามด้วยโคลอน แล้วตามด้วยเครื่องหมาย “…” เช่น Old Pell: “นั่งก่อนสิ” หรือ Wick: “ขอบคุณนะ” (หน้าเว็บใช้ชื่อนี้ขึ้นรูปและกล่องคำพูดของคนที่พูดจริง ห้ามสลับชื่อ) ถ้าตัวละครผู้เล่นพูดก็ใส่ชื่อเขา ห้ามใช้รหัส HTML เช่น &#39;
+- เควสย่อยที่ต้องสู้นอกดันเจียน (ทุ่งหญ้า ป่า ริมลำธาร ซากปรักหักพัง) ให้ใช้ action fight เลือกฉากและมอนให้เข้ากับเรื่องและเลเวลทีม อย่าเล่าผลการต่อสู้เอง
 - ในหมู่บ้าน ถ้าเรื่องพาทีมย้ายไปอาคารอื่น ใช้ action place ไปยัง id อาคารนั้น ถ้าออกไปนอกอาคาร (จัตุรัส ริมลำธาร ป่าใกล้หมู่บ้าน) ใช้ place ที่ to เป็น null
 - ผู้เล่นจ่ายเงิน (ค่าห้อง ค่าบริการ) ใช้ give ที่ gp ติดลบ เช่น "gp":-1
 ตอบเป็น JSON เท่านั้น ตามรูปแบบ:
@@ -563,7 +617,7 @@ const DM_RULES = `คุณคือ Dungeon Master ของเกม D&D (ก�
 การเข้าสังคม: เมื่อผู้เล่นต่อรอง หลอก ขู่ หรือเกลี้ยกล่อม NPC ให้ขอ check (Persuasion/Deception/Intimidation/Insight) ก่อน แล้วในรอบเล่าผลค่อยให้ผลจริง เช่น discount ที่ตลาด give ของ หรือ flag ความสัมพันธ์
 ได้เปรียบ/เสียเปรียบ: ถ้าสถานการณ์เป็นใจ (มีเครื่องมือ ซ่อนในเงามืด ช่วยกันทำ) ใส่ "adv":1 ใน check ถ้ายากผิดปกติใส่ "adv":-1
 ใส่หลาย action ได้ด้วย "actions":[...] (ไม่เกิน 3)
-action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"place","to":"<id อาคารในหมู่บ้าน หรือ null>"} | {"type":"flag","key":"ชื่อ","value":true} | {"type":"quest","op":"add","title":"ชื่อเควสสั้น","goal":"ต้องทำอะไร","giver":"ชื่อ NPC","loc":"<location id หรือ null>","gp":20} (เมื่อ NPC ขอความช่วยเหลือเรื่องเล็ก ๆ ที่ผู้เล่นตกลงรับ สูงสุดค้างไว้ 3 เควส) | {"type":"quest","op":"done","id":"<id เควสจาก DM>"} (เมื่อทีมทำเควสจาก DM สำเร็จในเรื่อง ระบบให้รางวัลเอง)
+action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"place","to":"<id อาคารในหมู่บ้าน หรือ null>"} | {"type":"fight","field":"meadow|forest|creek|ruins","title":"ชื่อการต่อสู้สั้น ๆ","monsters":[["wolf"],["wolf"]]} (ตัดเข้าฉากสู้บนแผนที่เล็ก ใช้เมื่ออยู่นอกดันเจียนแล้วเรื่องพาไปสู่การต่อสู้ เช่นเควสย่อยที่ต้องสู้ ระบบจะตัดมอนที่โหดเกินเลเวลทีมออกเอง สู้จบแล้วทีมกลับมาที่เดิม) | {"type":"flag","key":"ชื่อ","value":true} | {"type":"quest","op":"add","title":"ชื่อเควสสั้น","goal":"ต้องทำอะไร","giver":"ชื่อ NPC","loc":"<location id หรือ null>","gp":20} (เมื่อ NPC ขอความช่วยเหลือเรื่องเล็ก ๆ ที่ผู้เล่นตกลงรับ สูงสุดค้างไว้ 3 เควส) | {"type":"quest","op":"done","id":"<id เควสจาก DM>"} (เมื่อทีมทำเควสจาก DM สำเร็จในเรื่อง ระบบให้รางวัลเอง)
 เควสหลักเป็นแค่คำแนะนำ ผู้เล่นไปที่ไหนก่อนก็ได้ ให้เล่าเรื่องตามลำดับที่ทีมเล่นจริง
 skill ใช้ชื่อภาษาอังกฤษของ D&D หรือ STR/DEX/CON/INT/WIS/CHA สำหรับเซฟ`;
 async function runDM(sample, playerMsgs, events, depth, checkResults) {
@@ -611,6 +665,11 @@ async function dmAction(a) {
   try {
     if (a.type === "startCombat" && P.scene.mode === "explore") { const def = mapDef(P.scene.loc); if (def && def.encounters && def.encounters[a.enc] && !(P.meta.cleared || {})[clearedKey(def.id, a.enc)]) await startCombat(def, a.enc); }
     else if (a.type === "travel" && CAMP.world.locations.some((l) => l.id === a.to)) await travelTo(a.to, true);
+    else if (a.type === "fight" && P.scene.mode !== "combat" && Array.isArray(a.monsters)) {
+      const field = (CAMP.fields || {})[a.field] ? a.field : "meadow";
+      const list = a.monsters.slice(0, 8).map((x) => (Array.isArray(x) ? x : [x])).flatMap(([id, n]) => Array.from({ length: Math.min(4, Math.max(1, typeof n === "number" ? n : 1)) }, () => [String(id)]));
+      await startSkirmish(field, list, a.title, {});
+    }
     else if (a.type === "place" && P.scene.mode === "town") { // the story moved the party to another building (or outside): everyone follows
       const to = a.to && CAMP.town.places.some((p) => p.id === a.to) ? a.to : null;
       if (!(to === "night" && !isNight())) { P.dmPlace = to; await writeScene({ gather: { place: to, ts: Date.now() } }); }
@@ -853,6 +912,7 @@ function questProg(q) {
   else if (g.t === "kill") { of = g.n; n = killTotal(g.mon) - (t.base || 0); }
   else if (g.t === "chests") { of = g.n; n = Object.keys(P.meta.opened || {}).length - (t.base || 0); }
   else if (g.t === "dm") n = q.status === "done" ? 1 : 0;
+  else if (g.t === "field") n = (qState().won || {})[q.id] ? 1 : 0;
   n = Math.max(0, Math.min(of, n));
   return { n, of, ok: n >= of };
 }
