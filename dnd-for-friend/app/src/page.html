@@ -453,6 +453,21 @@ body.ingame main { max-width: none; padding: 0 }
 .bag-bar { display: block; height: 6px; border-radius: 999px; background: var(--sunk); overflow: hidden }
 .bag-bar i { display: block; height: 100%; background: var(--accent) }
 .bag.over .small { color: var(--danger); font-weight: 600 } .bag.over .bag-bar i { background: var(--danger) }
+.quests { display: flex; flex-direction: column; gap: 10px }
+.quests h3 { margin: 6px 0 0 }
+.quest { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; background: var(--surface) }
+.quest p { margin: 0 }
+.quest-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.quest-top .tag { margin: 0 }
+.quest.q-main { border-color: var(--candle, var(--accent)) }
+.quest.q-ready { box-shadow: 0 0 0 2px var(--accent) inset }
+.quest.q-turned { opacity: .7 }
+.tag.gold { background: var(--candle, #e9b44c); color: #2b1d10 }
+.q-bar { margin-top: 2px }
+.g-goalbar { position: absolute; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); z-index: 2 }
+.g-goal { pointer-events: auto; background: rgba(20,15,11,.78); color: #f4d27a; border: 1px solid rgba(244,210,122,.45); border-radius: 999px; padding: 3px 12px; font: 500 .82rem var(--f-thai-display, system-ui); cursor: pointer; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.g-card-q { color: #f4d27a !important }
+.g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
 .info-q { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: min(100%, 320px) }

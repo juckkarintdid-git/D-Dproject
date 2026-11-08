@@ -677,5 +677,257 @@
    "bg": "assets/map-summit.webp"
   }
  },
- "dmNotes": "เรียงเนื้อเรื่องแนะนำ: Thornback Hollow → Gravewatch Crypt → Redcliff Tower → Ashen Spire (ชั้นล่าง แล้วยอดหอ) ผู้เล่นไปที่ไหนก่อนก็ได้ แต่เตือนเรื่องความอันตรายตามเลเวล เมื่อจบดันเจี้ยน ผู้เล่นได้ EXP ขั้นต่ำตาม milestone เพื่ออัปเลเวล"
+ "dmNotes": "เรียงเนื้อเรื่องแนะนำ: Thornback Hollow → Gravewatch Crypt → Redcliff Tower → Ashen Spire (ชั้นล่าง แล้วยอดหอ) ผู้เล่นไปที่ไหนก่อนก็ได้ แต่เตือนเรื่องความอันตรายตามเลเวล เมื่อจบดันเจี้ยน ผู้เล่นได้ EXP ขั้นต่ำตาม milestone เพื่ออัปเลเวล",
+ "quests": {
+  "main": [
+   {
+    "id": "m1",
+    "title": "บทที่ 1 · รอยเท้าก็อบลิน",
+    "giver": "Mayor Oswin Hale",
+    "loc": "hollow",
+    "story": "ก็อบลินจาก Thornback Hollow ลักพาตัวชาวบ้านไปสามคน นายกขอให้ไปปราบหัวหน้าก็อบลินและพาชาวบ้านกลับมา",
+    "goal": {
+     "t": "boss",
+     "map": "hollow"
+    },
+    "goalTh": "ปราบหัวหน้าก็อบลินที่ Thornback Hollow",
+    "reward": {
+     "gp": 50,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
+   },
+   {
+    "id": "m2",
+    "title": "บทที่ 2 · เทียนดำในสุสาน",
+    "giver": "Sister Maren",
+    "loc": "crypt",
+    "story": "มีคนเห็นแสงเทียนสีดำที่สุสานเก่า ศพเริ่มลุกขึ้นเดิน Sister Maren ขอให้ไปหยุดพิธีกรรมของ Ghast",
+    "goal": {
+     "t": "boss",
+     "map": "crypt"
+    },
+    "goalTh": "ปราบ Ghast ที่ Gravewatch Crypt",
+    "reward": {
+     "gp": 75,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
+   },
+   {
+    "id": "m3",
+    "title": "บทที่ 3 · หอแดงริมผา",
+    "giver": "Mayor Oswin Hale",
+    "loc": "tower",
+    "story": "กลุ่มโจรยึด Redcliff Tower และขนเสบียงให้คณะลัทธิ ต้องโค่นกัปตันโจรเพื่อตัดเส้นทางส่งของ",
+    "goal": {
+     "t": "boss",
+     "map": "tower"
+    },
+    "goalTh": "โค่นกัปตันโจรที่ Redcliff Tower",
+    "reward": {
+     "gp": 100,
+     "items": [
+      [
+       "potion-healing",
+       2
+      ]
+     ]
+    }
+   },
+   {
+    "id": "m4",
+    "title": "บทที่ 4 · เถ้าถ่านปลุกมังกร",
+    "giver": "Old Pell",
+    "loc": "spire",
+    "story": "คณะลัทธิ Ashen Choir กำลังปลุกมังกรแดง Cindrathax ใต้ Ashen Spire ขึ้นไปยอดหอแล้วหยุดมันให้ได้",
+    "goal": {
+     "t": "boss",
+     "map": "summit"
+    },
+    "goalTh": "ปราบ Cindrathax บนยอด Ashen Spire",
+    "reward": {
+     "gp": 200,
+     "items": []
+    }
+   }
+  ],
+  "side": [
+   {
+    "id": "s1",
+    "title": "หมาป่าเฝ้าทาง",
+    "giver": "Mayor Oswin Hale",
+    "loc": "hollow",
+    "level": "1",
+    "goal": {
+     "t": "clear",
+     "map": "hollow",
+     "enc": "a"
+    },
+    "goalTh": "ไล่ฝูงหมาป่าหน้าทางเข้า Thornback Hollow",
+    "reward": {
+     "gp": 20,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
+   },
+   {
+    "id": "s2",
+    "title": "หูก็อบลินแลกเงิน",
+    "giver": "Bram",
+    "loc": "hollow",
+    "level": "1–2",
+    "goal": {
+     "t": "kill",
+     "mon": [
+      "goblin-minion",
+      "goblin-warrior"
+     ],
+     "n": 5
+    },
+    "goalTh": "ปราบก็อบลิน 5 ตัว",
+    "reward": {
+     "gp": 30,
+     "items": []
+    }
+   },
+   {
+    "id": "s3",
+    "title": "ของเก่าในหีบ",
+    "giver": "Bram",
+    "loc": null,
+    "level": "ไหนก็ได้",
+    "goal": {
+     "t": "chests",
+     "n": 2
+    },
+    "goalTh": "เปิดหีบสมบัติในดันเจียน 2 ใบ",
+    "reward": {
+     "gp": 25,
+     "items": []
+    }
+   },
+   {
+    "id": "s4",
+    "title": "ให้กระดูกได้พักผ่อน",
+    "giver": "Sister Maren",
+    "loc": "crypt",
+    "level": "2",
+    "goal": {
+     "t": "kill",
+     "mon": [
+      "skeleton"
+     ],
+     "n": 3
+    },
+    "goalTh": "ทำลายโครงกระดูก 3 ตัว",
+    "reward": {
+     "gp": 35,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
+   },
+   {
+    "id": "s5",
+    "title": "กูลในห้องเก็บศพ",
+    "giver": "Sister Maren",
+    "loc": "crypt",
+    "level": "2–3",
+    "goal": {
+     "t": "clear",
+     "map": "crypt",
+     "enc": "c"
+    },
+    "goalTh": "ปราบกูลที่เฝ้าห้องเก็บศพใน Gravewatch Crypt",
+    "reward": {
+     "gp": 50,
+     "items": []
+    }
+   },
+   {
+    "id": "s6",
+    "title": "ค่าหัวโจร",
+    "giver": "Mayor Oswin Hale",
+    "loc": "tower",
+    "level": "3",
+    "goal": {
+     "t": "kill",
+     "mon": [
+      "bandit",
+      "scout",
+      "tough"
+     ],
+     "n": 5
+    },
+    "goalTh": "ปราบโจร 5 คน",
+    "reward": {
+     "gp": 60,
+     "items": []
+    }
+   },
+   {
+    "id": "s7",
+    "title": "พลธนูบนเนิน",
+    "giver": "Old Pell",
+    "loc": "tower",
+    "level": "3–4",
+    "goal": {
+     "t": "clear",
+     "map": "tower",
+     "enc": "c"
+    },
+    "goalTh": "เก็บพลธนูบนเนินที่ Redcliff Tower",
+    "reward": {
+     "gp": 60,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
+   },
+   {
+    "id": "s8",
+    "title": "ดับไฟภูตลาวา",
+    "giver": "Old Pell",
+    "loc": "spire",
+    "level": "4",
+    "goal": {
+     "t": "kill",
+     "mon": [
+      "magma-mephit"
+     ],
+     "n": 2
+    },
+    "goalTh": "ดับภูตลาวา 2 ตัวใน Ashen Spire",
+    "reward": {
+     "gp": 80,
+     "items": [
+      [
+       "potion-healing",
+       1
+      ]
+     ]
+    }
+   }
+  ],
+  "maxSide": 3
+ }
 }

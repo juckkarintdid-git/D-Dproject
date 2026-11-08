@@ -123,6 +123,7 @@ const SVG = {
   map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2Z"/><path d="M9 4v14M15 6v14"/></svg>',
   voice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4Z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>',
   tv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>',
+  quest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6Z"/><path d="M6 3a2 2 0 0 0-2 2v1h2M6 21a2 2 0 0 1-2-2v-1h2M9 8h7M9 12h7M9 16h4"/></svg>',
   help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 1-1 1.7V14M12 18h.01"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="M13 7l4 4"/></svg>',
   door: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M14 3H6v18h8"/><path d="M11 12h10M18 9l3 3-3 3"/></svg>',
@@ -147,7 +148,7 @@ function buildPlayDom() {
   const d = { cid: P.cid };
   const L = (cls) => h("div", { class: cls });
   d.canvas = h("canvas", { class: "g-scene", "aria-label": "กระดานเกม" });
-  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.menu = L("g-menu");
+  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.menu = L("g-menu");
   d.ticker = h("div", { class: "g-ticker", "aria-live": "polite" });
   d.vote = L("g-vote"); d.spots = L("g-spots"); d.room = L("g-room"); d.tools = L("g-tools"); d.combat = L("g-combat");
   d.panel = L("g-panelwrap"); d.coach = L("g-coach");
@@ -157,7 +158,7 @@ function buildPlayDom() {
   d.improvSel = h("select", { "aria-label": "เป้าหมาย" });
   d.cap = L("g-capbox");
   d.caption = h("div", { class: "g-cap" }, d.cap, d.sayForm);
-  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach);
+  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach);
   d.fx = L("g-fx");
   d.sideTabs = h("div", { class: "side-tabs", role: "tablist" });
   d.sideBody = h("div", { class: "side-body" });
@@ -279,6 +280,11 @@ function renderHint() {
     txt = !st ? "" : st.over ? (st.over === "win" ? "ชนะแล้ว! กำลังสรุปผล…" : "แพ้… กำลังสรุปผล") : u && u.side === "pc" && canControl(u) ? "ตาของคุณ (" + u.name + ")" : u ? "ตาของ " + shortName(u.name) + "…" : "";
   }
   fill(hn, h("span", { class: "g-mode " + cls }, mode), h("span", { class: "g-txt" }, txt), ...extra);
+  // quest goal pill just under the hint bar (not in combat, not inside a building)
+  const gb = P.dom.goal; const goal = !P.mapEdit && myParty().length && sc.mode !== "combat" && !(sc.mode === "town" && P.townPlace) && P.meta ? questGoalLine() : "";
+  gb.hidden = !goal;
+  fill(gb, goal && h("button", { class: "g-goal", title: "เปิดสมุดเควส", onclick: () => toggleDrawer(true, "quest") }, goal));
+  if (goal) gb.style.top = (hn.offsetTop + hn.offsetHeight + 6) + "px";
 }
 function renderVote() {
   const v = P.scene.mode !== "combat" && !P.mapEdit && voteStatus(); const box = P.dom.vote;
@@ -295,6 +301,7 @@ function renderMenu() {
   const b = (k, label, fn, pressed) => h("button", { class: "g-ic", "aria-label": label, title: label, "aria-pressed": pressed == null ? null : pressed ? "true" : "false", onclick: fn }, svg(k));
   fill(P.dom.menu, 
     b("book", "เรื่องเล่า ทีม และบันทึก", () => toggleDrawer(), !!P.drawer),
+    b("quest", "สมุดเควส", () => toggleDrawer(!(P.drawer && P.panel === "quest"), "quest"), !!(P.drawer && P.panel === "quest")),
     b("voice", "เสียง DM", () => { P.tts = !P.tts; try { localStorage.setItem("dnd4f-tts", P.tts ? "1" : "0"); } catch (e) {} if (!P.tts) try { speechSynthesis.cancel(); } catch (e) {} renderMenu(); }, !!P.tts),
     b("tv", P.tv ? "ออกจากโหมดทีวี" : "โหมดทีวี (เต็มจอ)", toggleTV, !!P.tv),
     isHost() && sc.mode !== "combat" && sc.mode !== "town" && !P.mapEdit && b("edit", "ตั้งค่า Map", () => startEdit(sc.mode === "world" ? "world" : sc.loc)),
@@ -378,7 +385,10 @@ function renderTools() {
     if (sc.mode === "town" && !P.townPlace) out.push(tb("map", "แผนที่โลก", () => writeScene({ mode: "world" })));
     else if (sc.mode === "world") {
       const l = P.worldSel && locInfo(P.worldSel);
+      const warn = l && l.id !== sc.loc && travelWarning(l.id); const qs = l ? questsAt(l.id) : [];
       if (l) out.push(h("div", { class: "g-card" }, h("b", null, l.name), h("small", null, (l.th || "") + (l.level ? " · Lv " + l.level : "") + ((P.meta.done || {})[l.id] ? " · ✓ จบแล้ว" : "")),
+        qs.length > 0 && h("small", { class: "g-card-q" }, qs.map((q) => "❗ " + q.title).join(" · ")),
+        warn && h("small", { class: "g-card-warn" }, warn),
         h("button", { class: "btn primary", onclick: () => { P.worldSel = null; if (l.id === sc.loc) writeScene({ mode: l.type === "town" ? "town" : "explore" }); else proposeTravel(l.id); } }, l.id === sc.loc ? "กลับเข้าไป" : "เดินทางไปที่นี่")));
       if (sc.loc === CAMP.town.id) out.push(tb("back", "กลับหมู่บ้าน", () => writeScene({ mode: "town" })));
       else if (CAMP.maps[sc.loc]) out.push(tb("back", "กลับเข้า " + locInfo(sc.loc).name, () => writeScene({ mode: "explore" })));
@@ -533,7 +543,8 @@ function marketPanel() {
           h("button", { class: "btn small ghost", onclick: () => sell(i) }, "ขาย " + Math.round((it.cost || 0) * 50) / 100 + " GP")))); })))));
 }
 function boardPanel() {
-  return h("div", { class: "work" },
+  return h("div", { class: "work" }, questBoard(),
+    h("h3", null, "ข่าวลือและสถานที่"),
     h("ul", { class: "traits" }, CAMP.town.rumors.map((r) => h("li", null, r))),
     h("div", { class: "pick-grid" }, CAMP.world.locations.filter((l) => l.type !== "town").map((l) => h("div", { class: "pick" },
       h("span", { class: "nm" }, l.name), h("span", { class: "th" }, l.th), h("span", { class: "small muted" }, "เลเวลแนะนำ " + l.level + ((P.meta.done || {})[l.id] ? " · ✓ จบแล้ว" : "")),
@@ -740,6 +751,12 @@ function drawWorld(ctx, g) {
     ctx.beginPath(); ctx.arc(p.x, p.y, sel ? 15 : 12, 0, 7); ctx.fillStyle = l.type === "town" ? "#2a7564" : done ? "#6b6b6b" : "#a33b33"; ctx.fill();
     ctx.lineWidth = here ? 4 : 2; ctx.strokeStyle = here ? "#f4d27a" : "#2b1d10"; ctx.stroke();
     ctx.fillStyle = "#fff"; ctx.font = "bold 12px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(l.type === "town" ? "⌂" : done ? "✓" : "!", p.x, p.y + 1);
+    const qn = l.type === "town" ? questsBy("ready").length : questsAt(l.id).length;
+    if (qn) { // quest marker: a gold badge above the pin (town shows quests waiting to be handed in)
+      const bx = p.x, by = p.y - 26; ctx.beginPath(); ctx.moveTo(bx, by + 12); ctx.lineTo(bx - 6, by + 4); ctx.lineTo(bx + 6, by + 4); ctx.closePath(); ctx.fillStyle = "#f4d27a"; ctx.fill();
+      ctx.beginPath(); ctx.arc(bx, by, 10, 0, 7); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#2b1d10"; ctx.stroke();
+      ctx.fillStyle = "#2b1d10"; ctx.font = "bold 13px system-ui"; ctx.textBaseline = "middle"; ctx.fillText(l.type === "town" ? "?" : "!", bx, by + 1);
+    }
     ctx.font = "600 13px 'IBM Plex Sans Thai', system-ui"; ctx.textBaseline = "top";
     const label = l.name; const tw = ctx.measureText(label).width;
     ctx.fillStyle = "rgba(30,20,10,.75)"; ctx.fillRect(p.x - tw / 2 - 5, p.y + 17, tw + 10, 34);
@@ -907,6 +924,7 @@ async function interact(def, c, ch) {
     await writeParty(me.cardId, { card: { ...p.card, gp: (p.card.gp || 0) + (loot.gp || 0), inventory: inv } });
     await say("system", "🧰 " + me.card.name + " เปิดหีบ ได้ " + (loot.gp || 0) + " GP" + ((loot.items || []).length ? " · " + loot.items.map(([id, q]) => q + "× " + iname(id)).join(", ") : "") + (loot.note ? "\n📜 " + loot.note : ""));
     if (loot.note) requestDM({ event: me.card.name + " พบในหีบ: " + loot.note });
+    questCheck().catch(() => {});
   } else if (ch === "?") {
     const i = cellsOf(def, "?").findIndex((q) => q.x === c.x && q.y === c.y); const k = def.id + ":?" + i;
     if ((P.meta.found || {})[k]) return;
@@ -1360,7 +1378,7 @@ document.addEventListener("keydown", (e) => {
 // ---------- drawer: DM story history, party, combat log ----------
 function renderSide() {
   if (!P.dom) return;
-  const tabs = [["dm", "เรื่องเล่า"], ["party", "ทีม"], ["log", "บันทึก"]];
+  const tabs = [["dm", "เรื่องเล่า"], ["quest", "เควส"], ["party", "ทีม"], ["log", "บันทึก"]];
   fill(P.dom.sideTabs, ...tabs.map(([k, l]) => h("button", { class: "tab", role: "tab", "aria-selected": P.panel === k ? "true" : "false", "aria-current": P.panel === k ? "true" : "false", onclick: () => { P.panel = k; renderSide(); } }, l)));
   P.dom.chatForm.hidden = P.panel !== "dm";
   const hostP = Object.values(P.party).find((p) => p.uid === (P.meta || {}).hostUid);
@@ -1368,11 +1386,11 @@ function renderSide() {
       h("div", { class: "row small", style: "margin-bottom:8px" }, h("span", { class: "tag" + (isHost() ? " ok" : "") }, NET.local ? "ออฟไลน์ (เครื่องนี้คุมทุกตัว)" : isHost() ? "คุณเป็น host" : "host: " + (hostP ? hostP.card.name : "ไม่อยู่")),
         !isHost() && !NET.local && h("button", { class: "btn tiny", onclick: async () => { await writeMeta({ hostUid: myUid() }); toast("คุณเป็น host แล้ว"); } }, "เป็น host แทน")),
       partyPanel())
-    : P.panel === "log" ? logPanel() : chatPanel();
+    : P.panel === "log" ? logPanel() : P.panel === "quest" ? questPanel() : chatPanel();
   const sb = P.dom.sideBody;
   const atBottom = sb.scrollHeight - sb.scrollTop - sb.clientHeight < 60;
   fill(sb, body);
-  if (P.panel !== "party" && (atBottom || P.lastPanel !== P.panel)) sb.scrollTop = sb.scrollHeight;
+  if (P.panel !== "party" && P.panel !== "quest" && (atBottom || P.lastPanel !== P.panel)) sb.scrollTop = sb.scrollHeight;
   P.lastPanel = P.panel;
 }
 function chatPanel() {
@@ -1533,3 +1551,51 @@ async function saveEdit() {
 // ---------- boot ----------
 render();
 initStore();
+
+// ---------- quest book (drawer tab) and the board in the village ----------
+function questGoalLine() {
+  const ready = questsBy("ready");
+  if (ready.length) return "📜 ส่งเควสได้ " + ready.length + " เควส ที่กระดานประกาศ";
+  const loc = P.scene.loc; const here = questDefs().filter((q) => questStatus(q) === "active" && q.kind !== "main" && q.loc === loc)[0];
+  const q = here || nextMainQuest(); return q ? "🎯 " + questGoalText(q) : "";
+}
+function questRow(q, actions) {
+  const st = questStatus(q); const p = questProg(q);
+  const tag = q.kind === "main" ? "เควสหลัก" : q.kind === "dm" ? "เควสจาก DM" : "เควสรอง";
+  const r = q.reward || {};
+  return h("div", { class: "quest q-" + st + " q-" + q.kind },
+    h("div", { class: "quest-top" }, h("span", { class: "tag" + (q.kind === "main" ? " gold" : "") }, tag), h("b", null, q.title),
+      st === "ready" && h("span", { class: "tag ok" }, "สำเร็จ · รอส่ง"), st === "turned" && h("span", { class: "tag" }, "✓ ส่งแล้ว")),
+    q.story && st !== "turned" && h("p", { class: "small muted" }, q.story),
+    h("div", { class: "small" }, "🎯 " + q.goalTh + (q.level ? " · เลเวลแนะนำ " + q.level : "") + " · จาก " + q.giver),
+    p.of > 1 && st !== "turned" && h("div", { class: "bag-bar q-bar" }, h("i", { style: "width:" + Math.round((p.n / p.of) * 100) + "%" })),
+    p.of > 1 && st !== "turned" && h("div", { class: "small muted" }, "ความคืบหน้า " + p.n + "/" + p.of),
+    (r.gp || (r.items || []).length) && st !== "turned" && h("div", { class: "small muted" }, "รางวัล (ทุกคน): " + [r.gp ? r.gp + " GP" : "", ...(r.items || []).map(([iid, n]) => n + "× " + iname(iid))].filter(Boolean).join(" · ")),
+    actions && actions.length > 0 && h("div", { class: "row" }, actions));
+}
+function questPanel() {
+  const main = QD.main.map((q) => ({ ...q, kind: "main" }));
+  const nm = nextMainQuest();
+  const side = questDefs().filter((q) => q.kind !== "main" && ["active", "ready"].includes(questStatus(q)));
+  const turned = questDefs().filter((q) => q.kind !== "main" && questStatus(q) === "turned");
+  const inTown = P.scene.mode === "town";
+  const turnBtn = (q) => questStatus(q) === "ready" && (inTown ? h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส") : h("span", { class: "small muted" }, "กลับหมู่บ้านเพื่อส่ง"));
+  return h("div", { class: "quests" },
+    h("p", { class: "small muted" }, "เควสหลักเป็นแค่คำแนะนำ จะไปที่ไหนก่อนก็ได้ ทำสำเร็จที่ไหนก็นับ"),
+    h("h3", null, "เนื้อเรื่องหลัก"),
+    main.filter((q) => questStatus(q) !== "active" || (nm && q.id === nm.id)).map((q) => questRow(q, [turnBtn(q)])),
+    main.filter((q) => questStatus(q) === "active" && !(nm && q.id === nm.id)).length > 0 && h("p", { class: "small muted" }, "ยังมีอีก " + main.filter((q) => questStatus(q) === "active" && !(nm && q.id === nm.id)).length + " บทข้างหน้า"),
+    h("h3", null, "เควสที่รับไว้"),
+    side.length ? side.map((q) => questRow(q, [turnBtn(q), q.kind === "side" && questStatus(q) === "active" && h("button", { class: "btn ghost tiny", onclick: () => dropQuest(q.id) }, "ยกเลิกเควส")])) : h("p", { class: "small muted" }, "ยังไม่ได้รับ ไปดูที่กระดานประกาศในหมู่บ้าน"),
+    turned.length > 0 && h("details", null, h("summary", { class: "small" }, "ส่งแล้ว " + turned.length + " เควส"), turned.map((q) => questRow(q))));
+}
+function questBoard() {
+  const ready = questsBy("ready"); const offers = questsBy("offer");
+  const takenN = questDefs().filter((q) => q.kind === "side" && questStatus(q) === "active").length + questDefs().filter((q) => q.kind === "side" && questStatus(q) === "ready").length;
+  return h("div", { class: "quests" },
+    ready.length > 0 && h("h3", null, "ส่งเควส"),
+    ready.map((q) => questRow(q, [h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส รับรางวัล")])),
+    nextMainQuest() && h("h3", null, "งานหลักตอนนี้"), nextMainQuest() && questRow(nextMainQuest()),
+    h("h3", null, "ประกาศรับสมัคร (รับได้ " + takenN + "/" + (QD.maxSide || 3) + ")"),
+    offers.length ? offers.map((q) => questRow(q, [h("button", { class: "btn small", onclick: () => takeQuest(q.id) }, "รับเควส")])) : h("p", { class: "small muted" }, "ไม่มีประกาศใหม่ตอนนี้"));
+}

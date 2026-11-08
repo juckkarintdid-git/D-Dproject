@@ -250,7 +250,7 @@ function hostTick() {
   maybeDM();
 }
 async function monsterTurn() {
-  const st = combatState(); const u = current(st);
+  const st = combatState(); if (!st) return; const u = current(st);
   if (!u || u.side !== "foe") return;
   let pick;
   if (u.tier !== "normal") {
@@ -310,9 +310,11 @@ async function finalizeCombat(st) {
     const cleared = { ...(P.meta.cleared || {}), [clearedKey(st.mapId, st.encounter)]: true };
     const done = st.boss ? { ...(P.meta.done || {}), [st.mapId]: true } : P.meta.done || {};
     await writeMeta({ cleared, done });
+    await countKills(st);
     await writeScene({ mode: "explore", combat: null, finalized: true, ex: { ...(P.scene.ex || {}), moved: 0, acted: false }, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss } });
     await say("system", "🏆 ชนะ " + def.encounters[st.encounter].th + " · ได้ EXP คนละ " + share + (milestone ? " (บอสดันเจี้ยน: EXP อย่างน้อย " + milestone + ")" : "") + pcs.filter((u) => u.dead).map((u) => " · " + u.name + " เสียชีวิต ต้องไปชุบที่วิหาร").join(""));
     if ((st.captives || []).length) await writeMeta({ flags: { ...(P.meta.flags || {}), captives: st.captives.join(", ") } });
+    await questCheck();
     requestDM({ event: "ชนะการต่อสู้กับ " + def.encounters[st.encounter].th + ((st.captives || []).length ? " · จับเชลยได้: " + st.captives.join(", ") + " (ผู้เล่นสอบสวนได้)" : "") + (st.boss ? " (บอสของสถานที่นี้)" + (def.final ? " นี่คือบอสสุดท้ายของแคมเปญ ให้บรรยายตอนจบ" : "") : "") });
   } else {
     for (const u of pcs) {
@@ -520,6 +522,7 @@ function dmContext() {
   lines.push("สถานที่บนแผนที่โลก: " + CAMP.world.locations.map((l) => l.id + "=" + l.name + " (Lv " + l.level + ")").join(", "));
   lines.push("ทีม:\n" + partySummary());
   if (homebrewOn() && Object.values(P.party).some(canBrew)) lines.push("Homebrew ที่อนุญาต: ระบบปรุงยา Controlled Chaos V2.1 ของ " + Object.values(P.party).filter(canBrew).map((p) => p.card.name).join(", ") + " ปรุงได้ 2 ขวด/พักยาว สูตร 001–006 ดื่มแล้วทอย d6 ได้ผล A หรือ B (มีทั้งข้อดีและข้อเสีย) นาน 1 นาที หน้าเว็บคิดผลให้ คุณแค่เล่าฉากให้สนุกตามบุคลิกนักปรุงยาที่ไม่ยอมลองยากับตัวเอง");
+  const qc = questContext(); if (qc) lines.push(qc);
   if (P.meta.flags && Object.keys(P.meta.flags).length) lines.push("ธงเนื้อเรื่อง: " + JSON.stringify(P.meta.flags));
   return lines.join("\n");
 }
@@ -535,7 +538,8 @@ const DM_RULES = `คุณคือ Dungeon Master ของเกม D&D (ก�
 การเข้าสังคม: เมื่อผู้เล่นต่อรอง หลอก ขู่ หรือเกลี้ยกล่อม NPC ให้ขอ check (Persuasion/Deception/Intimidation/Insight) ก่อน แล้วในรอบเล่าผลค่อยให้ผลจริง เช่น discount ที่ตลาด give ของ หรือ flag ความสัมพันธ์
 ได้เปรียบ/เสียเปรียบ: ถ้าสถานการณ์เป็นใจ (มีเครื่องมือ ซ่อนในเงามืด ช่วยกันทำ) ใส่ "adv":1 ใน check ถ้ายากผิดปกติใส่ "adv":-1
 ใส่หลาย action ได้ด้วย "actions":[...] (ไม่เกิน 3)
-action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"flag","key":"ชื่อ","value":true}
+action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"flag","key":"ชื่อ","value":true} | {"type":"quest","op":"add","title":"ชื่อเควสสั้น","goal":"ต้องทำอะไร","giver":"ชื่อ NPC","loc":"<location id หรือ null>","gp":20} (เมื่อ NPC ขอความช่วยเหลือเรื่องเล็ก ๆ ที่ผู้เล่นตกลงรับ สูงสุดค้างไว้ 3 เควส) | {"type":"quest","op":"done","id":"<id เควสจาก DM>"} (เมื่อทีมทำเควสจาก DM สำเร็จในเรื่อง ระบบให้รางวัลเอง)
+เควสหลักเป็นแค่คำแนะนำ ผู้เล่นไปที่ไหนก่อนก็ได้ ให้เล่าเรื่องตามลำดับที่ทีมเล่นจริง
 skill ใช้ชื่อภาษาอังกฤษของ D&D หรือ STR/DEX/CON/INT/WIS/CHA สำหรับเซฟ`;
 async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const history = P.chat.slice(-14).map((m) => (m.kind === "dm" ? "DM: " : m.kind === "system" ? "[ระบบ] " : (m.who || "ผู้เล่น") + ": ") + m.text).join("\n");
@@ -590,6 +594,7 @@ async function dmAction(a) {
       if (who.length) await say("system", "🎁 " + who.map((p) => p.card.name).join(", ") + " ได้รับ" + (a.gp ? " " + a.gp + " GP" : "") + ((a.items || []).length ? " " + a.items.map(([id, q]) => q + "× " + iname(id)).join(", ") : "") + (a.xp ? " " + a.xp + " EXP" : ""));
     } else if (a.type === "rest") await restParty(a.kind === "long" ? "long" : "short", true);
     else if (a.type === "discount" && P.scene.mode === "town") await writeMeta({ discount: { pct: Math.max(5, Math.min(30, Math.round(+a.pct || 10))), npc: String(a.npc || "Bram").slice(0, 30) } });
+    else if (a.type === "quest") await dmQuest(a);
     else if (a.type === "flag" && a.key) await writeMeta({ flags: { ...(P.meta.flags || {}), [String(a.key).slice(0, 40)]: a.value ?? true } });
   } catch (e) { /* ignore a malformed action */ }
 }
@@ -674,7 +679,7 @@ async function travelTo(loc, quiet) {
   const isTown = loc === CAMP.town.id;
   const def = mapDef(loc);
   const L0 = CAMP.world.locations.find((l) => l.id === loc) || (CAMP.maps[loc] ? CAMP.maps[loc] : null);
-  await say("system", "🧭 ทีมเดินทางไป " + (L0 ? L0.name + " · " + L0.th : loc));
+  await say("system", "🧭 ทีมเดินทางไป " + (L0 ? L0.name + " · " + L0.th : loc) + (travelWarning(loc) ? "\n" + travelWarning(loc) : ""));
   P.arriving = true;
   await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false },
     ...(!isTown && def && def.rows ? { traps: genTraps(def), trapLoc: loc } : {}) });
@@ -785,4 +790,108 @@ function speak(text) {
     if (v) u.voice = v; u.lang = "th-TH"; u.rate = 1.02;
     synth.speak(u);
   } catch (e) {}
+}
+
+// ---------- quests: main chapters (always on, never lock travel) + side jobs from the board + small DM quests ----------
+// Everything lives in the room's meta, so the whole party sees the same quest book.
+const QD = CAMP.quests || { main: [], side: [], maxSide: 3 };
+const qState = () => (P.meta && P.meta.quests) || {};
+const qLevelMin = (lv) => parseInt(String(lv || "").match(/\d+/) || [0], 10);
+function partyMaxLevel() { return Math.max(1, ...Object.values(P.party).map((p) => p.card.level || 1)); }
+function questDefs() { return [...QD.main.map((q) => ({ ...q, kind: "main" })), ...QD.side.map((q) => ({ ...q, kind: "side" })), ...(qState().custom || []).map((q) => ({ ...q, kind: "dm" }))]; }
+function questDef(id) { return questDefs().find((q) => q.id === id) || null; }
+function killTotal(mons) { const k = qState().kills || {}; return mons.reduce((a, m) => a + (k[m] || 0), 0); }
+function questProg(q) {
+  const g = q.goal || {}; const t = (qState().taken || {})[q.id] || {};
+  let n = 0, of = 1;
+  if (g.t === "boss") n = (P.meta.done || {})[g.map] ? 1 : 0;
+  else if (g.t === "clear") n = (P.meta.cleared || {})[clearedKey(g.map, g.enc)] ? 1 : 0;
+  else if (g.t === "kill") { of = g.n; n = killTotal(g.mon) - (t.base || 0); }
+  else if (g.t === "chests") { of = g.n; n = Object.keys(P.meta.opened || {}).length - (t.base || 0); }
+  else if (g.t === "dm") n = q.status === "done" ? 1 : 0;
+  n = Math.max(0, Math.min(of, n));
+  return { n, of, ok: n >= of };
+}
+// status: turned (rewarded) · ready (go hand it in) · active · offer (side job not yet taken) · gone (can't be done any more)
+function questStatus(q) {
+  const qs = qState();
+  if ((qs.turned || {})[q.id]) return "turned";
+  if (q.kind === "side" && !(qs.taken || {})[q.id]) return q.goal.t === "clear" && questProg(q).ok ? "gone" : "offer";
+  if (q.kind === "dm" && q.status === "done") return "turned";
+  return questProg(q).ok ? "ready" : "active";
+}
+function questsBy(status) { return questDefs().filter((q) => questStatus(q) === status); }
+function nextMainQuest() { return QD.main.map((q) => ({ ...q, kind: "main" })).find((q) => !questProg(q).ok && questStatus(q) !== "turned") || null; }
+function questGoalText(q) { const p = questProg(q); return q.goalTh + (p.of > 1 ? " (" + p.n + "/" + p.of + ")" : ""); }
+function questsAt(loc) { const nm = nextMainQuest(); return questDefs().filter((q) => q.loc === loc && (q.kind === "main" ? !!nm && nm.id === q.id : questStatus(q) === "active")); }
+async function writeQuests(patch) { await writeMeta({ quests: { ...qState(), ...patch } }); }
+async function takeQuest(id) {
+  const q = questDef(id); if (!q || questStatus(q) !== "offer") return;
+  const taken = qState().taken || {};
+  if (Object.keys(taken).filter((k) => !(qState().turned || {})[k]).length >= (QD.maxSide || 3)) return toast("รับเควสรองได้ทีละ " + (QD.maxSide || 3) + " เควส ส่งเควสเก่าก่อนนะ");
+  const base = q.goal.t === "kill" ? killTotal(q.goal.mon) : q.goal.t === "chests" ? Object.keys(P.meta.opened || {}).length : 0;
+  await writeQuests({ taken: { ...taken, [id]: { at: Date.now(), base } } });
+  const me = myMember();
+  await say("system", "📜 " + (me ? me.card.name + " รับเควส " : "รับเควส ") + "“" + q.title + "” จาก " + q.giver + " · " + q.goalTh);
+}
+async function dropQuest(id) {
+  const taken = { ...(qState().taken || {}) }; delete taken[id];
+  await writeQuests({ taken });
+}
+async function turnInQuest(id) {
+  const q = questDef(id); if (!q || questStatus(q) !== "ready") return;
+  if (P.scene.mode !== "town") return toast("กลับไปส่งเควสที่กระดานประกาศในหมู่บ้านนะ");
+  await writeQuests({ turned: { ...(qState().turned || {}), [id]: Date.now() } });
+  await giveQuestReward(q);
+  requestDM({ event: "ทีมส่งเควส “" + q.title + "” ให้ " + q.giver + " และได้รับรางวัล ให้ " + q.giver + " พูดขอบคุณสั้น ๆ" + (q.kind === "main" && nextMainQuest() ? " แล้วบอกใบ้งานถัดไป: " + nextMainQuest().story : "") });
+}
+async function giveQuestReward(q) {
+  const r = q.reward || {}; const members = Object.values(P.party);
+  for (const p of members) {
+    const inv = clone(p.card.inventory || []);
+    for (const [iid, n] of r.items || []) { const e = inv.find((x) => x.id === iid); if (e) e.qty += n; else inv.push({ id: iid, qty: n, equipped: false }); }
+    await writeParty(p.cardId, { card: { ...p.card, gp: (p.card.gp || 0) + (r.gp || 0), xp: (p.card.xp || 0) + (r.xp || 0), inventory: inv } });
+  }
+  await say("system", "🏅 ส่งเควส “" + q.title + "” สำเร็จ · ทุกคนได้" + (r.gp ? " " + r.gp + " GP" : "") + ((r.items || []).length ? " · " + r.items.map(([iid, n]) => n + "× " + iname(iid)).join(", ") : "") + (r.xp ? " · " + r.xp + " EXP" : ""));
+}
+// tell the table once when a quest becomes ready to hand in
+async function questCheck() {
+  if (!P.meta) return;
+  const ann = { ...(qState().ann || {}) }; const fresh = questsBy("ready").filter((q) => !ann[q.id]);
+  if (!fresh.length) return;
+  for (const q of fresh) ann[q.id] = 1;
+  await writeQuests({ ann });
+  for (const q of fresh) await say("system", "📜 เควสสำเร็จ: “" + q.title + "” · กลับไปส่งที่กระดานประกาศในหมู่บ้านเพื่อรับรางวัล");
+}
+async function countKills(st) {
+  const kills = { ...(qState().kills || {}) };
+  for (const u of Object.values(st.units)) if (u.side === "foe" && u.monId && u.hp <= 0) kills[u.monId] = (kills[u.monId] || 0) + 1;
+  await writeQuests({ kills });
+}
+function travelWarning(loc) {
+  const L = CAMP.world.locations.find((l) => l.id === loc) || CAMP.maps[loc]; if (!L || !L.level) return "";
+  const need = qLevelMin(L.level), have = partyMaxLevel();
+  return need > have ? "⚠️ ที่นี่แนะนำเลเวล " + L.level + " แต่ทีมเลเวล " + have + " อาจอันตรายมาก (ไปได้ แต่ระวังนะ)" : "";
+}
+function questContext() {
+  const lines = [];
+  const nm = nextMainQuest(); if (nm) lines.push("เควสหลักถัดไป (แนะนำ ไม่บังคับ): " + nm.title + " · " + nm.story);
+  const act = questDefs().filter((q) => ["active", "ready"].includes(questStatus(q)) && q.kind !== "main");
+  if (act.length) lines.push("เควสที่รับไว้: " + act.map((q) => q.id + "=" + q.title + " (" + q.giver + ": " + questGoalText(q) + (questStatus(q) === "ready" ? ", สำเร็จแล้ว รอส่ง" : "") + ")").join("; "));
+  const doneMain = QD.main.filter((q) => questProg({ ...q, kind: "main" }).ok).map((q) => q.title);
+  if (doneMain.length) lines.push("บทหลักที่ทีมทำจบแล้ว (ตามลำดับที่เล่นจริง): " + doneMain.join(", "));
+  return lines.join("\n");
+}
+async function dmQuest(a) {
+  const custom = clone(qState().custom || []);
+  if (a.op === "add" && a.title && custom.filter((q) => q.status !== "done").length < 3) {
+    const id = "d" + Date.now().toString(36);
+    custom.push({ id, title: String(a.title).slice(0, 40), goalTh: String(a.goal || a.title).slice(0, 80), giver: String(a.giver || "DM").slice(0, 30), loc: CAMP.world.locations.some((l) => l.id === a.loc) ? a.loc : null, goal: { t: "dm" }, status: "open", reward: { gp: Math.max(0, Math.min(100, Math.round(+a.gp || 0))), items: [] } });
+    await writeQuests({ custom });
+    await say("system", "📜 เควสใหม่จาก " + custom[custom.length - 1].giver + ": “" + custom[custom.length - 1].title + "” · " + custom[custom.length - 1].goalTh);
+  } else if (a.op === "done") {
+    const q = custom.find((x) => x.id === a.id || x.title === a.title); if (!q || q.status === "done") return;
+    q.status = "done"; await writeQuests({ custom });
+    await giveQuestReward({ ...q, kind: "dm" });
+  }
 }
