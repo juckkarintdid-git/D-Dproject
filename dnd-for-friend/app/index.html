@@ -467,6 +467,19 @@ body.ingame main { max-width: none; padding: 0 }
 .g-goalbar { position: absolute; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); z-index: 2 }
 .g-goal { pointer-events: auto; background: rgba(20,15,11,.78); color: #f4d27a; border: 1px solid rgba(244,210,122,.45); border-radius: 999px; padding: 3px 12px; font: 500 .82rem var(--f-thai-display, system-ui); cursor: pointer; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .g-card-q { color: #f4d27a !important }
+.quest-art { width: calc(100% + 24px); margin: -10px -12px 4px; aspect-ratio: 16 / 7; object-fit: cover; border-radius: 9px 9px 0 0; max-width: none }
+.g-story { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-end; background: #0b0805; pointer-events: auto; animation: storyIn .8s ease }
+.g-story-art { position: absolute; inset: 0; background-size: cover; background-position: center }
+.g-story-art.win { background-color: #3a2a12; background-image: radial-gradient(circle at 50% 30%, #e9b44c55, transparent 60%) }
+.g-story-art.lose { background-color: #1d1712; background-image: radial-gradient(circle at 50% 30%, #efe3c833, transparent 60%) }
+.g-story-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,6,4,.92) 0%, rgba(8,6,4,.55) 35%, transparent 65%) }
+.g-story-text { position: relative; padding: 24px max(24px, env(safe-area-inset-left, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)); max-width: 640px; display: flex; flex-direction: column; gap: 10px; color: #efe3c8 }
+.g-story-text h2 { margin: 0; font: 400 clamp(1.6rem, 4vw, 2.6rem) var(--f-name, serif); color: #f4d27a; text-wrap: balance }
+.g-story-text p { margin: 0; line-height: 1.6 }
+.g-story-k { font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: #b9a687 }
+.g-story-text .btn { align-self: flex-start }
+.g-story[hidden] { display: none }
+@keyframes storyIn { from { opacity: 0 } to { opacity: 1 } }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
@@ -3489,7 +3502,7 @@ async function finalizeCombat(st) {
     const done = st.boss ? { ...(P.meta.done || {}), [st.mapId]: true } : P.meta.done || {};
     await writeMeta({ cleared, done });
     await countKills(st);
-    await writeScene({ mode: "explore", combat: null, finalized: true, ex: { ...(P.scene.ex || {}), moved: 0, acted: false }, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss } });
+    await writeScene({ mode: "explore", combat: null, finalized: true, ex: { ...(P.scene.ex || {}), moved: 0, acted: false }, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss, final: !!(st.boss && def.final), ts: Date.now() } });
     await say("system", "🏆 ชนะ " + def.encounters[st.encounter].th + " · ได้ EXP คนละ " + share + (milestone ? " (บอสดันเจี้ยน: EXP อย่างน้อย " + milestone + ")" : "") + pcs.filter((u) => u.dead).map((u) => " · " + u.name + " เสียชีวิต ต้องไปชุบที่วิหาร").join(""));
     if ((st.captives || []).length) await writeMeta({ flags: { ...(P.meta.flags || {}), captives: st.captives.join(", ") } });
     await questCheck();
@@ -3501,7 +3514,7 @@ async function finalizeCombat(st) {
       const sh = computeSheet(p.card, D);
       await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...p.live, ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
     }
-    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, lastCombat: { result: "lose" }, vote: null });
+    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, lastCombat: { result: "lose", ts: Date.now() }, vote: null });
     for (const p of Object.values(P.party)) if (P.party[p.cardId].townPlace) await writeParty(p.cardId, { townPlace: null });
     await say("system", "💀 ทีมพ่ายแพ้… ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
     requestDM({ event: "ทีมแพ้และถูกพากลับมาชุบชีวิตที่วิหาร" });
@@ -4224,7 +4237,7 @@ function buildPlayDom() {
   const d = { cid: P.cid };
   const L = (cls) => h("div", { class: cls });
   d.canvas = h("canvas", { class: "g-scene", "aria-label": "กระดานเกม" });
-  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.menu = L("g-menu");
+  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.story = L("g-story"); d.menu = L("g-menu");
   d.ticker = h("div", { class: "g-ticker", "aria-live": "polite" });
   d.vote = L("g-vote"); d.spots = L("g-spots"); d.room = L("g-room"); d.tools = L("g-tools"); d.combat = L("g-combat");
   d.panel = L("g-panelwrap"); d.coach = L("g-coach");
@@ -4234,7 +4247,7 @@ function buildPlayDom() {
   d.improvSel = h("select", { "aria-label": "เป้าหมาย" });
   d.cap = L("g-capbox");
   d.caption = h("div", { class: "g-cap" }, d.cap, d.sayForm);
-  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach);
+  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach, d.story);
   d.fx = L("g-fx");
   d.sideTabs = h("div", { class: "side-tabs", role: "tablist" });
   d.sideBody = h("div", { class: "side-body" });
@@ -4298,7 +4311,7 @@ function renderPlay() {
   watchFx();
   prepFrame();
   renderParty(); renderPlate(); renderHint(); renderVote(); renderMenu(); renderSpots(); renderRoom();
-  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach();
+  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach(); renderStory();
   if (P.drawer) renderSide();
   drawStage();
 }
@@ -4758,14 +4771,17 @@ function drawGrid(ctx, g, t) {
       if (ch === "D") { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(px + c * 0.1, py + c * 0.1, c * 0.8, c * 0.8); }
     }
     if (ch === "C") { const k = def.id + ":C" + ci++; const chest = img("assets/obj-chest.webp"); if ((!opened[k] || edit) && chest) ctx.drawImage(chest, px + c * 0.06, py + c * 0.06, c * 0.88, c * 0.88); else if (!opened[k] || edit) { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * 0.2, py + c * 0.3, c * 0.6, c * 0.45); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * 0.2, py + c * 0.45, c * 0.6, c * 0.08); ctx.fillRect(px + c * 0.46, py + c * 0.4, c * 0.08, c * 0.2); } }
-    if (ch === "?") { const k = def.id + ":?" + qi++; if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140," + (edit ? 0.9 : glowA) + ")"; ctx.font = "bold " + Math.round(c * 0.6) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
+    if (ch === "?") { const k = def.id + ":?" + qi++; const ci = (!found[k] || edit) && img("assets/obj-clue.webp");
+      if (ci) { ctx.save(); ctx.globalAlpha = edit ? 1 : 0.6 + 0.4 * glowA; ctx.drawImage(ci, px + c * 0.08, py + c * 0.08, c * 0.84, c * 0.84); ctx.restore(); }
+      else if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140," + (edit ? 0.9 : glowA) + ")"; ctx.font = "bold " + Math.round(c * 0.6) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
     if (edit && /[a-zSBE]/.test(ch)) { ctx.fillStyle = ch === "B" ? "rgba(214,179,102,.85)" : ch === "S" ? "rgba(92,191,166,.85)" : "rgba(231,131,120,.8)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4); ctx.fillStyle = "#111"; ctx.font = "bold " + Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, px + c / 2, py + c / 2); }
     if (edit && bg && (wall || ch === "T")) { ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(px, py, c, c); }
     if (!edit) for (const tr of trapsHere()) if (tr.x === x && tr.y === y && (tr.found || tr.sprung)) {
       ctx.save(); ctx.globalAlpha = tr.sprung ? 0.35 : 0.85 + 0.15 * glowA;
       ctx.fillStyle = tr.sprung ? "rgba(60,40,30,.6)" : "rgba(200,50,40,.35)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4);
       ctx.strokeStyle = tr.sprung ? "#6b5a4a" : "#ff6a4a"; ctx.lineWidth = Math.max(1.5, c / 18); ctx.strokeRect(px + 3, py + 3, c - 6, c - 6);
-      ctx.font = Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tr.sprung ? "✕" : "⚠", px + c / 2, py + c / 2 + 1); ctx.restore();
+      ctx.font = Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const ti = !tr.sprung && img("assets/obj-trap.webp");
+      if (ti) ctx.drawImage(ti, px + c * 0.08, py + c * 0.08, c * 0.84, c * 0.84); else ctx.fillText(tr.sprung ? "✕" : "⚠", px + c / 2, py + c / 2 + 1); ctx.restore();
     }
     if (ch === "E" && !edit) { ctx.fillStyle = "rgba(99,176,156," + (0.3 + 0.25 * glowA) + ")"; ctx.fillRect(px + 3, py + 3, c - 6, c - 6); ctx.fillStyle = "#fff"; ctx.font = "bold " + Math.round(c * 0.45) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⇧", px + c / 2, py + c / 2); }
   }
@@ -5640,6 +5656,7 @@ function questRow(q, actions) {
   const tag = q.kind === "main" ? "เควสหลัก" : q.kind === "dm" ? "เควสจาก DM" : "เควสรอง";
   const r = q.reward || {};
   return h("div", { class: "quest q-" + st + " q-" + q.kind },
+    q.kind === "main" && st !== "turned" && h("img", { class: "quest-art", src: "assets/quest-" + q.id + ".webp", alt: "", loading: "lazy", onerror: (e) => e.target.remove() }),
     h("div", { class: "quest-top" }, h("span", { class: "tag" + (q.kind === "main" ? " gold" : "") }, tag), h("b", null, q.title),
       st === "ready" && h("span", { class: "tag ok" }, "สำเร็จ · รอส่ง"), st === "turned" && h("span", { class: "tag" }, "✓ ส่งแล้ว")),
     q.story && st !== "turned" && h("p", { class: "small muted" }, q.story),
@@ -5674,6 +5691,23 @@ function questBoard() {
     nextMainQuest() && h("h3", null, "งานหลักตอนนี้"), nextMainQuest() && questRow(nextMainQuest()),
     h("h3", null, "ประกาศรับสมัคร (รับได้ " + takenN + "/" + (QD.maxSide || 3) + ")"),
     offers.length ? offers.map((q) => questRow(q, [h("button", { class: "btn small", onclick: () => takeQuest(q.id) }, "รับเควส")])) : h("p", { class: "small muted" }, "ไม่มีประกาศใหม่ตอนนี้"));
+}
+
+// ---------- story scenes: full-screen art when the campaign is won or the party wakes up at the temple ----------
+function renderStory() {
+  const box = P.dom.story; const lc = P.scene && P.scene.lastCombat;
+  const show = lc && lc.ts && (lc.result === "lose" || lc.final) && P.storySeen !== lc.ts && (() => { try { return localStorage.getItem("dnd-story-" + P.cid) !== String(lc.ts); } catch (e) { return true; } })();
+  box.hidden = !show; if (!show) { box.dataset.ts = ""; return; }
+  if (box.dataset.ts === String(lc.ts)) return;
+  box.dataset.ts = String(lc.ts);
+  const win = lc.result !== "lose";
+  const close = () => { P.storySeen = lc.ts; try { localStorage.setItem("dnd-story-" + P.cid, String(lc.ts)); } catch (e) {} renderStory(); };
+  fill(box, h("div", { class: "g-story-art " + (win ? "win" : "lose"), style: "background-image:url(assets/scene-" + (win ? "victory" : "defeat") + ".webp),url(assets/" + (win ? "welcome" : "room-temple") + ".webp)" }),
+    h("div", { class: "g-story-text" },
+      h("div", { class: "g-story-k" }, win ? "จบแคมเปญ Ember Vale" : "ทีมพ่ายแพ้"),
+      h("h2", null, win ? "Cindrathax ล้มลงแล้ว" : "ตื่นขึ้นที่วิหารรุ่งอรุณ"),
+      h("p", null, win ? "เถ้าถ่านสงบลง แสงอรุณส่องหุบเขาอีกครั้ง ชาวบ้าน Brindlemoor จะเล่าเรื่องของพวกคุณไปอีกนาน" : "Sister Maren ช่วยชีวิตทุกคนไว้ได้ทัน เสียค่าชุบชีวิตไปบ้าง แต่การผจญภัยยังไม่จบ"),
+      h("button", { class: "btn primary", onclick: close }, win ? "ฉลองชัย ✦" : "ลุกขึ้นสู้ต่อ")));
 }
 
 </script>

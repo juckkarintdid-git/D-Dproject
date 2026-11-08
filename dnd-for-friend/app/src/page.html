@@ -467,6 +467,19 @@ body.ingame main { max-width: none; padding: 0 }
 .g-goalbar { position: absolute; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); z-index: 2 }
 .g-goal { pointer-events: auto; background: rgba(20,15,11,.78); color: #f4d27a; border: 1px solid rgba(244,210,122,.45); border-radius: 999px; padding: 3px 12px; font: 500 .82rem var(--f-thai-display, system-ui); cursor: pointer; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .g-card-q { color: #f4d27a !important }
+.quest-art { width: calc(100% + 24px); margin: -10px -12px 4px; aspect-ratio: 16 / 7; object-fit: cover; border-radius: 9px 9px 0 0; max-width: none }
+.g-story { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-end; background: #0b0805; pointer-events: auto; animation: storyIn .8s ease }
+.g-story-art { position: absolute; inset: 0; background-size: cover; background-position: center }
+.g-story-art.win { background-color: #3a2a12; background-image: radial-gradient(circle at 50% 30%, #e9b44c55, transparent 60%) }
+.g-story-art.lose { background-color: #1d1712; background-image: radial-gradient(circle at 50% 30%, #efe3c833, transparent 60%) }
+.g-story-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,6,4,.92) 0%, rgba(8,6,4,.55) 35%, transparent 65%) }
+.g-story-text { position: relative; padding: 24px max(24px, env(safe-area-inset-left, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)); max-width: 640px; display: flex; flex-direction: column; gap: 10px; color: #efe3c8 }
+.g-story-text h2 { margin: 0; font: 400 clamp(1.6rem, 4vw, 2.6rem) var(--f-name, serif); color: #f4d27a; text-wrap: balance }
+.g-story-text p { margin: 0; line-height: 1.6 }
+.g-story-k { font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: #b9a687 }
+.g-story-text .btn { align-self: flex-start }
+.g-story[hidden] { display: none }
+@keyframes storyIn { from { opacity: 0 } to { opacity: 1 } }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }

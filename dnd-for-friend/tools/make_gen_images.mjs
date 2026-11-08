@@ -51,8 +51,32 @@ images.push({ group: "welcome", name: "welcome", label: "รูปต้อน�
 // Map objects drawn on battle maps
 images.push({ group: "object", name: "obj-chest", label: "หีบสมบัติบนแผนที่", ratio: "1:1",
   prompt: "A single small closed wooden treasure chest with iron bands and a gold lock, seen from directly above at a slight angle like a tabletop map prop, centered, filling most of the frame, plain flat dark brown background, soft warm light, no shadow outside the chest." });
+images.push({ group: "object", name: "obj-trap", label: "กับดักที่เจอแล้ว", ratio: "1:1",
+  prompt: "A single armed bear trap with open iron jaws and a pressure plate, seen from directly above like a tabletop map prop, centered, filling most of the frame, plain flat dark brown background, small red warning glow around it, no shadow outside the object." });
+images.push({ group: "object", name: "obj-clue", label: "จุดเบาะแส (✦)", ratio: "1:1",
+  prompt: "A small pile of mysterious clues on the floor: a torn parchment note, a broken amulet and footprints in dust, softly glowing with golden sparkles, seen from directly above like a tabletop map prop, centered, plain flat dark brown background, no shadow outside the objects." });
+// Story scenes: full-screen when the campaign ends or the party is defeated (text sits at the bottom, keep it darker)
+images.push({ group: "scene", name: "scene-victory", label: "ฉากจบ · ชนะมังกร", ratio: "16:9",
+  prompt: "Triumphant fantasy key art at sunrise: five adventurers (a dwarf fighter with a greatsword, a halfling rogue, a human cleric with a shining shield, an elf ranger with a bow, a gnome wizard with a staff) stand on the summit of a black volcanic spire beside the slain body of a young red dragon, ash drifting, the lava cooling, golden morning light breaking through smoke over a green valley with a small log village far below. Cinematic painted style, warm gold and teal palette, the bottom third darker and simpler for text." });
+images.push({ group: "scene", name: "scene-defeat", label: "ฉากแพ้ · ตื่นที่วิหาร", ratio: "16:9",
+  prompt: "Quiet fantasy scene inside a small stone temple of a dawn goddess: wounded adventurers lie on simple cots bandaged, waking up, a kind priestess in white and gold robes with a sunrise emblem tends to them, soft beams of dawn light through tall windows, candles, hopeful but somber mood. Cinematic painted style, warm cream and gold palette, the bottom third darker and simpler for text." });
+// Quest chapter art: banner at the top of each main quest in the quest book
+const QART = {
+  m1: "A dark thorny forest hollow at dusk, goblin tracks in the mud, a dropped child's doll, crude goblin totems of bones on the thorn branches, a faint campfire glow deep inside",
+  m2: "An old misty graveyard at night with a crumbling stone crypt, black candles burning with eerie dark flames at its door, skeletal hands rising from the earth",
+  m3: "A ruined red stone tower on a sea cliff at sunset, bandit tents and supply crates in the courtyard, archers on the walls, waves crashing below",
+  m4: "A black volcanic spire glowing with lava under a stormy sky, ash-gray cultists chanting in a ring at its base, a huge red dragon silhouette waking in the smoke",
+};
+for (const q of camp.quests.main) images.push({ group: "quest", name: "quest-" + q.id, label: q.title, ratio: "16:9",
+  prompt: QART[q.id] + ". Wide painted fantasy chapter illustration, no people in the foreground, no text, moody cinematic light." });
 // Review status per image (what is already in the game, what to redo)
 const NOTE = {
+  "obj-trap": ["new", "ใหม่: ไอคอนกับดักที่เจอแล้ว (ตอนนี้เป็น ⚠)"],
+  "obj-clue": ["new", "ใหม่: ไอคอนจุดเบาะแส (ตอนนี้เป็น ✦)"],
+  "scene-victory": ["new", "ใหม่: ขึ้นเต็มจอตอนชนะมังกร"],
+  "scene-defeat": ["new", "ใหม่: ขึ้นเต็มจอตอนทีมแพ้และตื่นที่วิหาร"],
+  "quest-m1": ["new", "ใหม่: ภาพบทที่ 1 ในสมุดเควส"], "quest-m2": ["new", "ใหม่: ภาพบทที่ 2 ในสมุดเควส"],
+  "quest-m3": ["new", "ใหม่: ภาพบทที่ 3 ในสมุดเควส"], "quest-m4": ["new", "ใหม่: ภาพบทที่ 4 ในสมุดเควส"],
   "token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
 };
 for (const im of images) { const n = NOTE[im.name]; im.note = n ? n[0] : "ok"; im.noteText = n ? n[1] : "อยู่ในเกมแล้ว"; }

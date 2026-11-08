@@ -148,7 +148,7 @@ function buildPlayDom() {
   const d = { cid: P.cid };
   const L = (cls) => h("div", { class: cls });
   d.canvas = h("canvas", { class: "g-scene", "aria-label": "กระดานเกม" });
-  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.menu = L("g-menu");
+  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.story = L("g-story"); d.menu = L("g-menu");
   d.ticker = h("div", { class: "g-ticker", "aria-live": "polite" });
   d.vote = L("g-vote"); d.spots = L("g-spots"); d.room = L("g-room"); d.tools = L("g-tools"); d.combat = L("g-combat");
   d.panel = L("g-panelwrap"); d.coach = L("g-coach");
@@ -158,7 +158,7 @@ function buildPlayDom() {
   d.improvSel = h("select", { "aria-label": "เป้าหมาย" });
   d.cap = L("g-capbox");
   d.caption = h("div", { class: "g-cap" }, d.cap, d.sayForm);
-  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach);
+  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach, d.story);
   d.fx = L("g-fx");
   d.sideTabs = h("div", { class: "side-tabs", role: "tablist" });
   d.sideBody = h("div", { class: "side-body" });
@@ -222,7 +222,7 @@ function renderPlay() {
   watchFx();
   prepFrame();
   renderParty(); renderPlate(); renderHint(); renderVote(); renderMenu(); renderSpots(); renderRoom();
-  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach();
+  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach(); renderStory();
   if (P.drawer) renderSide();
   drawStage();
 }
@@ -682,14 +682,17 @@ function drawGrid(ctx, g, t) {
       if (ch === "D") { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(px + c * 0.1, py + c * 0.1, c * 0.8, c * 0.8); }
     }
     if (ch === "C") { const k = def.id + ":C" + ci++; const chest = img("assets/obj-chest.webp"); if ((!opened[k] || edit) && chest) ctx.drawImage(chest, px + c * 0.06, py + c * 0.06, c * 0.88, c * 0.88); else if (!opened[k] || edit) { ctx.fillStyle = "#8a5a22"; ctx.fillRect(px + c * 0.2, py + c * 0.3, c * 0.6, c * 0.45); ctx.fillStyle = "#e3b341"; ctx.fillRect(px + c * 0.2, py + c * 0.45, c * 0.6, c * 0.08); ctx.fillRect(px + c * 0.46, py + c * 0.4, c * 0.08, c * 0.2); } }
-    if (ch === "?") { const k = def.id + ":?" + qi++; if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140," + (edit ? 0.9 : glowA) + ")"; ctx.font = "bold " + Math.round(c * 0.6) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
+    if (ch === "?") { const k = def.id + ":?" + qi++; const ci = (!found[k] || edit) && img("assets/obj-clue.webp");
+      if (ci) { ctx.save(); ctx.globalAlpha = edit ? 1 : 0.6 + 0.4 * glowA; ctx.drawImage(ci, px + c * 0.08, py + c * 0.08, c * 0.84, c * 0.84); ctx.restore(); }
+      else if (!found[k] || edit) { ctx.fillStyle = "rgba(255,230,140," + (edit ? 0.9 : glowA) + ")"; ctx.font = "bold " + Math.round(c * 0.6) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", px + c / 2, py + c / 2); } }
     if (edit && /[a-zSBE]/.test(ch)) { ctx.fillStyle = ch === "B" ? "rgba(214,179,102,.85)" : ch === "S" ? "rgba(92,191,166,.85)" : "rgba(231,131,120,.8)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4); ctx.fillStyle = "#111"; ctx.font = "bold " + Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, px + c / 2, py + c / 2); }
     if (edit && bg && (wall || ch === "T")) { ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(px, py, c, c); }
     if (!edit) for (const tr of trapsHere()) if (tr.x === x && tr.y === y && (tr.found || tr.sprung)) {
       ctx.save(); ctx.globalAlpha = tr.sprung ? 0.35 : 0.85 + 0.15 * glowA;
       ctx.fillStyle = tr.sprung ? "rgba(60,40,30,.6)" : "rgba(200,50,40,.35)"; ctx.fillRect(px + 2, py + 2, c - 4, c - 4);
       ctx.strokeStyle = tr.sprung ? "#6b5a4a" : "#ff6a4a"; ctx.lineWidth = Math.max(1.5, c / 18); ctx.strokeRect(px + 3, py + 3, c - 6, c - 6);
-      ctx.font = Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tr.sprung ? "✕" : "⚠", px + c / 2, py + c / 2 + 1); ctx.restore();
+      ctx.font = Math.round(c * 0.5) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const ti = !tr.sprung && img("assets/obj-trap.webp");
+      if (ti) ctx.drawImage(ti, px + c * 0.08, py + c * 0.08, c * 0.84, c * 0.84); else ctx.fillText(tr.sprung ? "✕" : "⚠", px + c / 2, py + c / 2 + 1); ctx.restore();
     }
     if (ch === "E" && !edit) { ctx.fillStyle = "rgba(99,176,156," + (0.3 + 0.25 * glowA) + ")"; ctx.fillRect(px + 3, py + 3, c - 6, c - 6); ctx.fillStyle = "#fff"; ctx.font = "bold " + Math.round(c * 0.45) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⇧", px + c / 2, py + c / 2); }
   }
@@ -1564,6 +1567,7 @@ function questRow(q, actions) {
   const tag = q.kind === "main" ? "เควสหลัก" : q.kind === "dm" ? "เควสจาก DM" : "เควสรอง";
   const r = q.reward || {};
   return h("div", { class: "quest q-" + st + " q-" + q.kind },
+    q.kind === "main" && st !== "turned" && h("img", { class: "quest-art", src: "assets/quest-" + q.id + ".webp", alt: "", loading: "lazy", onerror: (e) => e.target.remove() }),
     h("div", { class: "quest-top" }, h("span", { class: "tag" + (q.kind === "main" ? " gold" : "") }, tag), h("b", null, q.title),
       st === "ready" && h("span", { class: "tag ok" }, "สำเร็จ · รอส่ง"), st === "turned" && h("span", { class: "tag" }, "✓ ส่งแล้ว")),
     q.story && st !== "turned" && h("p", { class: "small muted" }, q.story),
@@ -1598,4 +1602,21 @@ function questBoard() {
     nextMainQuest() && h("h3", null, "งานหลักตอนนี้"), nextMainQuest() && questRow(nextMainQuest()),
     h("h3", null, "ประกาศรับสมัคร (รับได้ " + takenN + "/" + (QD.maxSide || 3) + ")"),
     offers.length ? offers.map((q) => questRow(q, [h("button", { class: "btn small", onclick: () => takeQuest(q.id) }, "รับเควส")])) : h("p", { class: "small muted" }, "ไม่มีประกาศใหม่ตอนนี้"));
+}
+
+// ---------- story scenes: full-screen art when the campaign is won or the party wakes up at the temple ----------
+function renderStory() {
+  const box = P.dom.story; const lc = P.scene && P.scene.lastCombat;
+  const show = lc && lc.ts && (lc.result === "lose" || lc.final) && P.storySeen !== lc.ts && (() => { try { return localStorage.getItem("dnd-story-" + P.cid) !== String(lc.ts); } catch (e) { return true; } })();
+  box.hidden = !show; if (!show) { box.dataset.ts = ""; return; }
+  if (box.dataset.ts === String(lc.ts)) return;
+  box.dataset.ts = String(lc.ts);
+  const win = lc.result !== "lose";
+  const close = () => { P.storySeen = lc.ts; try { localStorage.setItem("dnd-story-" + P.cid, String(lc.ts)); } catch (e) {} renderStory(); };
+  fill(box, h("div", { class: "g-story-art " + (win ? "win" : "lose"), style: "background-image:url(assets/scene-" + (win ? "victory" : "defeat") + ".webp),url(assets/" + (win ? "welcome" : "room-temple") + ".webp)" }),
+    h("div", { class: "g-story-text" },
+      h("div", { class: "g-story-k" }, win ? "จบแคมเปญ Ember Vale" : "ทีมพ่ายแพ้"),
+      h("h2", null, win ? "Cindrathax ล้มลงแล้ว" : "ตื่นขึ้นที่วิหารรุ่งอรุณ"),
+      h("p", null, win ? "เถ้าถ่านสงบลง แสงอรุณส่องหุบเขาอีกครั้ง ชาวบ้าน Brindlemoor จะเล่าเรื่องของพวกคุณไปอีกนาน" : "Sister Maren ช่วยชีวิตทุกคนไว้ได้ทัน เสียค่าชุบชีวิตไปบ้าง แต่การผจญภัยยังไม่จบ"),
+      h("button", { class: "btn primary", onclick: close }, win ? "ฉลองชัย ✦" : "ลุกขึ้นสู้ต่อ")));
 }
