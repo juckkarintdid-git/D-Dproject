@@ -317,17 +317,28 @@ async function finalizeCombat(st) {
     await questCheck();
     requestDM({ event: "ชนะการต่อสู้กับ " + def.encounters[st.encounter].th + ((st.captives || []).length ? " · จับเชลยได้: " + st.captives.join(", ") + " (ผู้เล่นสอบสวนได้)" : "") + (st.boss ? " (บอสของสถานที่นี้)" + (def.final ? " นี่คือบอสสุดท้ายของแคมเปญ ให้บรรยายตอนจบ" : "") : "") });
   } else {
+    // stay on the battlefield with a "defeated" screen; a player taps to be carried back to the temple
+    await writeScene({ finalized: true, defeat: { ts: Date.now(), enc: def.encounters[st.encounter].th } });
+    await say("system", "💀 ทีมพ่ายแพ้ใน " + def.encounters[st.encounter].th + "…");
+  }
+}
+async function returnAfterDefeat() {
+  const sc = P.scene; if (!sc || !sc.defeat || P.returning) return;
+  P.returning = true;
+  try {
+    const st = sc.combat ? combatState() : null;
+    const pcs = st ? Object.values(st.units).filter((u) => u.side === "pc") : Object.values(P.party).map((p) => ({ ...pcUnit(p.card, D, p.live), cardId: p.cardId }));
     for (const u of pcs) {
       const p = P.party[u.cardId]; if (!p) continue;
       const fee = Math.min(p.card.gp || 0, 50 * p.card.level);
       const sh = computeSheet(p.card, D);
       await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...p.live, ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
     }
-    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, lastCombat: { result: "lose", ts: Date.now() }, vote: null });
+    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, defeat: null, lastCombat: { result: "lose", ts: Date.now() }, vote: null });
     for (const p of Object.values(P.party)) if (P.party[p.cardId].townPlace) await writeParty(p.cardId, { townPlace: null });
-    await say("system", "💀 ทีมพ่ายแพ้… ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
+    await say("system", "💀 ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
     requestDM({ event: "ทีมแพ้และถูกพากลับมาชุบชีวิตที่วิหาร" });
-  }
+  } finally { P.returning = false; }
 }
 
 // ---------- Claude as the table's judge: improvised actions, enemy morale, recaps, flavor lines ----------

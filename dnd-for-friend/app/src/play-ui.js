@@ -1609,8 +1609,20 @@ function questBoard() {
 // ---------- story scenes: full-screen art when the campaign is won or the party wakes up at the temple ----------
 function renderStory() {
   const box = P.dom.story; const lc = P.scene && P.scene.lastCombat;
+  const df = P.scene && P.scene.defeat;
+  if (df) { // the whole party fell: stay on the battlefield until someone taps to go back
+    box.hidden = false; P.dom.moment.hidden = true; clearTimeout(P.momentT); if (box.dataset.ts === "d" + df.ts) return; box.dataset.ts = "d" + df.ts;
+    fill(box, h("div", { class: "g-story-art lose", style: "background-image:url(assets/scene-death.webp)" }),
+      h("div", { class: "g-story-text" },
+        h("div", { class: "g-story-k" }, "ทีมพ่ายแพ้ · " + (df.enc || "")),
+        h("h2", null, "พ่ายแพ้…"),
+        h("p", null, "ทุกคนล้มลงในสนามรบ แสงสุดท้ายที่เห็นคือเงาของใครบางคนที่วิ่งเข้ามาช่วย"),
+        h("button", { class: "btn primary", onclick: (e) => { e.target.disabled = true; e.target.textContent = "กำลังพากลับ…"; returnAfterDefeat(); } }, "กลับไปวิหารรุ่งอรุณ")));
+    return;
+  }
   const show = lc && lc.ts && (lc.result === "lose" || lc.final) && P.storySeen !== lc.ts && (() => { try { return localStorage.getItem("dnd-story-" + P.cid) !== String(lc.ts); } catch (e) { return true; } })();
   box.hidden = !show; if (!show) { box.dataset.ts = ""; return; }
+  P.dom.moment.hidden = true; clearTimeout(P.momentT);
   if (box.dataset.ts === String(lc.ts)) return;
   box.dataset.ts = String(lc.ts);
   const win = lc.result !== "lose";

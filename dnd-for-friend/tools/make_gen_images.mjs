@@ -75,15 +75,7 @@ for (const q of camp.quests.main) images.push({ group: "quest", name: "quest-" +
   prompt: QART[q.id] + ". Wide painted fantasy chapter illustration, no people in the foreground, no text, moody cinematic light." });
 // Review status per image (what is already in the game, what to redo)
 const NOTE = {
-  "scene-win": ["new", "ใหม่: การ์ดเด้งตอนชนะการต่อสู้"],
-  "scene-death": ["new", "ใหม่: การ์ดเด้งตอนผู้เล่นเสียชีวิต (มีรูปหน้าตัวละครทับกลางล่าง)"],
-  "obj-trap": ["new", "ใหม่: ไอคอนกับดักที่เจอแล้ว (ตอนนี้เป็น ⚠)"],
-  "obj-clue": ["new", "ใหม่: ไอคอนจุดเบาะแส (ตอนนี้เป็น ✦)"],
-  "scene-victory": ["new", "ใหม่: ขึ้นเต็มจอตอนชนะมังกร"],
-  "scene-defeat": ["new", "ใหม่: ขึ้นเต็มจอตอนทีมแพ้และตื่นที่วิหาร"],
-  "quest-m1": ["new", "ใหม่: ภาพบทที่ 1 ในสมุดเควส"], "quest-m2": ["new", "ใหม่: ภาพบทที่ 2 ในสมุดเควส"],
-  "quest-m3": ["new", "ใหม่: ภาพบทที่ 3 ในสมุดเควส"], "quest-m4": ["new", "ใหม่: ภาพบทที่ 4 ในสมุดเควส"],
-  "token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
+"token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
 };
 for (const im of images) { const n = NOTE[im.name]; im.note = n ? n[0] : "ok"; im.noteText = n ? n[1] : "อยู่ในเกมแล้ว"; }
 const html = r("tools/gen-images.template.html").replace("/*__IMAGES__*/[]", JSON.stringify(images)).replace("/*__MAPS__*/{}", JSON.stringify(maps));
