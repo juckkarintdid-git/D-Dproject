@@ -58,6 +58,10 @@ images.push({ group: "object", name: "obj-clue", label: "จุดเบาะ�
 // Story scenes: full-screen when the campaign ends or the party is defeated (text sits at the bottom, keep it darker)
 images.push({ group: "scene", name: "scene-victory", label: "ฉากจบ · ชนะมังกร", ratio: "16:9",
   prompt: "Triumphant fantasy key art at sunrise: five adventurers (a dwarf fighter with a greatsword, a halfling rogue, a human cleric with a shining shield, an elf ranger with a bow, a gnome wizard with a staff) stand on the summit of a black volcanic spire beside the slain body of a young red dragon, ash drifting, the lava cooling, golden morning light breaking through smoke over a green valley with a small log village far below. Cinematic painted style, warm gold and teal palette, the bottom third darker and simpler for text." });
+images.push({ group: "scene", name: "scene-win", label: "การ์ดชนะการต่อสู้", ratio: "16:9",
+  prompt: "Victorious fantasy adventurers after a battle in a torch-lit dungeon: a dwarf fighter raising a greatsword, a halfling rogue flipping a gold coin, an elf ranger lowering her bow, a gnome wizard with sparks fading from his staff, a human cleric smiling, defeated goblins and scattered gold coins around them, warm golden light and floating embers. Cinematic painted style, centered composition, no text." });
+images.push({ group: "scene", name: "scene-death", label: "การ์ดผู้เล่นเสียชีวิต", ratio: "16:9",
+  prompt: "Somber fantasy scene: a fallen adventurer's sword planted in the stone floor of a dark dungeon with a cloak draped over its hilt, a single ray of pale light from above, drifting dust and a few red petals, cold blue and deep red palette, quiet and respectful mood, the center lower area simple and dark for a round portrait overlay. Cinematic painted style, no people visible, no text." });
 images.push({ group: "scene", name: "scene-defeat", label: "ฉากแพ้ · ตื่นที่วิหาร", ratio: "16:9",
   prompt: "Quiet fantasy scene inside a small stone temple of a dawn goddess: wounded adventurers lie on simple cots bandaged, waking up, a kind priestess in white and gold robes with a sunrise emblem tends to them, soft beams of dawn light through tall windows, candles, hopeful but somber mood. Cinematic painted style, warm cream and gold palette, the bottom third darker and simpler for text." });
 // Quest chapter art: banner at the top of each main quest in the quest book
@@ -71,6 +75,8 @@ for (const q of camp.quests.main) images.push({ group: "quest", name: "quest-" +
   prompt: QART[q.id] + ". Wide painted fantasy chapter illustration, no people in the foreground, no text, moody cinematic light." });
 // Review status per image (what is already in the game, what to redo)
 const NOTE = {
+  "scene-win": ["new", "ใหม่: การ์ดเด้งตอนชนะการต่อสู้"],
+  "scene-death": ["new", "ใหม่: การ์ดเด้งตอนผู้เล่นเสียชีวิต (มีรูปหน้าตัวละครทับกลางล่าง)"],
   "obj-trap": ["new", "ใหม่: ไอคอนกับดักที่เจอแล้ว (ตอนนี้เป็น ⚠)"],
   "obj-clue": ["new", "ใหม่: ไอคอนจุดเบาะแส (ตอนนี้เป็น ✦)"],
   "scene-victory": ["new", "ใหม่: ขึ้นเต็มจอตอนชนะมังกร"],

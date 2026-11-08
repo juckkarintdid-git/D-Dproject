@@ -123,6 +123,7 @@ const SVG = {
   map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2Z"/><path d="M9 4v14M15 6v14"/></svg>',
   voice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4Z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>',
   tv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>',
+  bag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 8h14l-1 12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2M9 12h6"/></svg>',
   quest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6Z"/><path d="M6 3a2 2 0 0 0-2 2v1h2M6 21a2 2 0 0 1-2-2v-1h2M9 8h7M9 12h7M9 16h4"/></svg>',
   help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 1-1 1.7V14M12 18h.01"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="M13 7l4 4"/></svg>',
@@ -148,7 +149,7 @@ function buildPlayDom() {
   const d = { cid: P.cid };
   const L = (cls) => h("div", { class: cls });
   d.canvas = h("canvas", { class: "g-scene", "aria-label": "กระดานเกม" });
-  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.story = L("g-story"); d.menu = L("g-menu");
+  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.story = L("g-story"); d.moment = L("g-moment"); d.menu = L("g-menu");
   d.ticker = h("div", { class: "g-ticker", "aria-live": "polite" });
   d.vote = L("g-vote"); d.spots = L("g-spots"); d.room = L("g-room"); d.tools = L("g-tools"); d.combat = L("g-combat");
   d.panel = L("g-panelwrap"); d.coach = L("g-coach");
@@ -158,7 +159,7 @@ function buildPlayDom() {
   d.improvSel = h("select", { "aria-label": "เป้าหมาย" });
   d.cap = L("g-capbox");
   d.caption = h("div", { class: "g-cap" }, d.cap, d.sayForm);
-  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach, d.story);
+  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach, d.moment, d.story);
   d.fx = L("g-fx");
   d.sideTabs = h("div", { class: "side-tabs", role: "tablist" });
   d.sideBody = h("div", { class: "side-body" });
@@ -222,7 +223,7 @@ function renderPlay() {
   watchFx();
   prepFrame();
   renderParty(); renderPlate(); renderHint(); renderVote(); renderMenu(); renderSpots(); renderRoom();
-  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach(); renderStory();
+  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach(); watchMoments(); renderStory();
   if (P.drawer) renderSide();
   drawStage();
 }
@@ -301,6 +302,7 @@ function renderMenu() {
   const b = (k, label, fn, pressed) => h("button", { class: "g-ic", "aria-label": label, title: label, "aria-pressed": pressed == null ? null : pressed ? "true" : "false", onclick: fn }, svg(k));
   fill(P.dom.menu, 
     b("book", "เรื่องเล่า ทีม และบันทึก", () => toggleDrawer(), !!P.drawer),
+    b("bag", "กระเป๋า", () => toggleDrawer(!(P.drawer && P.panel === "bag"), "bag"), !!(P.drawer && P.panel === "bag")),
     b("quest", "สมุดเควส", () => toggleDrawer(!(P.drawer && P.panel === "quest"), "quest"), !!(P.drawer && P.panel === "quest")),
     b("voice", "เสียง DM", () => { P.tts = !P.tts; try { localStorage.setItem("dnd4f-tts", P.tts ? "1" : "0"); } catch (e) {} if (!P.tts) try { speechSynthesis.cancel(); } catch (e) {} renderMenu(); }, !!P.tts),
     b("tv", P.tv ? "ออกจากโหมดทีวี" : "โหมดทีวี (เต็มจอ)", toggleTV, !!P.tv),
@@ -1381,7 +1383,7 @@ document.addEventListener("keydown", (e) => {
 // ---------- drawer: DM story history, party, combat log ----------
 function renderSide() {
   if (!P.dom) return;
-  const tabs = [["dm", "เรื่องเล่า"], ["quest", "เควส"], ["party", "ทีม"], ["log", "บันทึก"]];
+  const tabs = [["dm", "เรื่องเล่า"], ["bag", "กระเป๋า"], ["quest", "เควส"], ["party", "ทีม"], ["log", "บันทึก"]];
   fill(P.dom.sideTabs, ...tabs.map(([k, l]) => h("button", { class: "tab", role: "tab", "aria-selected": P.panel === k ? "true" : "false", "aria-current": P.panel === k ? "true" : "false", onclick: () => { P.panel = k; renderSide(); } }, l)));
   P.dom.chatForm.hidden = P.panel !== "dm";
   const hostP = Object.values(P.party).find((p) => p.uid === (P.meta || {}).hostUid);
@@ -1389,11 +1391,11 @@ function renderSide() {
       h("div", { class: "row small", style: "margin-bottom:8px" }, h("span", { class: "tag" + (isHost() ? " ok" : "") }, NET.local ? "ออฟไลน์ (เครื่องนี้คุมทุกตัว)" : isHost() ? "คุณเป็น host" : "host: " + (hostP ? hostP.card.name : "ไม่อยู่")),
         !isHost() && !NET.local && h("button", { class: "btn tiny", onclick: async () => { await writeMeta({ hostUid: myUid() }); toast("คุณเป็น host แล้ว"); } }, "เป็น host แทน")),
       partyPanel())
-    : P.panel === "log" ? logPanel() : P.panel === "quest" ? questPanel() : chatPanel();
+    : P.panel === "log" ? logPanel() : P.panel === "quest" ? questPanel() : P.panel === "bag" ? bagPanel() : chatPanel();
   const sb = P.dom.sideBody;
   const atBottom = sb.scrollHeight - sb.scrollTop - sb.clientHeight < 60;
   fill(sb, body);
-  if (P.panel !== "party" && P.panel !== "quest" && (atBottom || P.lastPanel !== P.panel)) sb.scrollTop = sb.scrollHeight;
+  if (P.panel !== "party" && P.panel !== "quest" && P.panel !== "bag" && (atBottom || P.lastPanel !== P.panel)) sb.scrollTop = sb.scrollHeight;
   P.lastPanel = P.panel;
 }
 function chatPanel() {
@@ -1619,4 +1621,85 @@ function renderStory() {
       h("h2", null, win ? "Cindrathax ล้มลงแล้ว" : "ตื่นขึ้นที่วิหารรุ่งอรุณ"),
       h("p", null, win ? "เถ้าถ่านสงบลง แสงอรุณส่องหุบเขาอีกครั้ง ชาวบ้าน Brindlemoor จะเล่าเรื่องของพวกคุณไปอีกนาน" : "Sister Maren ช่วยชีวิตทุกคนไว้ได้ทัน เสียค่าชุบชีวิตไปบ้าง แต่การผจญภัยยังไม่จบ"),
       h("button", { class: "btn primary", onclick: close }, win ? "ฉลองชัย ✦" : "ลุกขึ้นสู้ต่อ")));
+}
+
+// ---------- bag (drawer tab): see items anywhere, swap armor, drink a potion, drop things ----------
+function bagPanel() {
+  const list = NET.local ? [myMember()].filter(Boolean) : myParty();
+  if (!list.length) return h("p", { class: "small muted" }, "เข้าร่วมทีมก่อนถึงจะเห็นกระเป๋า");
+  const fight = P.scene.mode === "combat";
+  return h("div", { class: "bagp" }, fight && h("p", { class: "small muted" }, "กำลังต่อสู้: ดูได้อย่างเดียว ดื่มยาใช้ปุ่มในแถบท่า (Bonus Action)"),
+    list.map((p) => {
+      const c = p.card; const sh = safeSheet(c); const hpMax = sh ? sh.hpMax : 0; const hp = p.live.hp ?? hpMax;
+      let bag = null; try { bag = invSlots(c, D); } catch (e) {}
+      return h("section", { class: "bagp-who" },
+        h("div", { class: "row", style: "justify-content:space-between" }, h("b", null, c.name), h("span", { class: "tag num" }, fmtGp(c.gp || 0))),
+        h("div", { class: "small muted num" }, "HP " + hp + "/" + hpMax + (sh ? " · AC " + sh.ac + " · Speed " + sh.speed + " ft" : "")),
+        bagMeter(c),
+        !(c.inventory || []).length ? h("p", { class: "small muted" }, "กระเป๋าว่าง") :
+        h("ul", { class: "bagp-list" }, c.inventory.map((x, i) => {
+          const it = IX.items[x.id] || { name: x.id }; const slots = bag && bag.rows[i] ? bag.rows[i].slots : 0;
+          const det = it.kind === "weapon" ? it.dmg + " " + it.dtype : it.kind === "armor" ? (it.cat === "shield" ? "+2 AC" : "AC " + it.ac) : it.th || "";
+          const key = p.cardId + ":" + i; const asking = P.bagDrop === key;
+          return h("li", { class: "bagp-item" + (x.equipped ? " on" : "") },
+            h("div", { class: "bagp-name" }, h("b", null, it.name + (x.qty > 1 ? " ×" + x.qty : "")), x.equipped && h("span", { class: "tag ok" }, "สวมอยู่"),
+              h("span", { class: "small muted" }, (det ? det + " · " : "") + (slots ? slots + " ช่อง" : "ไม่กินช่อง"))),
+            !fight && h("div", { class: "bagp-act" },
+              it.kind === "armor" && h("button", { class: "btn tiny", onclick: () => bagEquip(p, i) }, x.equipped ? "ถอด" : "ใส่"),
+              x.id === "potion-healing" && h("button", { class: "btn tiny", disabled: p.live.dead || hp >= hpMax, title: hp >= hpMax ? "HP เต็มแล้ว" : "", onclick: () => bagDrink(p) }, "ดื่ม"),
+              asking ? [h("button", { class: "btn tiny danger", onclick: () => bagDropItem(p, i) }, "ทิ้งเลย"), h("button", { class: "btn tiny ghost", onclick: () => { P.bagDrop = null; renderSide(); } }, "ไม่ทิ้ง")]
+                : h("button", { class: "btn tiny ghost", onclick: () => { P.bagDrop = key; renderSide(); } }, x.qty > 1 ? "ทิ้ง 1" : "ทิ้ง")));
+        })));
+    }));
+}
+async function bagEquip(p, i) {
+  const inv = clone(p.card.inventory || []); const it = IX.items[inv[i].id]; if (!it || it.kind !== "armor") return;
+  const now = !inv[i].equipped;
+  if (now) inv.forEach((y) => { const yi = IX.items[y.id]; if (yi && yi.kind === "armor" && (yi.cat === "shield") === (it.cat === "shield")) y.equipped = false; });
+  inv[i].equipped = now;
+  await writeParty(p.cardId, { card: { ...p.card, inventory: inv } });
+  toast((now ? "ใส่ " : "ถอด ") + it.name + " แล้ว");
+}
+async function bagDrink(p) {
+  const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === "potion-healing" && x.qty > 0); if (!e) return;
+  const sh = safeSheet(p.card); const hpMax = sh ? sh.hpMax : 1; const hp = p.live.hp ?? hpMax;
+  const r = roll("2d4+2"); const nhp = Math.min(hpMax, hp + r.total);
+  e.qty--; if (!e.qty) inv.splice(inv.indexOf(e), 1);
+  await writeParty(p.cardId, { card: { ...p.card, inventory: inv }, live: { ...p.live, hp: nhp } });
+  await say("system", "🧪 " + p.card.name + " ดื่ม Potion of Healing ฟื้น " + r.text + " → HP " + nhp + "/" + hpMax);
+}
+async function bagDropItem(p, i) {
+  P.bagDrop = null;
+  const inv = clone(p.card.inventory || []); const x = inv[i]; if (!x) return;
+  const name = (IX.items[x.id] || { name: x.id }).name;
+  if (x.qty > 1) x.qty--; else inv.splice(i, 1);
+  await writeParty(p.cardId, { card: { ...p.card, inventory: inv } });
+  toast("ทิ้ง " + name + " แล้ว");
+}
+
+// ---------- moment cards: a picture pops up when a fight is won or a hero dies ----------
+function watchMoments() {
+  const sc = P.scene; if (!sc) return;
+  const seen = P.momentSeen || (P.momentSeen = { first: true, ids: {} });
+  const lc = sc.lastCombat;
+  if (lc && lc.ts && lc.result === "win" && !lc.final && !seen.ids["win" + lc.ts]) {
+    seen.ids["win" + lc.ts] = 1;
+    if (!seen.first && Date.now() - lc.ts < 60000) showMoment("win", "ชนะ!", (lc.enc || "การต่อสู้") + " · ได้ EXP คนละ " + (lc.xp || 0) + (lc.boss ? " · ปราบบอสได้!" : ""));
+  }
+  const st = sc.mode === "combat" && sc.combat;
+  if (st) for (const u of Object.values(st.units || {})) {
+    const k = "dead:" + u.id + ":" + st.mapId + ":" + st.encounter;
+    if (u.side === "pc" && u.dead && !seen.ids[k]) { seen.ids[k] = 1; if (!seen.first) showMoment("death", shortName(u.name) + " เสียชีวิต", "พาร่างไปชุบชีวิตที่วิหารรุ่งอรุณหลังจบการต่อสู้", unitImg(u)); }
+  }
+  seen.first = false;
+}
+function showMoment(kind, title, sub, face) {
+  const box = P.dom.moment; clearTimeout(P.momentT);
+  fill(box, h("div", { class: "g-moment-card " + kind, role: "status" },
+    h("div", { class: "g-moment-art", style: "background-image:url(assets/scene-" + (kind === "win" ? "win" : "death") + ".webp)" },
+      face && h("span", { class: "g-moment-face", style: "background-image:url(" + JSON.stringify(face) + ")" })),
+    h("div", { class: "g-moment-text" }, h("b", null, (kind === "win" ? "🏆 " : "💀 ") + title), h("small", null, sub)),
+    h("button", { class: "g-moment-x", "aria-label": "ปิด", onclick: () => { box.hidden = true; } }, "✕")));
+  box.hidden = false; box.classList.remove("in"); void box.offsetWidth; box.classList.add("in");
+  P.momentT = setTimeout(() => { box.hidden = true; }, kind === "win" ? 5000 : 6000);
 }

@@ -394,7 +394,7 @@ body.ingame main { max-width: none; padding: 0 }
   padding-right: env(safe-area-inset-right, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); animation: g-slide .25s ease-out }
 @keyframes g-slide { from { transform: translateX(30px); opacity: 0 } to { transform: none; opacity: 1 } }
 .g-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border-bottom: 1px solid var(--edge) }
-.side-tabs { display: flex; gap: 4px }
+.side-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0 } .side-tabs .tab { white-space: nowrap; flex: none }
 .side-body { flex: 1; overflow: auto; padding: 10px 12px; min-height: 0 }
 .chat-form { display: flex; gap: 8px; padding: 8px; border-top: 1px solid var(--edge) }
 .chat-form textarea { flex: 1; min-width: 0; resize: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); min-height: 0 }
@@ -480,6 +480,30 @@ body.ingame main { max-width: none; padding: 0 }
 .g-story-text .btn { align-self: flex-start }
 .g-story[hidden] { display: none }
 @keyframes storyIn { from { opacity: 0 } to { opacity: 1 } }
+.bagp { display: flex; flex-direction: column; gap: 14px }
+.bagp-who { display: flex; flex-direction: column; gap: 6px }
+.bagp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.bagp-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; background: var(--surface) }
+.bagp-item.on { border-color: var(--accent) }
+.bagp-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0 }
+.bagp-name .tag { margin: 0 }
+.bagp-act { display: flex; gap: 6px; flex-wrap: wrap }
+.g-moment { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); width: min(520px, calc(100% - 32px)); z-index: 25; pointer-events: auto }
+.g-moment[hidden] { display: none }
+.g-moment.in { animation: momentIn .45s cubic-bezier(.2,1.4,.4,1) }
+.g-moment-card { position: relative; border-radius: 16px; overflow: hidden; border: 2px solid #f4d27a; background: #140f0b; box-shadow: 0 18px 60px rgba(0,0,0,.6) }
+.g-moment-card.death { border-color: #a33b33 }
+.g-moment-art { position: relative; aspect-ratio: 16 / 7; background-size: cover; background-position: center; background-color: #3a2a12 }
+.g-moment-card.win .g-moment-art { background-image: radial-gradient(circle at 50% 40%, #f4d27a66, transparent 65%) }
+.g-moment-card.death .g-moment-art { background-color: #1a0f0d; filter: saturate(.8) }
+.g-moment-face { position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%); width: 78px; height: 78px; border-radius: 50%; border: 3px solid #a33b33; background-size: cover; background-position: center; filter: grayscale(.85) }
+.g-moment-text { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 16px 14px; text-align: center; color: #efe3c8 }
+.g-moment-card.death .g-moment-text { padding-top: 34px }
+.g-moment-text b { font: 400 clamp(1.3rem, 3.4vw, 1.8rem) var(--f-name, serif); color: #f4d27a }
+.g-moment-card.death .g-moment-text b { color: #ff8a7a }
+.g-moment-text small { color: #b9a687 }
+.g-moment-x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; cursor: pointer }
+@keyframes momentIn { from { opacity: 0; transform: translateX(-50%) scale(.85) } to { opacity: 1; transform: translateX(-50%) scale(1) } }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
