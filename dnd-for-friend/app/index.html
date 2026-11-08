@@ -541,6 +541,7 @@ body.ingame main { max-width: none; padding: 0 }
 @keyframes jrBob { from { transform: translateY(0) } to { transform: translateY(-4px) } }
 @keyframes jrEv { from { opacity: 0; transform: translateY(16px) scale(.9) } to { opacity: 1; transform: none } }
 @media (prefers-reduced-motion: reduce) { .g-jr-art, .g-jr-party .g-face { animation: none } }
+.g-portrait.unknown { background: radial-gradient(ellipse 34% 26% at 50% 34%, #3a2d22 98%, transparent), radial-gradient(ellipse 52% 40% at 50% 92%, #3a2d22 98%, transparent), linear-gradient(180deg, #1d1611, #120d09) !important }
 .g-npc { position: relative }
 .g-portrait { position: relative; transition: filter .3s, transform .3s, opacity .3s }
 .g-npc .g-portrait:not(.pc) { width: min(54%, 280px) }
@@ -549,7 +550,13 @@ body.ingame main { max-width: none; padding: 0 }
 .g-portrait:not(.dim) { z-index: 2 }
 .g-port-name { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); background: var(--leather); color: var(--candle); border: 1px solid var(--edge); font: 400 .8rem var(--f-name, serif); padding: 1px 10px; border-radius: 6px; white-space: nowrap }
 .g-portrait.pc .g-port-name { color: #bfe9dd }
-.g-room-tabs { display: flex; gap: 6px }
+.g-room-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; background: rgba(20,15,11,.85); border: 1px solid var(--edge); border-radius: 14px }
+.g-rtab { border: 1px solid transparent; background: transparent; color: #cdbb98; font: 600 1.02rem var(--f-body, system-ui); padding: 11px 10px; border-radius: 10px; cursor: pointer; transition: background .2s, color .2s }
+.g-rtab:hover { background: rgba(233,180,76,.12); color: #f4e2b8 }
+.g-rtab[aria-selected="true"] { background: linear-gradient(180deg, #f0c25e, #c98a2e); color: #24170a; border-color: #f7d98a; box-shadow: 0 4px 16px rgba(233,180,76,.35) }
+.g-rtab.ping:not([aria-selected="true"]) { color: #f4d27a; animation: g-glow 2.4s ease-in-out infinite }
+.g-quick { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 8px }
+.g-quick .chip { font-size: .85rem }
 .g-hud:has(.g-room:not([hidden])) .g-vote { top: 14px }
 .g-talk { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px }
 .g-line-group { display: flex; flex-direction: column; gap: 8px; position: relative }
@@ -567,13 +574,7 @@ body.ingame main { max-width: none; padding: 0 }
 .g-line.quest-ready { color: #f4d27a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
 .g-line-tts { position: absolute; right: 0; top: 0; opacity: .5 }
 .g-talk-ch { justify-content: flex-start; padding: 4px 0 8px }
-.g-room-body { display: flex; flex-direction: column; gap: 10px }
-.g-room-body > * { flex-shrink: 0 }
-.g-talk-box { max-height: 40vh; min-height: 120px; overflow: auto; padding-right: 4px; overscroll-behavior: contain }
-.g-quick { display: flex; flex-wrap: wrap; gap: 6px }
-.g-quick .chip { font-size: .85rem }
-.g-svc-head { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--candle); font: 400 1.05rem var(--f-name, serif) }
-.g-svc-head::before, .g-svc-head::after { content: ""; flex: 1; height: 1px; background: var(--edge) }
+.g-room-body .g-say { position: sticky; bottom: -12px; background: rgba(20,15,11,.96); padding: 8px 0 4px; margin-bottom: -4px }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
@@ -625,9 +626,9 @@ body.tv .g-hint { font-size: 1rem }
   .g-portrait { width: 64px; border-radius: 50% }
   .g-room-side { padding: 56px 12px 12px 88px }
   .g-room-side h2 { font-size: 1.3rem }
-  .g-talk-box { max-height: 32vh; min-height: 90px }
-  .g-quick { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px }
+  .g-quick { flex-wrap: nowrap; overflow-x: auto }
   .g-quick .chip { white-space: nowrap }
+  .g-rtab { padding: 9px 6px; font-size: .95rem }
   .g-me { bottom: calc(86px + env(safe-area-inset-bottom, 0px)) }
   .g-big { width: 52px }
   .g-stats { padding: 4px 8px }
@@ -3828,7 +3829,7 @@ function dmContext() {
   if (isTown) {
     const inside = Object.values(P.party).filter((p) => p.townPlace).map((p) => { const sp = (typeof TOWN_SPOTS !== "undefined" ? TOWN_SPOTS : []).find((x) => x.id === p.townPlace); return p.card.name + " อยู่ใน " + ((CAMP.town.places.find((x) => x.id === p.townPlace) || {}).name || p.townPlace) + (sp ? " คุยกับ " + sp.who : ""); });
     if (inside.length) lines.push("ในอาคาร: " + inside.join("; ") + " · ตอบเป็นบทสนทนา ให้ NPC คนนั้นพูดเองในเครื่องหมาย “…” ตามนิสัยของเขา คำบรรยายสั้น ๆ");
-    lines.push("ตอนนี้อยู่: " + CAMP.town.intro + "\nสถานที่ในหมู่บ้าน: " + CAMP.town.places.map((p) => p.name + " (" + p.desc + ")").join("; ") + "\nNPC: " + CAMP.town.npcs + "\nข่าวลือ: " + CAMP.town.rumors.join(" / "));
+    lines.push("ตอนนี้อยู่: " + CAMP.town.intro + "\nสถานที่ในหมู่บ้าน (id=ชื่อ): " + CAMP.town.places.map((p) => p.id + "=" + p.name + " (" + p.desc + ")").join("; ") + "\nNPC: " + CAMP.town.npcs + "\nข่าวลือ: " + CAMP.town.rumors.join(" / "));
   } else if (def) {
     const enc = Object.entries(def.encounters || {}).map(([L, e]) => L + "=" + e.th + (P.meta.cleared && P.meta.cleared[clearedKey(loc, L)] ? " (ชนะแล้ว)" : "")).join(", ");
     lines.push("ตอนนี้อยู่: " + def.name + " (" + def.th + ", เลเวลแนะนำ " + def.level + ")\nบรรยากาศ: " + def.intro + "\nความลับ DM: " + (def.dm || "") + "\nการต่อสู้ในแผนที่: " + enc);
@@ -3850,14 +3851,15 @@ const DM_RULES = `คุณคือ Dungeon Master ของเกม D&D (ก�
 - การต่อสู้เริ่มเองเมื่อผู้เล่นเดินไปเห็นศัตรูบนแผนที่ คุณสั่งเริ่มได้ด้วย action startCombat เมื่อเรื่องดำเนินไปสู่การต่อสู้แน่นอน
 - ให้รางวัลอย่างสมเหตุสมผล (เงินเล็กน้อย, potion-healing) ผ่าน action give
 - ตอบไม่เกิน 120 คำ
-- คำพูดของ NPC ใส่ในเครื่องหมาย “…” เสมอ (หน้าเว็บจะแยกเป็นกล่องคำพูดของ NPC) ห้ามใช้รหัส HTML เช่น &#39;
+- คำพูดทุกประโยคต้องขึ้นต้นด้วยชื่อผู้พูดตามด้วยโคลอน แล้วตามด้วยเครื่องหมาย “…” เช่น Old Pell: “นั่งก่อนสิ” หรือ Wick: “ขอบคุณนะ” (หน้าเว็บใช้ชื่อนี้ขึ้นรูปและกล่องคำพูดของคนที่พูดจริง ห้ามสลับชื่อ) ถ้าตัวละครผู้เล่นพูดก็ใส่ชื่อเขา ห้ามใช้รหัส HTML เช่น &#39;
+- ในหมู่บ้าน ถ้าเรื่องพาทีมย้ายไปอาคารอื่น ใช้ action place ไปยัง id อาคารนั้น ถ้าออกไปนอกอาคาร (จัตุรัส ริมลำธาร ป่าใกล้หมู่บ้าน) ใช้ place ที่ to เป็น null
 - ผู้เล่นจ่ายเงิน (ค่าห้อง ค่าบริการ) ใช้ give ที่ gp ติดลบ เช่น "gp":-1
 ตอบเป็น JSON เท่านั้น ตามรูปแบบ:
 {"say":"คำบรรยาย","checks":[{"who":"ชื่อตัวละคร","skill":"Perception","dc":12,"adv":0}],"action":null,"options":["ทางเลือกสั้น 1","ทางเลือกสั้น 2"]}
 การเข้าสังคม: เมื่อผู้เล่นต่อรอง หลอก ขู่ หรือเกลี้ยกล่อม NPC ให้ขอ check (Persuasion/Deception/Intimidation/Insight) ก่อน แล้วในรอบเล่าผลค่อยให้ผลจริง เช่น discount ที่ตลาด give ของ หรือ flag ความสัมพันธ์
 ได้เปรียบ/เสียเปรียบ: ถ้าสถานการณ์เป็นใจ (มีเครื่องมือ ซ่อนในเงามืด ช่วยกันทำ) ใส่ "adv":1 ใน check ถ้ายากผิดปกติใส่ "adv":-1
 ใส่หลาย action ได้ด้วย "actions":[...] (ไม่เกิน 3)
-action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"flag","key":"ชื่อ","value":true} | {"type":"quest","op":"add","title":"ชื่อเควสสั้น","goal":"ต้องทำอะไร","giver":"ชื่อ NPC","loc":"<location id หรือ null>","gp":20} (เมื่อ NPC ขอความช่วยเหลือเรื่องเล็ก ๆ ที่ผู้เล่นตกลงรับ สูงสุดค้างไว้ 3 เควส) | {"type":"quest","op":"done","id":"<id เควสจาก DM>"} (เมื่อทีมทำเควสจาก DM สำเร็จในเรื่อง ระบบให้รางวัลเอง)
+action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"place","to":"<id อาคารในหมู่บ้าน หรือ null>"} | {"type":"flag","key":"ชื่อ","value":true} | {"type":"quest","op":"add","title":"ชื่อเควสสั้น","goal":"ต้องทำอะไร","giver":"ชื่อ NPC","loc":"<location id หรือ null>","gp":20} (เมื่อ NPC ขอความช่วยเหลือเรื่องเล็ก ๆ ที่ผู้เล่นตกลงรับ สูงสุดค้างไว้ 3 เควส) | {"type":"quest","op":"done","id":"<id เควสจาก DM>"} (เมื่อทีมทำเควสจาก DM สำเร็จในเรื่อง ระบบให้รางวัลเอง)
 เควสหลักเป็นแค่คำแนะนำ ผู้เล่นไปที่ไหนก่อนก็ได้ ให้เล่าเรื่องตามลำดับที่ทีมเล่นจริง
 skill ใช้ชื่อภาษาอังกฤษของ D&D หรือ STR/DEX/CON/INT/WIS/CHA สำหรับเซฟ`;
 async function runDM(sample, playerMsgs, events, depth, checkResults) {
@@ -3870,8 +3872,10 @@ async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const prompt = DM_RULES + "\n\n=== สถานการณ์ ===\n" + dmContext() + "\n\n=== บทสนทนาล่าสุด ===\n" + history + "\n\n=== ตอนนี้ ===\n" + (now || "ผู้เล่นรอให้ DM เล่าต่อ") + (depth ? "\n(นี่คือรอบเล่าผลทอย ห้ามขอ checks เพิ่ม)" : "");
   const ans = await sample.json(prompt, { modelTier: "default" });
   const text = String((ans && ans.say) || "").trim();
+  const acts = [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3);
+  for (const a of acts) if (a && a.type === "place") await dmAction(a); // move rooms first so the line lands where the party now is
   if (text) { await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map((o) => unEntity(o)) : [], place: P.dmPlace || null }); P.dmLines = (P.dmLines || 0) + 1; if (P.dmLines % 10 === 0) updateStory(sample).catch(() => {}); }
-  for (const a of [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3)) await dmAction(a);
+  for (const a of acts) if (a && a.type !== "place") await dmAction(a);
   if (!depth && ans && Array.isArray(ans.checks) && ans.checks.length) {
     const rolls = [];
     const results = ans.checks.slice(0, 4).map((c) => { const t = rollCheck(c); if (t) rolls.push(rollCheck.last); return t; }).filter(Boolean);
@@ -3903,6 +3907,10 @@ async function dmAction(a) {
   try {
     if (a.type === "startCombat" && P.scene.mode === "explore") { const def = mapDef(P.scene.loc); if (def && def.encounters && def.encounters[a.enc] && !(P.meta.cleared || {})[clearedKey(def.id, a.enc)]) await startCombat(def, a.enc); }
     else if (a.type === "travel" && CAMP.world.locations.some((l) => l.id === a.to)) await travelTo(a.to, true);
+    else if (a.type === "place" && P.scene.mode === "town") { // the story moved the party to another building (or outside): everyone follows
+      const to = a.to && CAMP.town.places.some((p) => p.id === a.to) ? a.to : null;
+      if (!(to === "night" && !isNight())) { P.dmPlace = to; await writeScene({ gather: { place: to, ts: Date.now() } }); }
+    }
     else if (a.type === "give") {
       const who = a.who === "all" ? Object.values(P.party) : [findMember(a.who)].filter(Boolean);
       for (const p of who) {
@@ -4730,20 +4738,18 @@ function renderRoom() {
     const R = P.roomDom = {};
     R.npc = h("div", { class: "g-portrait enter", role: "img", "aria-label": "ภาพ " + s.who, style: "background-image:url(assets/npc-" + s.npc + ".webp)" }, h("span", { class: "g-port-name" }, s.who));
     R.pc = h("div", { class: "g-portrait pc", role: "img" }, h("span", { class: "g-port-name" }));
-    R.here = h("span", { class: "g-here" });
+    R.here = h("span", { class: "g-here" }); R.tabs = h("div", { class: "g-room-tabs", role: "tablist" });
     R.body = h("div", { class: "g-room-body" }); R.talk = h("div", { class: "g-talk" }); R.choices = h("div", { class: "g-choices g-talk-ch" });
-    R.talkBox = h("div", { class: "g-talk-box" }, R.talk, R.choices);
     R.quick = h("div", { class: "g-quick", role: "group", "aria-label": "ตัวเลือกคุยกับ " + s.who });
     R.input = h("input", { type: "text", maxlength: 300, placeholder: "พูดกับ " + s.who + "…", "aria-label": "พูดกับ " + s.who, onkeydown: (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); roomSay(); } } });
     R.sayRow = h("div", { class: "g-say" }, R.input, h("button", { class: "btn primary", onclick: roomSay }, "พูด"));
     R.service = h("div", { class: "g-room-svc" });
-    fill(R.body, R.talkBox, R.quick, R.sayRow, h("div", { class: "g-svc-head" }, h("span", null, "🛎 บริการของ " + (s.short || s.who))), R.service);
     box.style.backgroundImage = "url(assets/room-" + id + ".webp), url(assets/room-" + (id === "night" ? "market" : id === "stable" ? "board" : "inn") + ".webp)";
     fill(box,
       h("div", { class: "g-npc" }, R.npc, R.pc),
       h("div", { class: "g-room-side" },
         h("div", { class: "row" }, h("span", { class: "g-mode town" }, pl.th), R.here),
-        h("h2", null, pl.name), R.body,
+        h("h2", null, pl.name), R.tabs, R.body,
         h("div", { class: "row" }, h("button", { class: "btn", onclick: leavePlace }, "← กลับจัตุรัส"))));
   }
   const R = P.roomDom;
@@ -4751,6 +4757,8 @@ function renderRoom() {
   const others = Object.values(P.party).filter((p) => p.townPlace === id && !mine.has(p.cardId));
   fill(R.here, others.length > 0 && [others.map((p) => face(p.card.portrait, p.card.name, "g-face sm")), others.map((p) => p.card.name.split(" ")[0]).join(", ") + " อยู่ที่นี่ด้วย"]);
   const ready = questsBy("ready").filter((q) => giverSpot(q) && giverSpot(q).id === id && id !== "board");
+  fill(R.tabs, [["talk", "💬 พูดคุย"], ["svc", "🛎 บริการ" + (ready.length ? " · ส่งเควส " + ready.length : "")]].map(([k, l]) =>
+    h("button", { class: "g-rtab" + (k === "svc" && ready.length ? " ping" : ""), role: "tab", "aria-selected": P.roomTab === k ? "true" : "false", "aria-current": P.roomTab === k ? "true" : "false", onclick: () => { P.roomTab = k; renderRoom(); } }, l)));
   // conversation lines said in this building
   const lines = P.chat.filter((m) => m.place === id).slice(-40);
   const last = [...lines].reverse().find((m) => m.kind !== "system");
@@ -4760,37 +4768,84 @@ function renderRoom() {
   R.pc.style.backgroundImage = pcImg ? "url(" + JSON.stringify(pcImg) + ")" : "";
   R.pc.hidden = !speaker; R.pc.setAttribute("aria-label", "ภาพ " + (speaker ? speaker.card.name : ""));
   R.pc.querySelector(".g-port-name").textContent = speaker ? speaker.card.name.split(" ")[0] : "";
+  const ns = roomSpeaker(lines, s); const nsp = ns && ns.spot ? ns.spot : ns ? null : s;
+  const npcImg = nsp ? "url(assets/npc-" + nsp.npc + ".webp)" : "none";
+  if (R.npc.dataset.img !== npcImg) { R.npc.dataset.img = npcImg; R.npc.style.backgroundImage = npcImg; R.npc.classList.remove("enter"); void R.npc.offsetWidth; R.npc.classList.add("enter"); }
+  R.npc.classList.toggle("unknown", !nsp); R.npc.setAttribute("aria-label", "ภาพ " + (nsp ? nsp.who : ns.name));
+  R.npc.querySelector(".g-port-name").textContent = nsp ? nsp.who : ns.name;
   const pcTalking = !!(last && last.kind === "player");
   R.npc.classList.toggle("dim", pcTalking); R.pc.classList.toggle("dim", !pcTalking);
-  const tb = R.talkBox; const atBottom = tb.scrollHeight - tb.scrollTop - tb.clientHeight < 60;
-  fill(R.talk, h("div", { class: "g-line npc" }, h("b", null, s.who), h("p", null, s.line)),
-    ready.map((q) => h("div", { class: "g-line sys quest-ready" }, "📜 เควส “" + q.title + "” สำเร็จแล้ว ", h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควสให้ " + s.who.split(" ")[0]))),
-    lines.map((m) => talkLine(m, s)),
-    dmRunning && h("div", { class: "g-line narr think" }, "…"));
-  const lastDm = [...lines].reverse().find((m) => m.kind === "dm");
-  fill(R.choices, lastDm && lastDm === [...lines].reverse().find((m) => m.kind !== "system") && (lastDm.options || []).map((o) => h("button", { class: "g-choice", onclick: () => sendChat(o) }, o)));
-  fill(R.quick, (s.opts || []).map((o) => h("button", { class: "chip", disabled: dmRunning, onclick: () => sendChat(o) }, o)));
-  if (fresh || atBottom) tb.scrollTop = tb.scrollHeight;
-  const top = R.body.scrollTop;
-  fill(R.service, ready.length > 0 && h("div", { class: "quests" }, h("h3", null, "ส่งเควสให้ " + s.who), ready.map((q) => questRow(q, [h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส รับรางวัล")]))),
-    ({ inn: innPanel, temple: templePanel, market: marketPanel, forge: forgePanel, alchemist: alchemistPanel, stable: stablePanel, night: nightPanel }[id] || boardPanel)());
-  if (!fresh) R.body.scrollTop = top;
+  if (P.roomTab === "talk") {
+    const atBottom = R.body.scrollHeight - R.body.scrollTop - R.body.clientHeight < 80;
+    fill(R.talk, h("div", { class: "g-line npc" }, h("b", null, s.who), h("p", null, s.line)),
+      ready.map((q) => h("div", { class: "g-line sys quest-ready" }, "📜 เควส “" + q.title + "” สำเร็จแล้ว ", h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควสให้ " + s.who.split(" ")[0]))),
+      lines.map((m) => talkLine(m, s)),
+      dmRunning && h("div", { class: "g-line narr think" }, "…"));
+    const lastDm = [...lines].reverse().find((m) => m.kind === "dm");
+    fill(R.choices, lastDm && lastDm === [...lines].reverse().find((m) => m.kind !== "system") && (lastDm.options || []).map((o) => h("button", { class: "g-choice", onclick: () => sendChat(o) }, o)));
+    fill(R.quick, (s.opts || []).map((o) => h("button", { class: "chip", disabled: dmRunning, onclick: () => sendChat(o) }, o)));
+    if (R.body.firstChild !== R.talk) fill(R.body, R.talk, R.choices, R.quick, R.sayRow);
+    if (fresh || atBottom) R.body.scrollTop = R.body.scrollHeight;
+  } else {
+    const top = R.body.firstChild === R.service ? R.body.scrollTop : 0;
+    fill(R.service, ready.length > 0 && h("div", { class: "quests" }, h("h3", null, "ส่งเควสให้ " + s.who), ready.map((q) => questRow(q, [h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส รับรางวัล")]))),
+      ({ inn: innPanel, temple: templePanel, market: marketPanel, forge: forgePanel, alchemist: alchemistPanel, stable: stablePanel, night: nightPanel }[id] || boardPanel)());
+    if (R.body.firstChild !== R.service) fill(R.body, R.service);
+    R.body.scrollTop = top;
+  }
 }
-// split a DM line into narration and NPC speech bubbles: text inside “…” or "…" is spoken by the NPC
+// split a DM line into narration and speech bubbles, each bubble tagged with who really speaks
+// (the DM writes Name: “…”; older lines fall back to the first name mentioned in the narration before the quote)
+const NAME_SKIP = /^(The|A|An|DM|HP|AC|GP|Lv|Brindlemoor|Ember|Vale|Thornback|Hollow|Copper|Kettle|Temple|Dawn|Notice|Board|Market|Ashen|Choir|Survival|Perception|Stealth|Insight|Persuasion)$/;
+function whoIs(name, s) {
+  const n = String(name || "").trim(); if (!n) return null; const lo = n.toLowerCase();
+  const pc = Object.values(P.party).find((p) => p.card.name.toLowerCase() === lo || p.card.name.split(" ")[0].toLowerCase() === lo.split(" ")[0]);
+  if (pc) return { kind: "pc", p: pc, name: pc.card.name.split(" ")[0] };
+  const sp = TOWN_SPOTS.find((x) => { const w = x.who.toLowerCase(); return w === lo || w.includes(lo) || lo.includes(w) || (x.short && x.short.toLowerCase() === lo); })
+    || TOWN_SPOTS.find((x) => x.who.toLowerCase().split(" ").some((t) => t.length > 3 && !/^(sister|mayor|old)$/.test(t) && lo.split(" ").includes(t)));
+  if (sp) return { kind: "npc", spot: sp, name: sp.short || sp.who.replace(/^(Sister|Old|Mayor) /, "").split(" ")[0] };
+  return { kind: "npc", spot: null, name: n };
+}
+function namesIn(txt, s) {
+  const out = [];
+  for (const p of Object.values(P.party)) { const f = p.card.name.split(" ")[0]; const i = txt.indexOf(f); if (i >= 0) out.push([i, f]); }
+  for (const x of TOWN_SPOTS) for (const k of [x.who, x.short, x.id === "board" ? "Oswin" : null, x.who.replace(/^(Sister|Old|Mayor) /, "").split(" ")[0]].filter(Boolean)) { const i = txt.indexOf(k); if (i >= 0) { out.push([i, x.who]); break; } }
+  const re = /\b([A-Z][a-z]{2,})\b/g; let m; while ((m = re.exec(txt))) if (!NAME_SKIP.test(m[1])) out.push([m.index, m[1]]);
+  return out.sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+}
+function speechParts(text, s) {
+  const t = String(text); const parts = []; const re = /[“"]([^”"]{1,})[”"]/g; let i = 0, x, last = null;
+  while ((x = re.exec(t))) {
+    let narr = t.slice(i, x.index); let who = null;
+    const tag = narr.match(/((?:[A-Z][A-Za-z'-]*\s+){0,2}[A-Z][A-Za-z'-]*)\s*[:：]\s*$/) || narr.match(/(\S{1,24})\s*[:：]\s*$/);
+    if (tag) { // "Old Pell:" / "Wick:" / "ยายมา:"
+      who = tag[1]; narr = narr.slice(0, tag.index);
+    } else { const ns = namesIn(narr, s); if (ns.length) who = ns[0]; }
+    if (narr.trim()) parts.push({ k: "n", v: narr.trim() });
+    const sp = whoIs(who, s) || last || (parts.length ? { kind: "npc", spot: null, name: "ชาวบ้าน" } : whoIs(s.who, s));
+    parts.push({ k: "q", v: x[1].trim(), sp }); last = sp; i = re.lastIndex;
+  }
+  if (i < t.length && t.slice(i).trim()) parts.push({ k: "n", v: t.slice(i).trim() });
+  return parts;
+}
 function talkLine(m, s) {
   if (m.kind === "player") {
     const p = Object.values(P.party).find((x) => x.card.name === m.who);
     return h("div", { class: "g-line pc" }, face(p ? p.card.portrait : "", m.who, "g-face"), h("div", null, h("b", null, (m.who || "").split(" ")[0]), h("p", null, m.text)));
   }
   if (m.kind === "system") return h("div", { class: "g-line sys" }, m.text);
-  const parts = []; const re = /[“"']([^”"']{2,})[”"']/g; let i = 0, x;
-  const t = String(m.text);
-  while ((x = re.exec(t))) { if (x.index > i) parts.push(["n", t.slice(i, x.index)]); parts.push(["q", x[1]]); i = re.lastIndex; }
-  if (i < t.length) parts.push(["n", t.slice(i)]);
-  return h("div", { class: "g-line-group" }, parts.filter(([, v]) => v.trim()).map(([k, v]) => k === "q"
-    ? h("div", { class: "g-line npc" }, h("b", null, s.short || (s.who.split(" ").slice(-1)[0] === "Hale" ? "Oswin" : s.who.replace(/^(Sister|Old|Mayor) /, ""))), h("p", null, v.trim()))
-    : h("div", { class: "g-line narr" }, v.trim())),
+  return h("div", { class: "g-line-group" }, speechParts(m.text, s).map((x) => x.k === "q"
+    ? (x.sp.kind === "pc"
+      ? h("div", { class: "g-line pc" }, face(x.sp.p.card.portrait, x.sp.p.card.name, "g-face"), h("div", null, h("b", null, x.sp.name), h("p", null, x.v)))
+      : h("div", { class: "g-line npc" }, h("b", null, x.sp.name), h("p", null, x.v)))
+    : h("div", { class: "g-line narr" }, x.v)),
     h("button", { class: "g-mini g-line-tts", "aria-label": "อ่านออกเสียง", title: "อ่านออกเสียง", onclick: () => speak(m.text) }, svg("voice")));
+}
+// who the big NPC portrait should show: the last non-player speaker in the latest DM line of this room
+function roomSpeaker(lines, s) {
+  const lastDm = [...lines].reverse().find((m) => m.kind === "dm"); if (!lastDm) return null;
+  const qs = speechParts(lastDm.text, s).filter((x) => x.k === "q" && x.sp.kind === "npc");
+  return qs.length ? qs[qs.length - 1].sp : null;
 }
 function roomSay() { const R = P.roomDom; if (!R) return; const t = R.input.value; if (!t.trim()) return; R.input.value = ""; sendChat(t); }
 

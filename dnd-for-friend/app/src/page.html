@@ -541,6 +541,7 @@ body.ingame main { max-width: none; padding: 0 }
 @keyframes jrBob { from { transform: translateY(0) } to { transform: translateY(-4px) } }
 @keyframes jrEv { from { opacity: 0; transform: translateY(16px) scale(.9) } to { opacity: 1; transform: none } }
 @media (prefers-reduced-motion: reduce) { .g-jr-art, .g-jr-party .g-face { animation: none } }
+.g-portrait.unknown { background: radial-gradient(ellipse 34% 26% at 50% 34%, #3a2d22 98%, transparent), radial-gradient(ellipse 52% 40% at 50% 92%, #3a2d22 98%, transparent), linear-gradient(180deg, #1d1611, #120d09) !important }
 .g-npc { position: relative }
 .g-portrait { position: relative; transition: filter .3s, transform .3s, opacity .3s }
 .g-npc .g-portrait:not(.pc) { width: min(54%, 280px) }
@@ -549,7 +550,13 @@ body.ingame main { max-width: none; padding: 0 }
 .g-portrait:not(.dim) { z-index: 2 }
 .g-port-name { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); background: var(--leather); color: var(--candle); border: 1px solid var(--edge); font: 400 .8rem var(--f-name, serif); padding: 1px 10px; border-radius: 6px; white-space: nowrap }
 .g-portrait.pc .g-port-name { color: #bfe9dd }
-.g-room-tabs { display: flex; gap: 6px }
+.g-room-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; background: rgba(20,15,11,.85); border: 1px solid var(--edge); border-radius: 14px }
+.g-rtab { border: 1px solid transparent; background: transparent; color: #cdbb98; font: 600 1.02rem var(--f-body, system-ui); padding: 11px 10px; border-radius: 10px; cursor: pointer; transition: background .2s, color .2s }
+.g-rtab:hover { background: rgba(233,180,76,.12); color: #f4e2b8 }
+.g-rtab[aria-selected="true"] { background: linear-gradient(180deg, #f0c25e, #c98a2e); color: #24170a; border-color: #f7d98a; box-shadow: 0 4px 16px rgba(233,180,76,.35) }
+.g-rtab.ping:not([aria-selected="true"]) { color: #f4d27a; animation: g-glow 2.4s ease-in-out infinite }
+.g-quick { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 8px }
+.g-quick .chip { font-size: .85rem }
 .g-hud:has(.g-room:not([hidden])) .g-vote { top: 14px }
 .g-talk { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px }
 .g-line-group { display: flex; flex-direction: column; gap: 8px; position: relative }
@@ -567,13 +574,7 @@ body.ingame main { max-width: none; padding: 0 }
 .g-line.quest-ready { color: #f4d27a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
 .g-line-tts { position: absolute; right: 0; top: 0; opacity: .5 }
 .g-talk-ch { justify-content: flex-start; padding: 4px 0 8px }
-.g-room-body { display: flex; flex-direction: column; gap: 10px }
-.g-room-body > * { flex-shrink: 0 }
-.g-talk-box { max-height: 40vh; min-height: 120px; overflow: auto; padding-right: 4px; overscroll-behavior: contain }
-.g-quick { display: flex; flex-wrap: wrap; gap: 6px }
-.g-quick .chip { font-size: .85rem }
-.g-svc-head { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--candle); font: 400 1.05rem var(--f-name, serif) }
-.g-svc-head::before, .g-svc-head::after { content: ""; flex: 1; height: 1px; background: var(--edge) }
+.g-room-body .g-say { position: sticky; bottom: -12px; background: rgba(20,15,11,.96); padding: 8px 0 4px; margin-bottom: -4px }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
@@ -625,9 +626,9 @@ body.tv .g-hint { font-size: 1rem }
   .g-portrait { width: 64px; border-radius: 50% }
   .g-room-side { padding: 56px 12px 12px 88px }
   .g-room-side h2 { font-size: 1.3rem }
-  .g-talk-box { max-height: 32vh; min-height: 90px }
-  .g-quick { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px }
+  .g-quick { flex-wrap: nowrap; overflow-x: auto }
   .g-quick .chip { white-space: nowrap }
+  .g-rtab { padding: 9px 6px; font-size: .95rem }
   .g-me { bottom: calc(86px + env(safe-area-inset-bottom, 0px)) }
   .g-big { width: 52px }
   .g-stats { padding: 4px 8px }

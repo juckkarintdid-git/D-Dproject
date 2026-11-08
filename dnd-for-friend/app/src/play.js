@@ -533,7 +533,7 @@ function dmContext() {
   if (isTown) {
     const inside = Object.values(P.party).filter((p) => p.townPlace).map((p) => { const sp = (typeof TOWN_SPOTS !== "undefined" ? TOWN_SPOTS : []).find((x) => x.id === p.townPlace); return p.card.name + " อยู่ใน " + ((CAMP.town.places.find((x) => x.id === p.townPlace) || {}).name || p.townPlace) + (sp ? " คุยกับ " + sp.who : ""); });
     if (inside.length) lines.push("ในอาคาร: " + inside.join("; ") + " · ตอบเป็นบทสนทนา ให้ NPC คนนั้นพูดเองในเครื่องหมาย “…” ตามนิสัยของเขา คำบรรยายสั้น ๆ");
-    lines.push("ตอนนี้อยู่: " + CAMP.town.intro + "\nสถานที่ในหมู่บ้าน: " + CAMP.town.places.map((p) => p.name + " (" + p.desc + ")").join("; ") + "\nNPC: " + CAMP.town.npcs + "\nข่าวลือ: " + CAMP.town.rumors.join(" / "));
+    lines.push("ตอนนี้อยู่: " + CAMP.town.intro + "\nสถานที่ในหมู่บ้าน (id=ชื่อ): " + CAMP.town.places.map((p) => p.id + "=" + p.name + " (" + p.desc + ")").join("; ") + "\nNPC: " + CAMP.town.npcs + "\nข่าวลือ: " + CAMP.town.rumors.join(" / "));
   } else if (def) {
     const enc = Object.entries(def.encounters || {}).map(([L, e]) => L + "=" + e.th + (P.meta.cleared && P.meta.cleared[clearedKey(loc, L)] ? " (ชนะแล้ว)" : "")).join(", ");
     lines.push("ตอนนี้อยู่: " + def.name + " (" + def.th + ", เลเวลแนะนำ " + def.level + ")\nบรรยากาศ: " + def.intro + "\nความลับ DM: " + (def.dm || "") + "\nการต่อสู้ในแผนที่: " + enc);
@@ -555,14 +555,15 @@ const DM_RULES = `คุณคือ Dungeon Master ของเกม D&D (ก�
 - การต่อสู้เริ่มเองเมื่อผู้เล่นเดินไปเห็นศัตรูบนแผนที่ คุณสั่งเริ่มได้ด้วย action startCombat เมื่อเรื่องดำเนินไปสู่การต่อสู้แน่นอน
 - ให้รางวัลอย่างสมเหตุสมผล (เงินเล็กน้อย, potion-healing) ผ่าน action give
 - ตอบไม่เกิน 120 คำ
-- คำพูดของ NPC ใส่ในเครื่องหมาย “…” เสมอ (หน้าเว็บจะแยกเป็นกล่องคำพูดของ NPC) ห้ามใช้รหัส HTML เช่น &#39;
+- คำพูดทุกประโยคต้องขึ้นต้นด้วยชื่อผู้พูดตามด้วยโคลอน แล้วตามด้วยเครื่องหมาย “…” เช่น Old Pell: “นั่งก่อนสิ” หรือ Wick: “ขอบคุณนะ” (หน้าเว็บใช้ชื่อนี้ขึ้นรูปและกล่องคำพูดของคนที่พูดจริง ห้ามสลับชื่อ) ถ้าตัวละครผู้เล่นพูดก็ใส่ชื่อเขา ห้ามใช้รหัส HTML เช่น &#39;
+- ในหมู่บ้าน ถ้าเรื่องพาทีมย้ายไปอาคารอื่น ใช้ action place ไปยัง id อาคารนั้น ถ้าออกไปนอกอาคาร (จัตุรัส ริมลำธาร ป่าใกล้หมู่บ้าน) ใช้ place ที่ to เป็น null
 - ผู้เล่นจ่ายเงิน (ค่าห้อง ค่าบริการ) ใช้ give ที่ gp ติดลบ เช่น "gp":-1
 ตอบเป็น JSON เท่านั้น ตามรูปแบบ:
 {"say":"คำบรรยาย","checks":[{"who":"ชื่อตัวละคร","skill":"Perception","dc":12,"adv":0}],"action":null,"options":["ทางเลือกสั้น 1","ทางเลือกสั้น 2"]}
 การเข้าสังคม: เมื่อผู้เล่นต่อรอง หลอก ขู่ หรือเกลี้ยกล่อม NPC ให้ขอ check (Persuasion/Deception/Intimidation/Insight) ก่อน แล้วในรอบเล่าผลค่อยให้ผลจริง เช่น discount ที่ตลาด give ของ หรือ flag ความสัมพันธ์
 ได้เปรียบ/เสียเปรียบ: ถ้าสถานการณ์เป็นใจ (มีเครื่องมือ ซ่อนในเงามืด ช่วยกันทำ) ใส่ "adv":1 ใน check ถ้ายากผิดปกติใส่ "adv":-1
 ใส่หลาย action ได้ด้วย "actions":[...] (ไม่เกิน 3)
-action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"flag","key":"ชื่อ","value":true} | {"type":"quest","op":"add","title":"ชื่อเควสสั้น","goal":"ต้องทำอะไร","giver":"ชื่อ NPC","loc":"<location id หรือ null>","gp":20} (เมื่อ NPC ขอความช่วยเหลือเรื่องเล็ก ๆ ที่ผู้เล่นตกลงรับ สูงสุดค้างไว้ 3 เควส) | {"type":"quest","op":"done","id":"<id เควสจาก DM>"} (เมื่อทีมทำเควสจาก DM สำเร็จในเรื่อง ระบบให้รางวัลเอง)
+action เป็นได้: null | {"type":"discount","npc":"Bram","pct":15} (ส่วนลดตลาด 5-30% จนกว่าจะออกจากหมู่บ้าน) | {"type":"startCombat","enc":"a"} | {"type":"travel","to":"<location id>"} | {"type":"give","who":"<ชื่อ หรือ all>","gp":10,"items":[["potion-healing",1]],"xp":0} | {"type":"rest","kind":"short"|"long"} | {"type":"place","to":"<id อาคารในหมู่บ้าน หรือ null>"} | {"type":"flag","key":"ชื่อ","value":true} | {"type":"quest","op":"add","title":"ชื่อเควสสั้น","goal":"ต้องทำอะไร","giver":"ชื่อ NPC","loc":"<location id หรือ null>","gp":20} (เมื่อ NPC ขอความช่วยเหลือเรื่องเล็ก ๆ ที่ผู้เล่นตกลงรับ สูงสุดค้างไว้ 3 เควส) | {"type":"quest","op":"done","id":"<id เควสจาก DM>"} (เมื่อทีมทำเควสจาก DM สำเร็จในเรื่อง ระบบให้รางวัลเอง)
 เควสหลักเป็นแค่คำแนะนำ ผู้เล่นไปที่ไหนก่อนก็ได้ ให้เล่าเรื่องตามลำดับที่ทีมเล่นจริง
 skill ใช้ชื่อภาษาอังกฤษของ D&D หรือ STR/DEX/CON/INT/WIS/CHA สำหรับเซฟ`;
 async function runDM(sample, playerMsgs, events, depth, checkResults) {
@@ -575,8 +576,10 @@ async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const prompt = DM_RULES + "\n\n=== สถานการณ์ ===\n" + dmContext() + "\n\n=== บทสนทนาล่าสุด ===\n" + history + "\n\n=== ตอนนี้ ===\n" + (now || "ผู้เล่นรอให้ DM เล่าต่อ") + (depth ? "\n(นี่คือรอบเล่าผลทอย ห้ามขอ checks เพิ่ม)" : "");
   const ans = await sample.json(prompt, { modelTier: "default" });
   const text = String((ans && ans.say) || "").trim();
+  const acts = [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3);
+  for (const a of acts) if (a && a.type === "place") await dmAction(a); // move rooms first so the line lands where the party now is
   if (text) { await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map((o) => unEntity(o)) : [], place: P.dmPlace || null }); P.dmLines = (P.dmLines || 0) + 1; if (P.dmLines % 10 === 0) updateStory(sample).catch(() => {}); }
-  for (const a of [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3)) await dmAction(a);
+  for (const a of acts) if (a && a.type !== "place") await dmAction(a);
   if (!depth && ans && Array.isArray(ans.checks) && ans.checks.length) {
     const rolls = [];
     const results = ans.checks.slice(0, 4).map((c) => { const t = rollCheck(c); if (t) rolls.push(rollCheck.last); return t; }).filter(Boolean);
@@ -608,6 +611,10 @@ async function dmAction(a) {
   try {
     if (a.type === "startCombat" && P.scene.mode === "explore") { const def = mapDef(P.scene.loc); if (def && def.encounters && def.encounters[a.enc] && !(P.meta.cleared || {})[clearedKey(def.id, a.enc)]) await startCombat(def, a.enc); }
     else if (a.type === "travel" && CAMP.world.locations.some((l) => l.id === a.to)) await travelTo(a.to, true);
+    else if (a.type === "place" && P.scene.mode === "town") { // the story moved the party to another building (or outside): everyone follows
+      const to = a.to && CAMP.town.places.some((p) => p.id === a.to) ? a.to : null;
+      if (!(to === "night" && !isNight())) { P.dmPlace = to; await writeScene({ gather: { place: to, ts: Date.now() } }); }
+    }
     else if (a.type === "give") {
       const who = a.who === "all" ? Object.values(P.party) : [findMember(a.who)].filter(Boolean);
       for (const p of who) {
