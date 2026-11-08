@@ -104,25 +104,6 @@ const TRAVEL = [
 for (const [name, label, look] of TRAVEL) images.push({ group: "travel", name, label, ratio: "16:9", prompt: look + "." + TRAVEL_TAIL });
 // Review status per image (what is already in the game, what to redo)
 const NOTE = {
-"npc-hilda": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"npc-mirelle": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"npc-garrick": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"npc-sable": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"room-forge": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"room-alchemist": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"room-stable": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"room-night": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-road": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-caravan": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-home": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-merchant": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-wolves": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-rain": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-watcher": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-shrine": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-signpost": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-bard": ["new", "รูปใหม่ ยังไม่มีในเกม"],
-"travel-camp": ["new", "รูปใหม่ ยังไม่มีในเกม"],
 "token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
 };
 for (const im of images) { const n = NOTE[im.name]; im.note = n ? n[0] : "ok"; im.noteText = n ? n[1] : "อยู่ในเกมแล้ว"; }

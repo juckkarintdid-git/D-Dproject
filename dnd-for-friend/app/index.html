@@ -6225,7 +6225,7 @@ function renderJourney() {
       h("div", { class: "g-jr-top" }, h("span", { class: "eyebrow" }, (j.caravan ? "🐴 นั่งคาราวานของ Garrick" : toTown ? "🏡 เดินทางกลับ" : "🧭 กำลังเดินทาง") + (j.night ? " · 🌙 กลางคืน" : " · ☀️ กลางวัน")),
         h("h2", null, "สู่ " + L.name), h("small", null, L.th || "")),
       ev && h("div", { class: "g-jr-ev" },
-        h("div", { class: "g-jr-ev-art", style: "background-image:url(assets/travel-" + ev.id + ".webp)" }, h("span", null, ev.icon)),
+        h("div", { class: "g-jr-ev-art", role: "img", "aria-label": ev.title, style: "background-image:url(assets/travel-" + ev.id + ".webp)" }),
         h("div", { class: "g-jr-ev-text" }, h("span", { class: "eyebrow" }, "⚠ เหตุการณ์ระหว่างทาง"), h("b", null, ev.title), h("small", null, ev.sub))),
       h("div", { class: "g-jr-road" }, h("span", { class: "g-jr-end a" }, toTown ? "⚔" : "🏡"), h("div", { class: "g-jr-track" }, h("div", { class: "g-jr-fill" }), h("div", { class: "g-jr-party" }, faces)), h("span", { class: "g-jr-end b" }, toTown ? "🏡" : "⚑")),
       h("button", { class: "btn small ghost g-jr-skip", onclick: close }, ev ? "อ่านแล้ว ไปต่อ" : "ข้าม")));
