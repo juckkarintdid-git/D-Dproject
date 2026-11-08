@@ -238,7 +238,7 @@ body.ingame main { max-width: none; padding: 0 }
 .g-ticker { position: absolute; top: 62px; right: max(12px, env(safe-area-inset-right, 0px)); width: min(340px, 34%); display: flex; flex-direction: column; gap: 3px; pointer-events: none !important }
 .g-ticker div { background: rgba(10,8,6,.78); color: #f1e9d6; font-size: .76rem; padding: 3px 8px; border-radius: 6px; line-height: 1.4 }
 .g-ticker div:last-child { border-left: 2px solid var(--candle) }
-.g-vote { position: absolute; top: 108px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px);
+.g-vote { position: absolute; z-index: 6; top: 108px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px);
   background: rgba(20,15,11,.92); border: 1px solid var(--candle); border-radius: 14px; padding: 8px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.5) }
 .g-vote-t { display: flex; flex-direction: column; line-height: 1.3 } .g-vote-t small { color: var(--muted) }
 .g-vote-faces { display: flex; gap: 4px }
@@ -504,6 +504,33 @@ body.ingame main { max-width: none; padding: 0 }
 .g-moment-text small { color: #b9a687 }
 .g-moment-x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; cursor: pointer }
 @keyframes momentIn { from { opacity: 0; transform: translateX(-50%) scale(.85) } to { opacity: 1; transform: translateX(-50%) scale(1) } }
+.g-npc { position: relative }
+.g-portrait { position: relative; transition: filter .3s, transform .3s, opacity .3s }
+.g-npc .g-portrait:not(.pc) { width: min(54%, 280px) }
+.g-portrait.pc { width: min(42%, 220px); margin-left: -7%; border-color: var(--verdigris); box-shadow: 0 0 26px rgba(99,176,156,.3), 0 20px 50px rgba(0,0,0,.7); z-index: 1 }
+.g-portrait.dim { filter: brightness(.5) saturate(.6); transform: scale(.94) }
+.g-portrait:not(.dim) { z-index: 2 }
+.g-port-name { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); background: var(--leather); color: var(--candle); border: 1px solid var(--edge); font: 400 .8rem var(--f-name, serif); padding: 1px 10px; border-radius: 6px; white-space: nowrap }
+.g-portrait.pc .g-port-name { color: #bfe9dd }
+.g-room-tabs { display: flex; gap: 6px }
+.g-hud:has(.g-room:not([hidden])) .g-vote { top: 14px }
+.g-talk { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px }
+.g-line-group { display: flex; flex-direction: column; gap: 8px; position: relative }
+.g-line { max-width: 92%; font: 400 .95rem/1.6 var(--f-body, system-ui) }
+.g-line p { margin: 0; white-space: pre-wrap }
+.g-line b { display: block; font: 400 .82rem var(--f-name, serif); letter-spacing: .03em }
+.g-line.npc { align-self: flex-start; background: linear-gradient(180deg, rgba(239,227,200,.97), rgba(226,210,176,.97)); color: #2a1d12; border-radius: 4px 14px 14px 14px; padding: 8px 14px }
+.g-line.npc b { color: #7a4a14 }
+.g-line.narr { align-self: stretch; max-width: 100%; color: #cdbb98; font-style: italic; font-size: .9rem; padding: 0 4px }
+.g-line.narr.think { color: var(--candle) }
+.g-line.pc { align-self: flex-end; display: flex; flex-direction: row-reverse; gap: 8px; align-items: flex-start }
+.g-line.pc > div { background: rgba(40,70,62,.92); color: #e8f4ef; border: 1px solid rgba(99,176,156,.5); border-radius: 14px 4px 14px 14px; padding: 8px 14px; min-width: 0 }
+.g-line.pc b { color: #9fd8c8 }
+.g-line.sys { align-self: center; max-width: 100%; font-size: .8rem; color: #b9a687; background: rgba(0,0,0,.35); border-radius: 8px; padding: 4px 10px; text-align: center; white-space: pre-wrap }
+.g-line.quest-ready { color: #f4d27a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
+.g-line-tts { position: absolute; right: 0; top: 0; opacity: .5 }
+.g-talk-ch { justify-content: flex-start; padding: 4px 0 8px }
+.g-room-body .g-say { position: sticky; bottom: -12px; background: rgba(20,15,11,.96); padding: 8px 0 4px; margin-bottom: -4px }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
@@ -548,6 +575,9 @@ body.tv .g-hint { font-size: 1rem }
   .g-txt { white-space: normal; text-align: center; flex-basis: 100% }
   .g-vote { top: 112px }
   .g-room { grid-template-columns: minmax(0, 1fr) }
+  .g-portrait.pc { position: absolute; left: 0; right: auto; top: 74px; bottom: auto; width: 64px; border-radius: 50% }
+  .g-port-name { display: none }
+  .g-room-side { padding-bottom: 8px }
   .g-npc { position: absolute; left: 12px; top: 56px; padding: 0 }
   .g-portrait { width: 64px; border-radius: 50% }
   .g-room-side { padding: 56px 12px 12px 88px }

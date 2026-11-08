@@ -140,7 +140,12 @@ async function writeParty(cardId, patch) {
   await dbx().doc("campaigns/" + P.cid + "/party/" + cardId).set(next);
 }
 async function writeMeta(patch) { P.meta = { ...P.meta, ...patch, updated: Date.now() }; await dbx().doc("campaigns/" + P.cid).update({ ...patch, updated: Date.now() }); }
-async function say(kind, text, extra = {}) { await dbx().collection("campaigns/" + P.cid + "/chat").add({ ts: Date.now(), kind, text, who: extra.who || (kind === "dm" ? "DM" : ""), uid: myUid(), ...extra }); }
+const unEntity = (t) => String(t == null ? "" : t).replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16))).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+// chat lines said inside a village building carry that building's id, so the building shows its own conversation
+async function say(kind, text, extra = {}) {
+  const place = "place" in extra ? extra.place : (P.scene && P.scene.mode === "town" && P.townPlace) || null;
+  await dbx().collection("campaigns/" + P.cid + "/chat").add({ ts: Date.now(), kind, text: unEntity(text), who: extra.who || (kind === "dm" ? "DM" : ""), uid: myUid(), ...extra, place });
+}
 
 // ---------- join / sync cards ----------
 async function joinWith(card) {
@@ -246,6 +251,7 @@ function hostTick() {
     if (ex.turn && (sc.ex || {}).turn !== ex.turn) { hostBusy = true; writeScene({ ex: { group: ex.group, turn: ex.turn, moved: 0, acted: false } }).finally(() => { hostBusy = false; }); return; }
     checkEncounters();
   }
+  if (sc.qvote && sc.mode === "town") { const s = questVoteStatus(); if (s && (s.all || s.no.length)) { hostBusy = true; settleQuestVote().finally(() => { hostBusy = false; }); return; } }
   if (sc.vote && sc.mode !== "combat") { const v = voteStatus(); if (v && v.all) { hostBusy = true; const loc = sc.vote.loc; writeScene({ vote: null }).then(() => travelTo(loc)).finally(() => { hostBusy = false; }); return; } }
   maybeDM();
 }
@@ -484,8 +490,8 @@ function askRecap() {
 
 // ---------- DM (Claude) ----------
 function requestDM(extra) {
-  if (isHost()) { P.dmQueue = (P.dmQueue || []).concat([extra]); maybeDM(); }
-  else if (P.cid) say("system", "📜 " + extra.event, { dmEvent: true }).catch(() => {});
+  if (isHost()) { P.dmQueue = (P.dmQueue || []).concat([{ ...extra, place: "place" in extra ? extra.place : (P.scene && P.scene.mode === "town" && P.townPlace) || null }]); maybeDM(); }
+  else if (P.cid) say("system", "📜 " + extra.event, { dmEvent: true, ...("place" in extra ? { place: extra.place } : {}) }).catch(() => {});
 }
 let dmRunning = false;
 async function maybeDM() {
@@ -500,7 +506,9 @@ async function maybeDM() {
     const pendAll = P.chat.filter((m) => (m.kind === "player" || m.dmEvent) && !m.answered);
     for (const m of pendAll) { m.answered = true; dbx().doc("campaigns/" + P.cid + "/chat/" + m.id).update({ answered: true }).catch(() => {}); }
     const pending = pendAll.filter((m) => m.kind === "player");
-    events.push(...pendAll.filter((m) => m.dmEvent).map((m) => ({ event: m.text.replace(/^📜 /, "") })));
+    events.push(...pendAll.filter((m) => m.dmEvent).map((m) => ({ event: m.text.replace(/^📜 /, ""), place: m.place || null })));
+    const withPlace = [...pending, ...events].reverse().find((m) => m.place !== undefined);
+    P.dmPlace = P.scene && P.scene.mode === "town" && withPlace ? withPlace.place || null : null;
     await runDM(sample, pending, events, 0);
   } catch (e) {
     await say("system", e && e.code === "rate_limited" ? "DM ตอบถี่เกินไป รอสักครู่แล้วพิมพ์ใหม่" : "DM ตอบไม่ได้ตอนนี้ (" + ((e && e.code) || "error") + ")");
@@ -522,6 +530,8 @@ function dmContext() {
   lines.push("แคมเปญ: " + CAMP.name + " · " + CAMP.summary);
   lines.push("โน้ต DM: " + CAMP.dmNotes);
   if (isTown) {
+    const inside = Object.values(P.party).filter((p) => p.townPlace).map((p) => { const sp = (typeof TOWN_SPOTS !== "undefined" ? TOWN_SPOTS : []).find((x) => x.id === p.townPlace); return p.card.name + " อยู่ใน " + ((CAMP.town.places.find((x) => x.id === p.townPlace) || {}).name || p.townPlace) + (sp ? " คุยกับ " + sp.who : ""); });
+    if (inside.length) lines.push("ในอาคาร: " + inside.join("; ") + " · ตอบเป็นบทสนทนา ให้ NPC คนนั้นพูดเองในเครื่องหมาย “…” ตามนิสัยของเขา คำบรรยายสั้น ๆ");
     lines.push("ตอนนี้อยู่: " + CAMP.town.intro + "\nสถานที่ในหมู่บ้าน: " + CAMP.town.places.map((p) => p.name + " (" + p.desc + ")").join("; ") + "\nNPC: " + CAMP.town.npcs + "\nข่าวลือ: " + CAMP.town.rumors.join(" / "));
   } else if (def) {
     const enc = Object.entries(def.encounters || {}).map(([L, e]) => L + "=" + e.th + (P.meta.cleared && P.meta.cleared[clearedKey(loc, L)] ? " (ชนะแล้ว)" : "")).join(", ");
@@ -544,6 +554,8 @@ const DM_RULES = `คุณคือ Dungeon Master ของเกม D&D (ก�
 - การต่อสู้เริ่มเองเมื่อผู้เล่นเดินไปเห็นศัตรูบนแผนที่ คุณสั่งเริ่มได้ด้วย action startCombat เมื่อเรื่องดำเนินไปสู่การต่อสู้แน่นอน
 - ให้รางวัลอย่างสมเหตุสมผล (เงินเล็กน้อย, potion-healing) ผ่าน action give
 - ตอบไม่เกิน 120 คำ
+- คำพูดของ NPC ใส่ในเครื่องหมาย “…” เสมอ (หน้าเว็บจะแยกเป็นกล่องคำพูดของ NPC) ห้ามใช้รหัส HTML เช่น &#39;
+- ผู้เล่นจ่ายเงิน (ค่าห้อง ค่าบริการ) ใช้ give ที่ gp ติดลบ เช่น "gp":-1
 ตอบเป็น JSON เท่านั้น ตามรูปแบบ:
 {"say":"คำบรรยาย","checks":[{"who":"ชื่อตัวละคร","skill":"Perception","dc":12,"adv":0}],"action":null,"options":["ทางเลือกสั้น 1","ทางเลือกสั้น 2"]}
 การเข้าสังคม: เมื่อผู้เล่นต่อรอง หลอก ขู่ หรือเกลี้ยกล่อม NPC ให้ขอ check (Persuasion/Deception/Intimidation/Insight) ก่อน แล้วในรอบเล่าผลค่อยให้ผลจริง เช่น discount ที่ตลาด give ของ หรือ flag ความสัมพันธ์
@@ -562,13 +574,13 @@ async function runDM(sample, playerMsgs, events, depth, checkResults) {
   const prompt = DM_RULES + "\n\n=== สถานการณ์ ===\n" + dmContext() + "\n\n=== บทสนทนาล่าสุด ===\n" + history + "\n\n=== ตอนนี้ ===\n" + (now || "ผู้เล่นรอให้ DM เล่าต่อ") + (depth ? "\n(นี่คือรอบเล่าผลทอย ห้ามขอ checks เพิ่ม)" : "");
   const ans = await sample.json(prompt, { modelTier: "default" });
   const text = String((ans && ans.say) || "").trim();
-  if (text) { await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map(String) : [] }); P.dmLines = (P.dmLines || 0) + 1; if (P.dmLines % 10 === 0) updateStory(sample).catch(() => {}); }
+  if (text) { await say("dm", text, { options: Array.isArray(ans.options) ? ans.options.slice(0, 4).map((o) => unEntity(o)) : [], place: P.dmPlace || null }); P.dmLines = (P.dmLines || 0) + 1; if (P.dmLines % 10 === 0) updateStory(sample).catch(() => {}); }
   for (const a of [].concat((ans && ans.action) || [], (ans && ans.actions) || []).slice(0, 3)) await dmAction(a);
   if (!depth && ans && Array.isArray(ans.checks) && ans.checks.length) {
     const rolls = [];
     const results = ans.checks.slice(0, 4).map((c) => { const t = rollCheck(c); if (t) rolls.push(rollCheck.last); return t; }).filter(Boolean);
     if (results.length) {
-      await say("system", "🎲 " + results.join("\n🎲 "), { rolls });
+      await say("system", "🎲 " + results.join("\n🎲 "), { rolls, place: P.dmPlace || null });
       await runDM(sample, [], [], 1, results.join("; "));
     }
   }
@@ -600,9 +612,11 @@ async function dmAction(a) {
       for (const p of who) {
         const inv = clone(p.card.inventory || []);
         for (const [id, q] of (a.items || []).slice(0, 4)) if (IX.items[id]) { const e = inv.find((x) => x.id === id); if (e) e.qty += Math.min(3, +q || 1); else inv.push({ id, qty: Math.min(3, +q || 1), equipped: false }); }
-        await writeParty(p.cardId, { card: { ...p.card, gp: (p.card.gp || 0) + Math.min(500, Math.max(0, +a.gp || 0)), xp: (p.card.xp || 0) + Math.min(1000, Math.max(0, +a.xp || 0)), inventory: inv } });
+        await writeParty(p.cardId, { card: { ...p.card, gp: Math.max(0, (p.card.gp || 0) + Math.min(500, Math.max(-500, Math.round(+a.gp || 0)))), xp: (p.card.xp || 0) + Math.min(1000, Math.max(0, +a.xp || 0)), inventory: inv } });
       }
-      if (who.length) await say("system", "🎁 " + who.map((p) => p.card.name).join(", ") + " ได้รับ" + (a.gp ? " " + a.gp + " GP" : "") + ((a.items || []).length ? " " + a.items.map(([id, q]) => q + "× " + iname(id)).join(", ") : "") + (a.xp ? " " + a.xp + " EXP" : ""));
+      const gpN = Math.round(+a.gp || 0); const got = [gpN > 0 ? gpN + " GP" : "", ...(a.items || []).map(([id, q]) => q + "× " + iname(id)), +a.xp > 0 ? a.xp + " EXP" : ""].filter(Boolean);
+      if (who.length && gpN < 0) await say("system", "💰 " + who.map((p) => p.card.name).join(", ") + " จ่าย " + (-gpN) + " GP", { place: P.dmPlace || null });
+      if (who.length && got.length) await say("system", "🎁 " + who.map((p) => p.card.name).join(", ") + " ได้รับ " + got.join(", "), { place: P.dmPlace || null });
     } else if (a.type === "rest") await restParty(a.kind === "long" ? "long" : "short", true);
     else if (a.type === "discount" && P.scene.mode === "town") await writeMeta({ discount: { pct: Math.max(5, Math.min(30, Math.round(+a.pct || 10))), npc: String(a.npc || "Bram").slice(0, 30) } });
     else if (a.type === "quest") await dmQuest(a);
@@ -836,14 +850,43 @@ function nextMainQuest() { return QD.main.map((q) => ({ ...q, kind: "main" })).f
 function questGoalText(q) { const p = questProg(q); return q.goalTh + (p.of > 1 ? " (" + p.n + "/" + p.of + ")" : ""); }
 function questsAt(loc) { const nm = nextMainQuest(); return questDefs().filter((q) => q.loc === loc && (q.kind === "main" ? !!nm && nm.id === q.id : questStatus(q) === "active")); }
 async function writeQuests(patch) { await writeMeta({ quests: { ...qState(), ...patch } }); }
+// taking a quest needs everyone online to agree (like travel); a solo player takes it at once
 async function takeQuest(id) {
   const q = questDef(id); if (!q || questStatus(q) !== "offer") return;
+  if (sideSlotsFull()) return toast("รับเควสรองได้ทีละ " + (QD.maxSide || 3) + " เควส ส่งเควสเก่าก่อนนะ");
+  const others = Object.values(P.party).filter((p) => isOnline(p) && !(NET.local || p.uid === myUid()));
+  if (NET.local || !others.length) return acceptQuest(id);
+  const ts = Date.now(); const me = myMember();
+  await writeScene({ qvote: { id, ts, by: me ? me.card.name : "" } });
+  for (const p of myParty()) await writeParty(p.cardId, { qok: ts });
+  await say("system", "📜 " + (me ? me.card.name : "มีคน") + " ชวนรับเควส “" + q.title + "” · ทุกคนกด “ยอมรับ” เพื่อรับงาน");
+}
+function sideSlotsFull() { const qs = qState(); return Object.keys(qs.taken || {}).filter((k) => !(qs.turned || {})[k]).length >= (QD.maxSide || 3); }
+function questVoteStatus() {
+  const v = P.scene && P.scene.qvote; if (!v) return null;
+  const list = Object.values(P.party).filter(isOnline);
+  return { v, q: questDef(v.id), list, ok: list.filter((p) => p.qok === v.ts), no: list.filter((p) => p.qok === -v.ts), all: list.length > 0 && list.every((p) => p.qok === v.ts) };
+}
+async function voteQuest(yes) { const v = P.scene.qvote; if (!v) return; for (const p of myParty()) await writeParty(p.cardId, { qok: yes ? v.ts : -v.ts }); }
+async function settleQuestVote() {
+  const s = questVoteStatus(); if (!s) return false;
+  if (s.no.length) { await writeScene({ qvote: null }); await say("system", "📜 " + s.no.map((p) => p.card.name).join(", ") + " ไม่รับเควส “" + (s.q ? s.q.title : "") + "” · ยกเลิกแล้ว"); return true; }
+  if (s.all) { await writeScene({ qvote: null }); await acceptQuest(s.v.id); return true; }
+  return false;
+}
+const giverSpot = (q) => (typeof TOWN_SPOTS !== "undefined" ? TOWN_SPOTS : []).find((s) => s.who === (q && q.giver)) || null;
+async function acceptQuest(id) {
+  const q = questDef(id); if (!q || questStatus(q) !== "offer") return;
   const taken = qState().taken || {};
-  if (Object.keys(taken).filter((k) => !(qState().turned || {})[k]).length >= (QD.maxSide || 3)) return toast("รับเควสรองได้ทีละ " + (QD.maxSide || 3) + " เควส ส่งเควสเก่าก่อนนะ");
+  if (sideSlotsFull()) return toast("รับเควสรองได้ทีละ " + (QD.maxSide || 3) + " เควส ส่งเควสเก่าก่อนนะ");
   const base = q.goal.t === "kill" ? killTotal(q.goal.mon) : q.goal.t === "chests" ? Object.keys(P.meta.opened || {}).length : 0;
   await writeQuests({ taken: { ...taken, [id]: { at: Date.now(), base } } });
-  const me = myMember();
-  await say("system", "📜 " + (me ? me.card.name + " รับเควส " : "รับเควส ") + "“" + q.title + "” จาก " + q.giver + " · " + q.goalTh);
+  const sp = giverSpot(q);
+  await say("system", "📜 ทีมรับเควส “" + q.title + "” จาก " + q.giver + " · " + q.goalTh, { place: sp ? sp.id : null });
+  if (sp) { // walk the whole party to the quest giver, who explains the job
+    await writeScene({ gather: { place: sp.id, ts: Date.now() } });
+    requestDM({ event: "ทีมเพิ่งรับเควส “" + q.title + "” (" + q.goalTh + ") และเดินมาหา " + q.giver + " ให้ " + q.giver + " เล่ารายละเอียดงานเป็นคำพูดของตัวเอง สั้น ๆ พร้อมคำใบ้หนึ่งอย่าง", place: sp.id });
+  }
 }
 async function dropQuest(id) {
   const taken = { ...(qState().taken || {}) }; delete taken[id];
@@ -854,7 +897,7 @@ async function turnInQuest(id) {
   if (P.scene.mode !== "town") return toast("กลับไปส่งเควสที่กระดานประกาศในหมู่บ้านนะ");
   await writeQuests({ turned: { ...(qState().turned || {}), [id]: Date.now() } });
   await giveQuestReward(q);
-  requestDM({ event: "ทีมส่งเควส “" + q.title + "” ให้ " + q.giver + " และได้รับรางวัล ให้ " + q.giver + " พูดขอบคุณสั้น ๆ" + (q.kind === "main" && nextMainQuest() ? " แล้วบอกใบ้งานถัดไป: " + nextMainQuest().story : "") });
+  requestDM({ event: "ทีมส่งเควส “" + q.title + "” ให้ " + q.giver + " และได้รับรางวัล ให้ " + q.giver + " พูดขอบคุณสั้น ๆ ตามนิสัย" + (q.kind === "main" && nextMainQuest() ? " แล้วบอกใบ้งานถัดไป: " + nextMainQuest().story : ""), place: P.townPlace || (giverSpot(q) || {}).id || null });
 }
 async function giveQuestReward(q) {
   const r = q.reward || {}; const members = Object.values(P.party);
@@ -863,7 +906,7 @@ async function giveQuestReward(q) {
     for (const [iid, n] of r.items || []) { const e = inv.find((x) => x.id === iid); if (e) e.qty += n; else inv.push({ id: iid, qty: n, equipped: false }); }
     await writeParty(p.cardId, { card: { ...p.card, gp: (p.card.gp || 0) + (r.gp || 0), xp: (p.card.xp || 0) + (r.xp || 0), inventory: inv } });
   }
-  await say("system", "🏅 ส่งเควส “" + q.title + "” สำเร็จ · ทุกคนได้" + (r.gp ? " " + r.gp + " GP" : "") + ((r.items || []).length ? " · " + r.items.map(([iid, n]) => n + "× " + iname(iid)).join(", ") : "") + (r.xp ? " · " + r.xp + " EXP" : ""));
+  await say("system", "🏅 ส่งเควส “" + q.title + "” ให้ " + q.giver + " สำเร็จ · ทุกคนได้" + (r.gp ? " " + r.gp + " GP" : "") + ((r.items || []).length ? " · " + r.items.map(([iid, n]) => n + "× " + iname(iid)).join(", ") : "") + (r.xp ? " · " + r.xp + " EXP" : ""));
 }
 // tell the table once when a quest becomes ready to hand in
 async function questCheck() {
