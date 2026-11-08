@@ -567,7 +567,13 @@ body.ingame main { max-width: none; padding: 0 }
 .g-line.quest-ready { color: #f4d27a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
 .g-line-tts { position: absolute; right: 0; top: 0; opacity: .5 }
 .g-talk-ch { justify-content: flex-start; padding: 4px 0 8px }
-.g-room-body .g-say { position: sticky; bottom: -12px; background: rgba(20,15,11,.96); padding: 8px 0 4px; margin-bottom: -4px }
+.g-room-body { display: flex; flex-direction: column; gap: 10px }
+.g-room-body > * { flex-shrink: 0 }
+.g-talk-box { max-height: 40vh; min-height: 120px; overflow: auto; padding-right: 4px; overscroll-behavior: contain }
+.g-quick { display: flex; flex-wrap: wrap; gap: 6px }
+.g-quick .chip { font-size: .85rem }
+.g-svc-head { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--candle); font: 400 1.05rem var(--f-name, serif) }
+.g-svc-head::before, .g-svc-head::after { content: ""; flex: 1; height: 1px; background: var(--edge) }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
@@ -619,6 +625,9 @@ body.tv .g-hint { font-size: 1rem }
   .g-portrait { width: 64px; border-radius: 50% }
   .g-room-side { padding: 56px 12px 12px 88px }
   .g-room-side h2 { font-size: 1.3rem }
+  .g-talk-box { max-height: 32vh; min-height: 90px }
+  .g-quick { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px }
+  .g-quick .chip { white-space: nowrap }
   .g-me { bottom: calc(86px + env(safe-area-inset-bottom, 0px)) }
   .g-big { width: 52px }
   .g-stats { padding: 4px 8px }
@@ -4668,14 +4677,14 @@ function toggleTV() {
 // ---------- town: painted village with lit buildings, rooms with the NPC ----------
 const TOWN_IMG = "assets/town-brindlemoor.webp";
 const TOWN_SPOTS = [
-  { id: "inn", x: 75, y: 25.5, npc: "pell", who: "Old Pell", line: "นั่งก่อนสิ ซุปยังร้อน… อยากฟังเรื่องมังกรใต้หอเถ้าถ่านไหมล่ะ?" },
-  { id: "temple", x: 15, y: 34, npc: "maren", who: "Sister Maren", line: "แสงรุ่งอรุณคุ้มครองเจ้า ใครบาดเจ็บหรือจากไป พาเขามาที่นี่" },
-  { id: "market", x: 79, y: 45.8, npc: "bram", who: "Bram", line: "ของดีราคาถูก… ก็ไม่ถูกขนาดนั้นหรอก จะเอาอะไรว่ามา" },
-  { id: "board", x: 58, y: 55.9, npc: "oswin", who: "Mayor Oswin Hale", line: "ก็อบลินจากโพรงหนามดำลักพาตัวชาวบ้านไปแล้วสามคน ช่วยพวกเราด้วยเถิด" },
-  { id: "forge", x: 35, y: 38, npc: "hilda", who: "Hilda Emberheart", short: "Hilda", line: "ฮ่า! ดาบนั่นทื่อยิ่งกว่าช้อน เอามานี่ ข้าจะตีให้คมจนตัดลมได้" },
-  { id: "alchemist", x: 41, y: 20, npc: "mirelle", who: "Mirelle Quickdraught", short: "Mirelle", line: "อย่าจับขวดสีม่วงนะ! มันยัง… เอ่อ ยังไม่เสถียร จะเอายาแบบไหนดีจ๊ะ?" },
-  { id: "stable", x: 29, y: 80, npc: "garrick", who: "Garrick Hale", short: "Garrick", line: "ม้าพร้อม เกวียนพร้อม จ่ายค่าเดินทางแล้วขึ้นมาได้เลย" },
-  { id: "night", x: 42, y: 64, npc: "sable", who: "Sable", short: "Sable", night: true, line: "โคมจุดแล้ว… ของที่หาไม่ได้ตอนกลางวัน รอเจ้าของคนใหม่อยู่" },
+  { id: "inn", opts: ["ขอซุปร้อน ๆ สักชาม", "เล่าเรื่องมังกรให้ฟังหน่อย", "ช่วงนี้มีข่าวลืออะไรบ้าง", "ใครเก่งเกมเต๋าที่สุดในร้าน"], x: 75, y: 25.5, npc: "pell", who: "Old Pell", line: "นั่งก่อนสิ ซุปยังร้อน… อยากฟังเรื่องมังกรใต้หอเถ้าถ่านไหมล่ะ?" },
+  { id: "temple", opts: ["ขอพรให้การเดินทางหน่อย", "ถามเรื่องเทพีรุ่งอรุณ", "ลัทธิ Ashen Choir คือใคร", "ช่วยรักษาบาดแผลได้ไหม"], x: 15, y: 34, npc: "maren", who: "Sister Maren", line: "แสงรุ่งอรุณคุ้มครองเจ้า ใครบาดเจ็บหรือจากไป พาเขามาที่นี่" },
+  { id: "market", opts: ["มีของดีอะไรแนะนำบ้าง", "ขอต่อราคาหน่อย", "ช่วงนี้ขายอะไรดี", "ได้ยินข่าวอะไรมาบ้าง"], x: 79, y: 45.8, npc: "bram", who: "Bram", line: "ของดีราคาถูก… ก็ไม่ถูกขนาดนั้นหรอก จะเอาอะไรว่ามา" },
+  { id: "board", opts: ["มีงานอะไรให้ช่วยบ้าง", "ชาวบ้านที่หายไปเป็นใคร", "ถามเรื่องก็อบลินโพรงหนามดำ", "รางวัลเท่าไหร่"], x: 58, y: 55.9, npc: "oswin", who: "Mayor Oswin Hale", line: "ก็อบลินจากโพรงหนามดำลักพาตัวชาวบ้านไปแล้วสามคน ช่วยพวกเราด้วยเถิด" },
+  { id: "forge", opts: ["ขอดูอาวุธดี ๆ หน่อย", "การตีของ +1 ทำยังไง", "ขอต่อราคาหน่อย", "ได้ยินข่าวอะไรมาบ้าง"], x: 35, y: 38, npc: "hilda", who: "Hilda Emberheart", short: "Hilda", line: "ฮ่า! ดาบนั่นทื่อยิ่งกว่าช้อน เอามานี่ ข้าจะตีให้คมจนตัดลมได้" },
+  { id: "alchemist", opts: ["แนะนำยาหน่อย", "คัมภีร์เวทใช้ยังไง", "ระเบิดไฟอันตรายแค่ไหน", "ขอต่อราคาหน่อย"], x: 41, y: 20, npc: "mirelle", who: "Mirelle Quickdraught", short: "Mirelle", line: "อย่าจับขวดสีม่วงนะ! มันยัง… เอ่อ ยังไม่เสถียร จะเอายาแบบไหนดีจ๊ะ?" },
+  { id: "stable", opts: ["ทางไปดันเจียนไหนปลอดภัยสุด", "ถนนช่วงนี้ปลอดภัยไหม", "ม้าตัวไหนเร็วที่สุด", "ได้ยินข่าวอะไรมาบ้าง"], x: 29, y: 80, npc: "garrick", who: "Garrick Hale", short: "Garrick", line: "ม้าพร้อม เกวียนพร้อม จ่ายค่าเดินทางแล้วขึ้นมาได้เลย" },
+  { id: "night", opts: ["ของคืนนี้มีอะไรพิเศษ", "ท่านเป็นใครกันแน่", "ของพวกนี้มาจากไหน", "ขอต่อราคาหน่อย"], x: 42, y: 64, npc: "sable", who: "Sable", short: "Sable", night: true, line: "โคมจุดแล้ว… ของที่หาไม่ได้ตอนกลางวัน รอเจ้าของคนใหม่อยู่" },
 ];
 const spotsNow = () => TOWN_SPOTS.filter((s) => !s.night || (typeof isNight === "function" && isNight()));
 // where the village image sits on the stage: cover on wide screens, keep every building visible on phones
@@ -4721,17 +4730,20 @@ function renderRoom() {
     const R = P.roomDom = {};
     R.npc = h("div", { class: "g-portrait enter", role: "img", "aria-label": "ภาพ " + s.who, style: "background-image:url(assets/npc-" + s.npc + ".webp)" }, h("span", { class: "g-port-name" }, s.who));
     R.pc = h("div", { class: "g-portrait pc", role: "img" }, h("span", { class: "g-port-name" }));
-    R.here = h("span", { class: "g-here" }); R.tabs = h("div", { class: "g-room-tabs", role: "tablist" });
+    R.here = h("span", { class: "g-here" });
     R.body = h("div", { class: "g-room-body" }); R.talk = h("div", { class: "g-talk" }); R.choices = h("div", { class: "g-choices g-talk-ch" });
+    R.talkBox = h("div", { class: "g-talk-box" }, R.talk, R.choices);
+    R.quick = h("div", { class: "g-quick", role: "group", "aria-label": "ตัวเลือกคุยกับ " + s.who });
     R.input = h("input", { type: "text", maxlength: 300, placeholder: "พูดกับ " + s.who + "…", "aria-label": "พูดกับ " + s.who, onkeydown: (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); roomSay(); } } });
     R.sayRow = h("div", { class: "g-say" }, R.input, h("button", { class: "btn primary", onclick: roomSay }, "พูด"));
     R.service = h("div", { class: "g-room-svc" });
+    fill(R.body, R.talkBox, R.quick, R.sayRow, h("div", { class: "g-svc-head" }, h("span", null, "🛎 บริการของ " + (s.short || s.who))), R.service);
     box.style.backgroundImage = "url(assets/room-" + id + ".webp), url(assets/room-" + (id === "night" ? "market" : id === "stable" ? "board" : "inn") + ".webp)";
     fill(box,
       h("div", { class: "g-npc" }, R.npc, R.pc),
       h("div", { class: "g-room-side" },
         h("div", { class: "row" }, h("span", { class: "g-mode town" }, pl.th), R.here),
-        h("h2", null, pl.name), R.tabs, R.body,
+        h("h2", null, pl.name), R.body,
         h("div", { class: "row" }, h("button", { class: "btn", onclick: leavePlace }, "← กลับจัตุรัส"))));
   }
   const R = P.roomDom;
@@ -4739,8 +4751,6 @@ function renderRoom() {
   const others = Object.values(P.party).filter((p) => p.townPlace === id && !mine.has(p.cardId));
   fill(R.here, others.length > 0 && [others.map((p) => face(p.card.portrait, p.card.name, "g-face sm")), others.map((p) => p.card.name.split(" ")[0]).join(", ") + " อยู่ที่นี่ด้วย"]);
   const ready = questsBy("ready").filter((q) => giverSpot(q) && giverSpot(q).id === id && id !== "board");
-  fill(R.tabs, [["talk", "💬 คุย"], ["svc", "🛎 บริการ" + (ready.length ? " · ส่งเควส " + ready.length : "")]].map(([k, l]) =>
-    h("button", { class: "tab", role: "tab", "aria-selected": P.roomTab === k ? "true" : "false", "aria-current": P.roomTab === k ? "true" : "false", onclick: () => { P.roomTab = k; renderRoom(); } }, l)));
   // conversation lines said in this building
   const lines = P.chat.filter((m) => m.place === id).slice(-40);
   const last = [...lines].reverse().find((m) => m.kind !== "system");
@@ -4752,23 +4762,19 @@ function renderRoom() {
   R.pc.querySelector(".g-port-name").textContent = speaker ? speaker.card.name.split(" ")[0] : "";
   const pcTalking = !!(last && last.kind === "player");
   R.npc.classList.toggle("dim", pcTalking); R.pc.classList.toggle("dim", !pcTalking);
-  if (P.roomTab === "talk") {
-    const atBottom = R.body.scrollHeight - R.body.scrollTop - R.body.clientHeight < 80;
-    fill(R.talk, h("div", { class: "g-line npc" }, h("b", null, s.who), h("p", null, s.line)),
-      ready.map((q) => h("div", { class: "g-line sys quest-ready" }, "📜 เควส “" + q.title + "” สำเร็จแล้ว ", h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควสให้ " + s.who.split(" ")[0]))),
-      lines.map((m) => talkLine(m, s)),
-      dmRunning && h("div", { class: "g-line narr think" }, "…"));
-    const lastDm = [...lines].reverse().find((m) => m.kind === "dm");
-    fill(R.choices, lastDm && lastDm === [...lines].reverse().find((m) => m.kind !== "system") && (lastDm.options || []).map((o) => h("button", { class: "g-choice", onclick: () => sendChat(o) }, o)));
-    if (R.body.firstChild !== R.talk) fill(R.body, R.talk, R.choices, R.sayRow);
-    if (fresh || atBottom) R.body.scrollTop = R.body.scrollHeight;
-  } else {
-    const top = R.body.firstChild === R.service ? R.body.scrollTop : 0;
-    fill(R.service, ready.length > 0 && h("div", { class: "quests" }, h("h3", null, "ส่งเควสให้ " + s.who), ready.map((q) => questRow(q, [h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส รับรางวัล")]))),
-      ({ inn: innPanel, temple: templePanel, market: marketPanel, forge: forgePanel, alchemist: alchemistPanel, stable: stablePanel, night: nightPanel }[id] || boardPanel)());
-    if (R.body.firstChild !== R.service) fill(R.body, R.service);
-    R.body.scrollTop = top;
-  }
+  const tb = R.talkBox; const atBottom = tb.scrollHeight - tb.scrollTop - tb.clientHeight < 60;
+  fill(R.talk, h("div", { class: "g-line npc" }, h("b", null, s.who), h("p", null, s.line)),
+    ready.map((q) => h("div", { class: "g-line sys quest-ready" }, "📜 เควส “" + q.title + "” สำเร็จแล้ว ", h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควสให้ " + s.who.split(" ")[0]))),
+    lines.map((m) => talkLine(m, s)),
+    dmRunning && h("div", { class: "g-line narr think" }, "…"));
+  const lastDm = [...lines].reverse().find((m) => m.kind === "dm");
+  fill(R.choices, lastDm && lastDm === [...lines].reverse().find((m) => m.kind !== "system") && (lastDm.options || []).map((o) => h("button", { class: "g-choice", onclick: () => sendChat(o) }, o)));
+  fill(R.quick, (s.opts || []).map((o) => h("button", { class: "chip", disabled: dmRunning, onclick: () => sendChat(o) }, o)));
+  if (fresh || atBottom) tb.scrollTop = tb.scrollHeight;
+  const top = R.body.scrollTop;
+  fill(R.service, ready.length > 0 && h("div", { class: "quests" }, h("h3", null, "ส่งเควสให้ " + s.who), ready.map((q) => questRow(q, [h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส รับรางวัล")]))),
+    ({ inn: innPanel, temple: templePanel, market: marketPanel, forge: forgePanel, alchemist: alchemistPanel, stable: stablePanel, night: nightPanel }[id] || boardPanel)());
+  if (!fresh) R.body.scrollTop = top;
 }
 // split a DM line into narration and NPC speech bubbles: text inside “…” or "…" is spoken by the NPC
 function talkLine(m, s) {

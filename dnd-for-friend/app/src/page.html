@@ -567,7 +567,13 @@ body.ingame main { max-width: none; padding: 0 }
 .g-line.quest-ready { color: #f4d27a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
 .g-line-tts { position: absolute; right: 0; top: 0; opacity: .5 }
 .g-talk-ch { justify-content: flex-start; padding: 4px 0 8px }
-.g-room-body .g-say { position: sticky; bottom: -12px; background: rgba(20,15,11,.96); padding: 8px 0 4px; margin-bottom: -4px }
+.g-room-body { display: flex; flex-direction: column; gap: 10px }
+.g-room-body > * { flex-shrink: 0 }
+.g-talk-box { max-height: 40vh; min-height: 120px; overflow: auto; padding-right: 4px; overscroll-behavior: contain }
+.g-quick { display: flex; flex-wrap: wrap; gap: 6px }
+.g-quick .chip { font-size: .85rem }
+.g-svc-head { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--candle); font: 400 1.05rem var(--f-name, serif) }
+.g-svc-head::before, .g-svc-head::after { content: ""; flex: 1; height: 1px; background: var(--edge) }
 .g-card-warn { color: #ffb4a8 !important; max-width: 260px }
 /* info (ข้อมูล) */
 .info { display: flex; flex-direction: column; gap: 14px }
@@ -619,6 +625,9 @@ body.tv .g-hint { font-size: 1rem }
   .g-portrait { width: 64px; border-radius: 50% }
   .g-room-side { padding: 56px 12px 12px 88px }
   .g-room-side h2 { font-size: 1.3rem }
+  .g-talk-box { max-height: 32vh; min-height: 90px }
+  .g-quick { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px }
+  .g-quick .chip { white-space: nowrap }
   .g-me { bottom: calc(86px + env(safe-area-inset-bottom, 0px)) }
   .g-big { width: 52px }
   .g-stats { padding: 4px 8px }
