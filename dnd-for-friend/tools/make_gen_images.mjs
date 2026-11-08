@@ -53,10 +53,7 @@ images.push({ group: "object", name: "obj-chest", label: "หีบสมบั�
   prompt: "A single small closed wooden treasure chest with iron bands and a gold lock, seen from directly above at a slight angle like a tabletop map prop, centered, filling most of the frame, plain flat dark brown background, soft warm light, no shadow outside the chest." });
 // Review status per image (what is already in the game, what to redo)
 const NOTE = {
-  "token-bandit": ["redo", "ทำใหม่: ตอนนี้หน้าตาเหมือน Scout (ผ้าคลุมเขียว) ในเกมแยกไม่ออก Prompt แก้แล้ว"],
   "token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
-  "welcome": ["new", "ยังไม่มี: ตอนนี้หน้าเข้าเล่นใช้แผนที่โลกแทนไปก่อน ทำแล้วเซฟเป็น images\\welcome.png"],
-  "obj-chest": ["new", "ยังไม่มี: ตอนนี้เกมวาดเป็นกล่องสีน้ำตาลเฉย ๆ ทำแล้วใส่ในโฟลเดอร์ images ส่งให้ Claude"],
 };
 for (const im of images) { const n = NOTE[im.name]; im.note = n ? n[0] : "ok"; im.noteText = n ? n[1] : "อยู่ในเกมแล้ว"; }
 const html = r("tools/gen-images.template.html").replace("/*__IMAGES__*/[]", JSON.stringify(images)).replace("/*__MAPS__*/{}", JSON.stringify(maps));
