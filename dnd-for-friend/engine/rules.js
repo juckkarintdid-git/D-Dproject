@@ -148,7 +148,7 @@ export function speciesCantrips(card, data) {
 // Inventory slots (house rule, YOD 2026-11-08): carrying space counted in slots instead of pounds.
 // Base 10 + STR mod (min 6); a pack (*-pack) adds 10, a pouch adds 2. Worn armor/shield costs nothing.
 // Small things stack 5 per slot (potions, ammo, torches, rations, thrown light weapons); big weapons and spare armor cost more.
-const STACK5 = new Set(["potion-healing", "arrows", "bolts", "torch", "rations", "parchment"]);
+const STACK5 = new Set(["potion-healing","potion-greater-healing","antitoxin","elixir-luck","scroll-magic-missile","scroll-cure-wounds","scroll-healing-word","alchemists-fire", "arrows", "bolts", "torch", "rations", "parchment"]);
 export function itemSlots(x, it) {
   if (!it) return /^chaos-/.test(x.id) ? Math.ceil(x.qty / 5) : x.qty;
   if (x.equipped) return 0;
@@ -181,11 +181,11 @@ export function equipped(card, data) {
   const armor = inv.find((x) => x.equipped && x.item.kind === "armor" && x.item.cat !== "shield");
   const shield = inv.find((x) => x.equipped && x.item.cat === "shield");
   const weapons = inv.filter((x) => x.item.kind === "weapon");
-  return { inv, armor: armor && armor.item, shield: shield && shield.item, weapons };
+  return { inv, armor: armor && armor.item, shield: shield && shield.item, weapons, armorPlus: (armor && armor.plus) || 0, shieldPlus: (shield && shield.plus) || 0 };
 }
 
 export function armorClass(card, data, scores) {
-  const { armor, shield } = equipped(card, data);
+  const { armor, shield, armorPlus, shieldPlus } = equipped(card, data);
   const dex = mod(scores.DEX);
   const train = armorTraining(card, data);
   const feats = featsOf(card, data);
@@ -195,9 +195,10 @@ export function armorClass(card, data, scores) {
     if (!train.has(armor.cat)) notes.push("ไม่ได้ฝึกใส่ " + armor.name + ": STR/DEX เสียเปรียบ ร่ายเวทไม่ได้");
     if (armor.str && scores.STR < armor.str) notes.push(armor.name + " ต้องการ STR " + armor.str + ": ความเร็ว −10 ฟุต");
     if (feats.includes("defense")) ac += 1;
+    ac += armorPlus;
   }
   if (shield) {
-    if (train.has("shield")) ac += 2; else notes.push("ไม่ได้ฝึกใช้โล่: ไม่ได้ AC");
+    if (train.has("shield")) ac += 2 + shieldPlus; else notes.push("ไม่ได้ฝึกใช้โล่: ไม่ได้ AC");
   }
   return { ac, notes };
 }
@@ -206,18 +207,18 @@ export function attacks(card, data, scores, pb) {
   const { weapons } = equipped(card, data);
   const feats = featsOf(card, data);
   const S = mod(scores.STR), D = mod(scores.DEX);
-  return weapons.map(({ item: w }) => {
+  return weapons.map(({ item: w, plus = 0 }) => {
     const finesse = w.props.includes("Finesse");
     const ranged = w.type === "ranged";
     const m = ranged ? D : finesse ? Math.max(S, D) : S;
     const prof = weaponProficient(w, card, data);
-    let hit = m + (prof ? pb : 0) + (ranged && feats.includes("archery") ? 2 : 0);
-    const dmg = w.dmg + (m ? (m > 0 ? "+" + m : String(m)) : "");
+    let hit = m + (prof ? pb : 0) + (ranged && feats.includes("archery") ? 2 : 0) + plus;
+    const dm = m + plus; const dmg = w.dmg + (dm ? (dm > 0 ? "+" + dm : String(dm)) : "");
     const notes = [];
     if (w.props.includes("Heavy") && (ranged ? scores.DEX : scores.STR) < 13) notes.push("Heavy: ตีเสียเปรียบ");
     return {
-      id: w.id, name: w.name, hit, dmg, dtype: w.dtype, prof, range: w.range || null,
-      versatile: w.versatile ? w.versatile + (m ? fmt(m) : "") : null,
+      id: w.id, name: w.name + (plus ? " +" + plus : ""), hit, dmg, dtype: w.dtype, prof, range: w.range || null,
+      versatile: w.versatile ? w.versatile + (dm ? fmt(dm) : "") : null,
       mastery: (card.masteries || []).includes(w.id) ? w.mastery : null, props: w.props, notes,
     };
   });

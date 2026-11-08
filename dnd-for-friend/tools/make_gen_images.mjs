@@ -26,6 +26,10 @@ const NPCS = [
   ["npc-pell", "Old Pell · โรงเตี๊ยม", "Old Pell, a very old halfling storyteller sitting by a tavern hearth, bushy white eyebrows, twinkling eyes, long pipe with a curl of smoke, patched green waistcoat, mug of ale, leaning in as if telling a secret about a dragon"],
   ["npc-bram", "Bram · ตลาด", "Bram, a grumpy stout dwarf shopkeeper with a braided red-brown beard, leather apron full of tools, one eyebrow raised, arms crossed, shelves of potions, rope and weapons behind him"],
   ["npc-oswin", "Mayor Oswin Hale · กระดานประกาศ", "Mayor Oswin Hale, a worried but kind human village mayor in his fifties, round face, receding gray hair, tired eyes, plain brown coat with a brass chain of office, holding a crumpled missing-persons notice"],
+  ["npc-hilda", "Hilda Emberheart · โรงตีเหล็ก", "Hilda Emberheart, a loud proud female dwarf blacksmith, broad shoulders, soot-smudged ruddy face, big grin, thick copper-red braids tied back, leather apron over a sleeveless shirt, heavy forging hammer resting on her shoulder, glowing anvil and sparks behind her"],
+  ["npc-mirelle", "Mirelle Quickdraught · ร้านยา", "Mirelle Quickdraught, an excitable young female gnome alchemist, wild lavender hair poking out under brass goggles pushed up on her forehead, big curious eyes, purple-stained fingers holding up a bubbling glowing green flask, patched violet coat with many pockets of vials"],
+  ["npc-garrick", "Garrick Hale · คอกม้าและคาราวาน", "Garrick Hale, a quiet weathered human caravan master in his forties, short gray-brown beard, kind tired eyes, wide-brimmed dusty hat, long brown travel coat, coiled whip and reins in one hand, a horse's head beside him in the stable"],
+  ["npc-sable", "Sable · ตลาดโคมกลางคืน", "Sable, a mysterious night-market trader of unknown race wearing an ornate white porcelain half-mask shaped like a paper lantern, dark hooded robe embroidered with tiny gold stars, holding a glowing blue paper lantern, sly smile, night fog and floating lanterns behind"],
 ];
 for (const [name, label, look] of NPCS) images.push({ group: "npc", name, label, ratio: "3:4", prompt: look + "." + NPC_TAIL });
 for (const p of premades) images.push({ group: "portrait", name: "portrait-" + p.id, label: p.name, ratio: "1:1",
@@ -73,8 +77,52 @@ const QART = {
 };
 for (const q of camp.quests.main) images.push({ group: "quest", name: "quest-" + q.id, label: q.title, ratio: "16:9",
   prompt: QART[q.id] + ". Wide painted fantasy chapter illustration, no people in the foreground, no text, moody cinematic light." });
+// Village building interiors: background behind the NPC when a player walks in (same top-down style as room-inn / room-market)
+const ROOM_TAIL = " Top-down tabletop battle map of a single room seen from directly above, hand-painted fantasy RPG style, warm interior light, readable floor, no people, no text, no grid.";
+const ROOMS = [
+  ["room-forge", "Emberheart Forge · โรงตีเหล็ก", "A dwarven blacksmith forge interior: a big glowing coal forge with bellows, a heavy anvil in the center, quenching barrel, racks of swords, axes and shields on the walls, half-finished armor on a stand, sparks and soot on the stone floor"],
+  ["room-alchemist", "The Bubbling Flask · ร้านยา", "A cluttered gnome alchemist shop interior: tables covered with bubbling glass flasks and copper tubes, shelves of colorful potions, dried herbs hanging from beams, a small cauldron with green smoke, scroll racks, a low counter sized for a gnome"],
+  ["room-stable", "Hale & Hoof Caravans · คอกม้า", "A village stable and caravan yard: wooden horse stalls with hay, two horses, a covered canvas wagon ready to leave, saddles and harnesses on pegs, feed sacks, a small desk with a route map, dirt and straw floor, open gate to a road"],
+  ["room-night", "Lantern Night Market · ตลาดกลางคืน", "A small night market square in fog: a few mysterious stalls under dark cloth awnings lit by floating paper lanterns in blue and gold, rugs with strange wares, potion bottles, masks and old weapons on display, cobblestones, deep blue night mood"],
+];
+for (const [name, label, look] of ROOMS) images.push({ group: "room", name, label, ratio: "3:2", prompt: look + "." + ROOM_TAIL });
+// Journey screen: full-screen while the party travels (5 s); event art pops up on a card if something happens on the road
+const TRAVEL_TAIL = " Wide cinematic painted fantasy illustration, Ember Vale countryside, no text.";
+const TRAVEL = [
+  ["travel-road", "เดินทางด้วยเท้า (พื้นหลังหลัก)", "Five small adventurers seen from behind walking along a winding dirt road through green hills and a pine forest toward distant mountains, late afternoon light, long shadows, a wooden signpost by the road; keep the top and bottom areas calm and darker for text"],
+  ["travel-caravan", "นั่งคาราวาน", "A covered canvas wagon pulled by two horses rolling along a country road, adventurers sitting in the back, a caravan master with a wide-brimmed hat holding the reins, dust in golden light, rolling fields; keep the top and bottom areas calm and darker for text"],
+  ["travel-home", "เดินทางกลับหมู่บ้าน", "Tired adventurers walking back toward a cozy log village with warm lit windows and chimney smoke at dusk, a stream and a small wooden bridge in front; keep the top and bottom areas calm and darker for text"],
+  ["travel-merchant", "เหตุการณ์ · เกวียนติดหล่ม", "A traveling merchant's cart stuck with one wheel deep in mud on a forest road, crates tilting, a worried merchant waving for help, a tired mule"],
+  ["travel-wolves", "เหตุการณ์ · รอยหมาป่า", "Fresh wolf paw prints in the mud leading into a dark forest, the remains of a deer by the roadside, glowing eyes faintly visible between the trees"],
+  ["travel-rain", "เหตุการณ์ · พายุฝน", "A heavy rainstorm over a muddy country road, dark clouds and lightning, puddles and bending trees, a rocky overhang nearby as shelter"],
+  ["travel-watcher", "เหตุการณ์ · คนคลุมผ้าเทา", "A mysterious figure in a long ash-gray hooded cloak standing on a hilltop watching the road below, face hidden, misty evening, a three-pronged flame symbol on the cloak"],
+  ["travel-shrine", "เหตุการณ์ · ศาลเจ้าริมทาง", "A small roadside stone shrine of a dawn goddess with a sunrise emblem, lit candles and flowers as offerings, soft golden light breaking through morning mist"],
+  ["travel-signpost", "เหตุการณ์ · ป้ายถูกหมุน", "A crossroads wooden signpost whose arrows have been twisted to point the wrong ways, small goblin footprints and a crude scratched grin on the post, overcast sky"],
+  ["travel-bard", "เหตุการณ์ · นักดนตรีพเนจร", "A cheerful wandering bard with a feathered hat playing a lute while sitting on a stone by the road, a small campfire, colorful patched clothes, sunset"],
+  ["travel-camp", "เหตุการณ์ · กองไฟทิ้งร้าง", "An abandoned campfire still smoking by the roadside, scattered bones and a broken goblin spear, many small footprints circling it, dim forest edge at dusk"],
+];
+for (const [name, label, look] of TRAVEL) images.push({ group: "travel", name, label, ratio: "16:9", prompt: look + "." + TRAVEL_TAIL });
 // Review status per image (what is already in the game, what to redo)
 const NOTE = {
+"npc-hilda": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"npc-mirelle": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"npc-garrick": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"npc-sable": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"room-forge": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"room-alchemist": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"room-stable": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"room-night": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-road": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-caravan": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-home": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-merchant": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-wolves": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-rain": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-watcher": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-shrine": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-signpost": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-bard": ["new", "รูปใหม่ ยังไม่มีในเกม"],
+"travel-camp": ["new", "รูปใหม่ ยังไม่มีในเกม"],
 "token-red-dragon-wyrmling": ["ok", "ใช้ได้ (พื้นหลังลายตารางลบไม่หมดนิดหน่อยแถวหัว ถ้าอยากเนียนค่อยทำใหม่)"],
 };
 for (const im of images) { const n = NOTE[im.name]; im.note = n ? n[0] : "ok"; im.noteText = n ? n[1] : "อยู่ในเกมแล้ว"; }

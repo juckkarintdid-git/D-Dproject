@@ -226,9 +226,10 @@ async function act(fn) {
   const st = combatState(); if (!st) return;
   const u = current(st);
   const res = fn(st, u);
-  if (res && res.error) { toast(res.error); return; }
+  if (res && res.error) { toast(res.error); return false; }
   P.pending = null; P.attackSel = null; P.spellSel = null; P.pop = null;
   await commitCombat(st);
+  return true;
 }
 
 // ---------- host: monster turns, encounters, combat end, DM ----------
@@ -252,7 +253,7 @@ function hostTick() {
     checkEncounters();
   }
   if (sc.qvote && sc.mode === "town") { const s = questVoteStatus(); if (s && (s.all || s.no.length)) { hostBusy = true; settleQuestVote().finally(() => { hostBusy = false; }); return; } }
-  if (sc.vote && sc.mode !== "combat") { const v = voteStatus(); if (v && v.all) { hostBusy = true; const loc = sc.vote.loc; writeScene({ vote: null }).then(() => travelTo(loc)).finally(() => { hostBusy = false; }); return; } }
+  if (sc.vote && sc.mode !== "combat") { const v = voteStatus(); if (v && v.all) { hostBusy = true; const loc = sc.vote.loc; const caravan = !!sc.vote.caravan; writeScene({ vote: null }).then(() => travelTo(loc, false, { caravan })).finally(() => { hostBusy = false; }); return; } }
   maybeDM();
 }
 async function monsterTurn() {
@@ -690,25 +691,36 @@ async function passTime(hours) {
 }
 
 // small table of road happenings: the code picks, the DM tells it (and may ask for a check)
+// random things on the road: the journey screen shows the picture, the DM tells the scene
 const TRAVEL_EVENTS = [
-  "พ่อค้าเร่ถูกล้อเกวียนติดหล่ม ขอความช่วยเหลือ (ช่วยแล้วอาจได้ของเล็กน้อย)",
-  "เจอรอยเท้าหมาป่าสด ๆ และซากกวาง ให้ทีมเช็ก Survival หรือ Perception",
-  "ฝนตกหนักจนทางลื่น ให้ทีมเลือกพักหลบฝนหรือฝ่าไป",
-  "คนแปลกหน้าคลุมผ้าเทาเฝ้ามองทีมจากเนินแล้วหายไป (สายของลัทธิ Ashen Choir)",
-  "เจอศาลเจ้าเล็กริมทางของเทพีรุ่งอรุณ ใครสวดภาวนาได้กำลังใจ",
-  "ป้ายบอกทางถูกหมุนสลับ ให้เช็ก Survival ถ้าพลาดเสียเวลาเล็กน้อย",
+  { id: "merchant", icon: "🛒", title: "เกวียนติดหล่ม", sub: "พ่อค้าเร่ล้อติดโคลน ร้องขอให้ช่วยดัน", dm: "พ่อค้าเร่ถูกล้อเกวียนติดหล่ม ขอความช่วยเหลือ (ช่วยแล้วอาจได้ของเล็กน้อย เช่น potion-healing 1 ขวด)" },
+  { id: "wolves", icon: "🐺", title: "รอยหมาป่า", sub: "รอยเท้าสด ๆ กับซากกวางกลางทาง", dm: "เจอรอยเท้าหมาป่าสด ๆ และซากกวาง ให้ทีมเช็ก Survival หรือ Perception" },
+  { id: "rain", icon: "🌧", title: "พายุฝน", sub: "ฝนกระหน่ำจนทางลื่น จะหลบหรือฝ่าไป?", dm: "ฝนตกหนักจนทางลื่น ให้ทีมเลือกพักหลบฝนหรือฝ่าไป" },
+  { id: "watcher", icon: "👁", title: "คนคลุมผ้าเทา", sub: "ใครบางคนเฝ้ามองอยู่บนเนิน แล้วหายไป", dm: "คนแปลกหน้าคลุมผ้าเทาเฝ้ามองทีมจากเนินแล้วหายไป (สายของลัทธิ Ashen Choir)" },
+  { id: "shrine", icon: "🕯", title: "ศาลเจ้าริมทาง", sub: "ศาลเล็กของเทพีรุ่งอรุณ เทียนยังจุดอยู่", dm: "เจอศาลเจ้าเล็กริมทางของเทพีรุ่งอรุณ ใครสวดภาวนาได้กำลังใจ" },
+  { id: "signpost", icon: "🪧", title: "ป้ายถูกหมุน", sub: "ป้ายบอกทางชี้ผิดทิศ ใครทำ?", dm: "ป้ายบอกทางถูกหมุนสลับ ให้เช็ก Survival ถ้าพลาดเสียเวลาเล็กน้อย" },
+  { id: "bard", icon: "🎻", title: "นักดนตรีพเนจร", sub: "นักร้องเร่ขอเดินทางด้วย แลกกับเพลงและข่าวลือ", dm: "นักดนตรีพเนจรขอเดินทางร่วม ร้องเพลงที่แฝงข่าวลือเกี่ยวกับที่หมาย (ให้เบาะแสเล็ก ๆ)" },
+  { id: "camp", icon: "🔥", title: "กองไฟทิ้งร้าง", sub: "เถ้ายังอุ่น มีรอยเท้าเล็ก ๆ วนรอบ", dm: "เจอกองไฟทิ้งร้าง เถ้ายังอุ่น มีรอยเท้าก็อบลิน ให้เช็ก Investigation ถ้าผ่านรู้ว่ามีกี่ตัวและไปทางไหน" },
 ];
+const JOURNEY_MS = 5000, JOURNEY_EV_MS = 8000;
 
 // ---------- shared party actions ----------
-async function travelTo(loc, quiet) {
+async function travelTo(loc, quiet, opts = {}) {
   const isTown = loc === CAMP.town.id;
+  if (opts.caravan) { // everyone pays the caravan master; whoever is short rides along on a friend's coin
+    let short = 0;
+    for (const p of Object.values(P.party)) { const g = p.card.gp || 0; const pay = Math.min(g, CARAVAN_GP); short += CARAVAN_GP - pay; await writeParty(p.cardId, { card: { ...P.party[p.cardId].card, gp: g - pay } }); }
+    await say("system", "🐴 จ่ายค่าคาราวานคนละ " + CARAVAN_GP + " GP" + (short ? " (Garrick ใจดี ลดให้ " + short + " GP ที่ขาด)" : ""));
+  }
   const def = mapDef(loc);
   const L0 = CAMP.world.locations.find((l) => l.id === loc) || (CAMP.maps[loc] ? CAMP.maps[loc] : null);
   await say("system", "🧭 ทีมเดินทางไป " + (L0 ? L0.name + " · " + L0.th : loc) + (travelWarning(loc) ? "\n" + travelWarning(loc) : ""));
+  const ev = !quiet && !isTown && Math.random() < (opts.caravan ? 1 / 6 : isNight() ? 1 / 2 : 1 / 3) ? TRAVEL_EVENTS[Math.floor(Math.random() * TRAVEL_EVENTS.length)] : null;
   P.arriving = true;
-  await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false },
+  await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null,
+    journey: quiet ? null : { ts: Date.now(), to: loc, ev: ev ? ev.id : null, caravan: !!opts.caravan, night: isNight() }, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false },
     ...(!isTown && def && def.rows ? { traps: genTraps(def), trapLoc: loc } : {}) });
-  if (!quiet) await passTime(loc === "summit" ? 1 : 4);
+  if (!quiet) await passTime(loc === "summit" ? 1 : opts.caravan ? 2 : 4);
   if (!isTown && P.meta.discount) await writeMeta({ discount: null });
   if (isTown) for (const p of Object.values(P.party)) if (p.townPlace || p.ready) await writeParty(p.cardId, { townPlace: null, ready: 0 });
   if (!isTown && def) {
@@ -721,8 +733,7 @@ async function travelTo(loc, quiet) {
   }
   P.arriving = false;
   const L = L0;
-  const ev = !quiet && !isTown && Math.random() < (isNight() ? 1 / 2 : 1 / 3) ? TRAVEL_EVENTS[Math.floor(Math.random() * TRAVEL_EVENTS.length)] : null;
-  if (!quiet) requestDM({ event: "[" + clockText() + "] " + (ev ? "ระหว่างทางเกิดเหตุการณ์ (ระบบสุ่มได้): " + ev + " · เล่าสั้น ๆ แล้ว " : "") + "ทีมเดินทางมาถึง " + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
+  if (!quiet) requestDM({ event: "[" + clockText() + "] " + (ev ? "ระหว่างทางเกิดเหตุการณ์ (ระบบสุ่มได้): " + ev.dm + " · เล่าสั้น ๆ แล้ว " : "") + (opts.caravan ? "ทีมนั่งคาราวานของ Garrick มาถึง " : "ทีมเดินทางมาถึง ") + (L ? L.name : loc) + (def && def.intro ? " · " + def.intro : isTown ? " · " + CAMP.town.intro : "") });
 }
 async function restParty(kind, quiet) {
   for (const p of Object.values(P.party)) {
@@ -769,15 +780,16 @@ function voteStatus() {
   const ok = list.filter((p) => p.ready === v.id);
   return { v, list, ok, all: list.length > 0 && ok.length === list.length };
 }
-async function proposeTravel(loc) {
+async function proposeTravel(loc, opts = {}) {
   const others = Object.values(P.party).filter((p) => isOnline(p) && !(NET.local || p.uid === myUid()));
-  if (NET.local || !others.length) return travelTo(loc);
+  if (NET.local || !others.length) return travelTo(loc, false, opts);
   const id = Date.now(); const me = P.party[P.myCardId];
-  await writeScene({ vote: { loc, id, by: me ? me.card.name : "" } });
+  await writeScene({ vote: { loc, id, by: me ? me.card.name : "", caravan: !!opts.caravan } });
   for (const p of myParty()) await writeParty(p.cardId, { ready: id });
   const L = locInfo(loc);
-  await say("system", "🧭 " + (me ? me.card.name : "มีคน") + " ชวนเดินทางไป " + L.name + " · กด “พร้อม” เมื่อทุกคนพร้อม");
+  await say("system", "🧭 " + (me ? me.card.name : "มีคน") + " ชวน" + (opts.caravan ? "นั่งคาราวาน (" + CARAVAN_GP + " GP/คน) " : "เดินทาง") + "ไป " + L.name + " · กด “พร้อม” เมื่อทุกคนพร้อม");
 }
+const CARAVAN_GP = 5;
 async function setReady(on) { const v = P.scene.vote; if (!v) return; for (const p of myParty()) await writeParty(p.cardId, { ready: on ? v.id : 0 }); }
 
 // ---------- chat ----------
@@ -948,4 +960,91 @@ async function dmQuest(a) {
     q.status = "done"; await writeQuests({ custom });
     await giveQuestReward({ ...q, kind: "dm" });
   }
+}
+
+
+// ---------- village services: inventory helpers, forge, stash, alchemist, night market, inn games ----------
+const itemName = (x) => iname(x.id) + (x.plus ? " +" + x.plus : "");
+function addItem(inv, id, qty = 1, plus = 0) {
+  const e = inv.find((x) => x.id === id && (x.plus || 0) === (plus || 0) && !x.equipped);
+  if (e) e.qty += qty; else inv.push({ id, qty, equipped: false, ...(plus ? { plus } : {}) });
+  return inv;
+}
+function takeOne(inv, i) { const x = inv[i]; if (!x) return null; const one = { ...x, qty: 1 }; x.qty--; if (x.qty <= 0) inv.splice(i, 1); return one; }
+const upgradeCost = (it) => (!it ? 0 : it.kind === "weapon" ? 100 : it.cat === "shield" ? 100 : it.cat === "heavy" ? 250 : 175);
+const sellPrice = (x) => { const it = IX.items[x.id]; return Math.round(((it && it.cost) || 0) * 50) / 100 + (x.plus ? Math.round(upgradeCost(it) / 2) : 0); };
+async function forgeUpgrade(cardId, i) {
+  const p = P.party[cardId]; const inv = clone(p.card.inventory || []); const x = inv[i]; const it = x && IX.items[x.id];
+  if (!it || !["weapon", "armor"].includes(it.kind) || x.plus) return;
+  const cost = upgradeCost(it); if ((p.card.gp || 0) < cost) return toast("เงินไม่พอ ต้องใช้ " + cost + " GP");
+  const was = !!x.equipped; const one = takeOne(inv, i); one.plus = 1; one.equipped = was;
+  inv.splice(Math.min(i, inv.length), 0, one);
+  await writeParty(cardId, { card: { ...p.card, gp: p.card.gp - cost, inventory: inv } });
+  await say("system", "🔨 Hilda ตี " + it.name + " ของ " + p.card.name + " เป็น +1 (" + cost + " GP)");
+  requestDM({ event: "Hilda ช่างตีเหล็กเพิ่งตี " + it.name + " ของ " + p.card.name + " เป็น +1 ให้ Hilda พูดอวดฝีมือสั้น ๆ" });
+}
+async function sellItem(cardId, i) {
+  const p = P.party[cardId]; const inv = clone(p.card.inventory || []); const x = inv[i]; if (!x || x.equipped) return toast("ถอดออกก่อนถึงจะขายได้");
+  const price = sellPrice(x); const name = itemName(x); takeOne(inv, i);
+  await writeParty(cardId, { card: { ...p.card, gp: Math.round(((p.card.gp || 0) + price) * 100) / 100, inventory: inv } });
+  toast("ขาย " + name + " ได้ " + price + " GP");
+}
+async function buyItem(cardId, id, cost, plus = 0) {
+  const p = P.party[cardId]; if ((p.card.gp || 0) + 1e-9 < cost) return toast("เงินไม่พอ");
+  const inv = addItem(clone(p.card.inventory || []), id, 1, plus);
+  try { const b = invSlots({ ...p.card, inventory: inv }, D); if (b.over) toast("กระเป๋าเต็มแล้ว (" + b.used + "/" + b.cap + ") ของเกินจะทำให้เดินช้าลง 10 ft"); } catch (e) {}
+  await writeParty(cardId, { card: { ...p.card, gp: Math.round((p.card.gp - cost) * 100) / 100, inventory: inv } });
+  toast("ซื้อ " + iname(id) + (plus ? " +" + plus : "") + " แล้ว");
+}
+// party stash kept with the innkeeper: shared by everyone in the room
+const stashOf = () => (P.meta && P.meta.stash) || [];
+async function stashPut(cardId, i) {
+  const p = P.party[cardId]; const inv = clone(p.card.inventory || []); if (!inv[i] || inv[i].equipped) return toast("ถอดออกก่อนถึงจะฝากได้");
+  const one = takeOne(inv, i); const st = addItem(clone(stashOf()), one.id, 1, one.plus || 0);
+  await writeParty(cardId, { card: { ...p.card, inventory: inv } }); await writeMeta({ stash: st });
+  toast("ฝาก " + itemName(one) + " ไว้ในหีบแล้ว");
+}
+async function stashTake(cardId, j) {
+  const st = clone(stashOf()); const one = takeOne(st, j); if (!one) return;
+  const p = P.party[cardId]; const inv = addItem(clone(p.card.inventory || []), one.id, 1, one.plus || 0);
+  await writeMeta({ stash: st }); await writeParty(cardId, { card: { ...p.card, inventory: inv } });
+  toast(p.card.name + " หยิบ " + itemName(one) + " จากหีบ");
+}
+// night market: a few rare things, a different mix every night
+function nightStock() {
+  const pool = CAMP.nightStock || []; const day = (P.meta && P.meta.day) || 1; const out = [];
+  for (let k = 0; out.length < Math.min(4, pool.length) && k < 40; k++) { const it = pool[(day * 7 + k * 5) % pool.length]; if (!out.includes(it)) out.push(it); }
+  return out;
+}
+// what a consumable does: data "use" field, plus the plain healing potion
+const useOf = (id) => { const it = IX.items[id]; return (it && it.use) || (id === "potion-healing" ? { heal: "2d4+2" } : null); };
+// use a consumable outside combat (bag / services)
+async function useItemOutside(cardId, i) {
+  const p = P.party[cardId]; const inv = clone(p.card.inventory || []); const x = inv[i]; const it = x && IX.items[x.id]; const u = x && useOf(x.id);
+  if (!u) return;
+  const sh = safeSheet(p.card); const hpMax = sh ? sh.hpMax : 1; const hp = p.live.hp ?? hpMax; const live = { ...p.live };
+  let msg = "";
+  if (u.heal || (u.spell && ["cure-wounds", "healing-word"].includes(u.spell))) {
+    const expr = u.heal || (u.spell === "cure-wounds" ? "2d8+3" : "2d4+3"); const r = roll(expr);
+    live.hp = Math.min(hpMax, hp + r.total); msg = "ฟื้น " + r.text + " → HP " + live.hp + "/" + hpMax;
+  } else if (u.cure) { live.conditions = (live.conditions || []).filter((c) => c !== u.cure); msg = "หาย " + u.cure; }
+  else if (u.luck) { live.checkBonus = true; msg = "การทอยตรวจทักษะครั้งถัดไป +1d4"; }
+  else return toast("ของชิ้นนี้ใช้ได้ตอนต่อสู้");
+  takeOne(inv, i);
+  await writeParty(cardId, { card: { ...p.card, inventory: inv }, live });
+  await say("system", "🧪 " + p.card.name + " ใช้ " + it.name + " · " + msg);
+}
+// inn games: dice duel with Old Pell, arm wrestling with Big Tom (3 games per character per day)
+function gamesLeft(p) { const g = p.live.games || {}; return g.day === ((P.meta && P.meta.day) || 1) ? Math.max(0, 3 - g.n) : 3; }
+async function playInnGame(cardId, kind, bet) {
+  const p = P.party[cardId]; if (!p) return;
+  if (!gamesLeft(p)) return toast("วันนี้เล่นครบ 3 ตาแล้ว พรุ่งนี้ค่อยมาใหม่");
+  if ((p.card.gp || 0) < bet) return toast("เงินไม่พอวางเดิมพัน");
+  let me, them, line;
+  if (kind === "dice") { const a = roll("2d6"), b = roll("2d6"); me = a.total; them = b.total; line = "🎲 " + p.card.name + " ทอย " + a.text + " · Old Pell ทอย " + b.text; }
+  else { const sh = safeSheet(p.card); const ath = sh ? (sh.skills.find((x) => x.name === "Athletics") || { bonus: 0 }).bonus : 0; const a = d(20), b = d(20); me = a + ath; them = b + 5; line = "💪 " + p.card.name + " Athletics " + a + (ath >= 0 ? "+" : "") + ath + " = " + me + " · Big Tom " + b + "+5 = " + them; }
+  const win = me > them, tie = me === them; const delta = tie ? 0 : win ? bet : -bet;
+  const day = (P.meta && P.meta.day) || 1; const g = p.live.games && p.live.games.day === day ? p.live.games : { day, n: 0 };
+  await writeParty(cardId, { card: { ...p.card, gp: (p.card.gp || 0) + delta }, live: { ...p.live, games: { day, n: g.n + 1 } } });
+  await say("system", line + " → " + (tie ? "เสมอ คืนเดิมพัน" : win ? "ชนะ! ได้ " + bet + " GP" : "แพ้ เสีย " + bet + " GP"));
 }

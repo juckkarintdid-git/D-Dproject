@@ -149,7 +149,7 @@ function buildPlayDom() {
   const d = { cid: P.cid };
   const L = (cls) => h("div", { class: cls });
   d.canvas = h("canvas", { class: "g-scene", "aria-label": "กระดานเกม" });
-  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.story = L("g-story"); d.moment = L("g-moment"); d.menu = L("g-menu");
+  d.party = L("g-party"); d.plate = L("g-plate"); d.hint = L("g-hint"); d.goal = L("g-goalbar"); d.story = L("g-story"); d.moment = L("g-moment"); d.journey = L("g-journey"); d.menu = L("g-menu");
   d.ticker = h("div", { class: "g-ticker", "aria-live": "polite" });
   d.vote = L("g-vote"); d.spots = L("g-spots"); d.room = L("g-room"); d.tools = L("g-tools"); d.combat = L("g-combat");
   d.panel = L("g-panelwrap"); d.coach = L("g-coach");
@@ -159,7 +159,7 @@ function buildPlayDom() {
   d.improvSel = h("select", { "aria-label": "เป้าหมาย" });
   d.cap = L("g-capbox");
   d.caption = h("div", { class: "g-cap" }, d.cap, d.sayForm);
-  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach, d.moment, d.story);
+  d.hud = h("div", { class: "g-hud" }, d.spots, d.party, d.plate, d.hint, d.goal, d.vote, d.menu, d.ticker, d.tools, d.caption, d.combat, d.room, d.panel, d.coach, d.moment, d.journey, d.story);
   d.fx = L("g-fx");
   d.sideTabs = h("div", { class: "side-tabs", role: "tablist" });
   d.sideBody = h("div", { class: "side-body" });
@@ -225,7 +225,7 @@ function renderPlay() {
   watchFx();
   prepFrame();
   renderParty(); renderPlate(); renderHint(); renderVote(); renderMenu(); renderSpots(); renderRoom();
-  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach(); watchMoments(); renderStory();
+  renderTools(); renderCaption(); renderCombat(); renderPanel(); renderTicker(); renderCoach(); watchMoments(); renderStory(); renderJourney();
   if (P.drawer) renderSide();
   drawStage();
 }
@@ -335,7 +335,12 @@ const TOWN_SPOTS = [
   { id: "temple", x: 15, y: 34, npc: "maren", who: "Sister Maren", line: "แสงรุ่งอรุณคุ้มครองเจ้า ใครบาดเจ็บหรือจากไป พาเขามาที่นี่" },
   { id: "market", x: 79, y: 45.8, npc: "bram", who: "Bram", line: "ของดีราคาถูก… ก็ไม่ถูกขนาดนั้นหรอก จะเอาอะไรว่ามา" },
   { id: "board", x: 58, y: 55.9, npc: "oswin", who: "Mayor Oswin Hale", line: "ก็อบลินจากโพรงหนามดำลักพาตัวชาวบ้านไปแล้วสามคน ช่วยพวกเราด้วยเถิด" },
+  { id: "forge", x: 35, y: 38, npc: "hilda", who: "Hilda Emberheart", short: "Hilda", line: "ฮ่า! ดาบนั่นทื่อยิ่งกว่าช้อน เอามานี่ ข้าจะตีให้คมจนตัดลมได้" },
+  { id: "alchemist", x: 41, y: 20, npc: "mirelle", who: "Mirelle Quickdraught", short: "Mirelle", line: "อย่าจับขวดสีม่วงนะ! มันยัง… เอ่อ ยังไม่เสถียร จะเอายาแบบไหนดีจ๊ะ?" },
+  { id: "stable", x: 29, y: 80, npc: "garrick", who: "Garrick Hale", short: "Garrick", line: "ม้าพร้อม เกวียนพร้อม จ่ายค่าเดินทางแล้วขึ้นมาได้เลย" },
+  { id: "night", x: 42, y: 64, npc: "sable", who: "Sable", short: "Sable", night: true, line: "โคมจุดแล้ว… ของที่หาไม่ได้ตอนกลางวัน รอเจ้าของคนใหม่อยู่" },
 ];
+const spotsNow = () => TOWN_SPOTS.filter((s) => !s.night || (typeof isNight === "function" && isNight()));
 // where the village image sits on the stage: cover on wide screens, keep every building visible on phones
 function townXform() {
   const W = Math.max(200, P.dom.stage.clientWidth), H = Math.max(200, P.dom.stage.clientHeight); const iw = 1600, ih = 1067;
@@ -357,20 +362,21 @@ function renderSpots() {
   const show = P.scene.mode === "town" && !P.mapEdit && myParty().length > 0 && !P.townPlace;
   const box = P.dom.spots; box.hidden = !show; if (!show) return;
   const T = townXform();
-  fill(box, ...TOWN_SPOTS.map((s) => {
+  fill(box, ...spotsNow().map((s) => {
     const pl = CAMP.town.places.find((p) => p.id === s.id) || { name: s.id, th: "" };
     const here = Object.values(P.party).filter((p) => p.townPlace === s.id);
     const x = Math.round(T.ox + (s.x / 100) * T.w), y = Math.round(T.oy + (s.y / 100) * T.h);
     const shift = x < 74 ? 74 - x : x > T.W - 74 ? T.W - 74 - x : 0; // keep the name label on screen near the edges
     return h("button", { class: "g-spot", style: "left:" + x + "px;top:" + y + "px;--shift:" + shift + "px", onclick: () => enterPlace(s.id) },
       here.length > 0 && h("span", { class: "g-spot-who", title: here.map((p) => p.card.name).join(", ") + " อยู่ข้างใน" }, here.map((p) => face(p.card.portrait, p.card.name, "g-face sm"))),
-      h("span", { class: "g-lbl" }, h("b", null, pl.name), h("span", null, pl.th)), h("span", { class: "g-pin" }));
+      h("span", { class: "g-lbl" }, h("b", null, pl.name), h("span", null, pl.th)), h("span", { class: "g-pin" + (s.night ? " night" : "") }));
   }));
 }
 function renderRoom() {
   const id = P.scene.mode === "town" && !P.mapEdit && myParty().length ? P.townPlace : null;
   const box = P.dom.room; box.hidden = !id;
   if (!id) { fill(box, ); box.dataset.id = ""; P.roomDom = null; return; }
+  if (!spotsNow().some((x) => x.id === id)) { toast("รุ่งเช้าแล้ว ตลาดโคมเก็บร้านหายไปพร้อมหมอก"); leavePlace(); return; }
   const s = TOWN_SPOTS.find((x) => x.id === id); const pl = CAMP.town.places.find((p) => p.id === id);
   const fresh = box.dataset.id !== id || !P.roomDom;
   if (fresh) { // build the skeleton once per visit so typing in the box survives every sync
@@ -383,7 +389,7 @@ function renderRoom() {
     R.input = h("input", { type: "text", maxlength: 300, placeholder: "พูดกับ " + s.who + "…", "aria-label": "พูดกับ " + s.who, onkeydown: (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); roomSay(); } } });
     R.sayRow = h("div", { class: "g-say" }, R.input, h("button", { class: "btn primary", onclick: roomSay }, "พูด"));
     R.service = h("div", { class: "g-room-svc" });
-    box.style.backgroundImage = "url(assets/room-" + id + ".webp)";
+    box.style.backgroundImage = "url(assets/room-" + id + ".webp), url(assets/room-" + (id === "night" ? "market" : id === "stable" ? "board" : "inn") + ".webp)";
     fill(box,
       h("div", { class: "g-npc" }, R.npc, R.pc),
       h("div", { class: "g-room-side" },
@@ -422,7 +428,7 @@ function renderRoom() {
   } else {
     const top = R.body.firstChild === R.service ? R.body.scrollTop : 0;
     fill(R.service, ready.length > 0 && h("div", { class: "quests" }, h("h3", null, "ส่งเควสให้ " + s.who), ready.map((q) => questRow(q, [h("button", { class: "btn small primary", onclick: () => turnInQuest(q.id) }, "ส่งเควส รับรางวัล")]))),
-      id === "inn" ? innPanel() : id === "temple" ? templePanel() : id === "market" ? marketPanel() : boardPanel());
+      ({ inn: innPanel, temple: templePanel, market: marketPanel, forge: forgePanel, alchemist: alchemistPanel, stable: stablePanel, night: nightPanel }[id] || boardPanel)());
     if (R.body.firstChild !== R.service) fill(R.body, R.service);
     R.body.scrollTop = top;
   }
@@ -439,7 +445,7 @@ function talkLine(m, s) {
   while ((x = re.exec(t))) { if (x.index > i) parts.push(["n", t.slice(i, x.index)]); parts.push(["q", x[1]]); i = re.lastIndex; }
   if (i < t.length) parts.push(["n", t.slice(i)]);
   return h("div", { class: "g-line-group" }, parts.filter(([, v]) => v.trim()).map(([k, v]) => k === "q"
-    ? h("div", { class: "g-line npc" }, h("b", null, s.who.split(" ").slice(-1)[0] === "Hale" ? "Oswin" : s.who.replace(/^(Sister|Old|Mayor) /, "")), h("p", null, v.trim()))
+    ? h("div", { class: "g-line npc" }, h("b", null, s.short || (s.who.split(" ").slice(-1)[0] === "Hale" ? "Oswin" : s.who.replace(/^(Sister|Old|Mayor) /, ""))), h("p", null, v.trim()))
     : h("div", { class: "g-line narr" }, v.trim())),
     h("button", { class: "g-mini g-line-tts", "aria-label": "อ่านออกเสียง", title: "อ่านออกเสียง", onclick: () => speak(m.text) }, svg("voice")));
 }
@@ -545,7 +551,74 @@ function innPanel() {
         for (const p of Object.values(P.party)) if ((p.card.gp || 0) >= 1) await writeParty(p.cardId, { card: { ...P.party[p.cardId].card, gp: p.card.gp - 1 } });
         await restParty("long");
       } }, "พักค้างคืน (1 GP/คน · " + n + " คน)"),
-      h("button", { class: "btn", onclick: () => requestDM({ event: "ทีมนั่งฟังข่าวลือในโรงเตี๊ยม The Copper Kettle คุยกับ Old Pell" }) }, "ฟังข่าวลือ (ให้ DM เล่า)")));
+      h("button", { class: "btn", onclick: () => requestDM({ event: "ทีมนั่งฟังข่าวลือในโรงเตี๊ยม The Copper Kettle คุยกับ Old Pell" }) }, "ฟังข่าวลือ (ให้ DM เล่า)")),
+    innGames(), stashPanel());
+}
+// a small item table: name, qty and the buttons a service offers for each row
+function itemTable(rows, empty) {
+  if (!rows.length) return h("p", { class: "small muted", style: "margin:0" }, empty || "ไม่มีของ");
+  return h("div", { class: "tbl shop" }, h("table", null, h("tbody", null, rows.map(([name, sub, qty, btns]) =>
+    h("tr", null, h("td", null, name, sub && h("div", { class: "small muted" }, sub)), h("td", { class: "num" }, qty ? "×" + qty : ""), h("td", null, h("div", { class: "row" }, btns)))))));
+}
+const itemSub = (x) => { const it = IX.items[x.id] || {}; return it.kind === "weapon" ? it.dmg + " " + it.dtype + (x.plus ? " · โจมตี/ดาเมจ +" + x.plus : "") : it.kind === "armor" ? (it.cat === "shield" ? "+" + (2 + (x.plus || 0)) + " AC" : "AC " + (it.ac + (x.plus || 0))) : it.th || ""; };
+const priceTxt = (c) => (c >= 1 ? Math.round(c * 100) / 100 + " GP" : Math.round(c * 10) >= 1 ? Math.round(c * 10) + " SP" : Math.round(c * 100) + " CP");
+function stashPanel() {
+  const me = myMember(); if (!me) return null; const st = stashOf();
+  return h("section", { class: "svc-sec" }, h("h3", null, "🧰 หีบฝากของของทีม"),
+    h("p", { class: "small muted", style: "margin:0" }, "Old Pell เก็บหีบไว้หลังเคาน์เตอร์ ทุกคนในทีมฝากและหยิบได้ ของในหีบไม่กินช่องกระเป๋า"),
+    itemTable(st.map((x, j) => [itemName(x), itemSub(x), x.qty, [h("button", { class: "btn small", onclick: () => stashTake(me.cardId, j) }, "หยิบ")]]), "หีบว่างอยู่"),
+    h("h3", null, "ฝากจากกระเป๋า " + me.card.name.split(" ")[0]),
+    itemTable((me.card.inventory || []).map((x, i) => [itemName(x) + (x.equipped ? " (สวมอยู่)" : ""), "", x.qty, [h("button", { class: "btn small ghost", disabled: !!x.equipped, onclick: () => stashPut(me.cardId, i) }, "ฝาก 1")]]), "กระเป๋าว่าง"));
+}
+function innGames() {
+  const me = myMember(); if (!me) return null; const p = P.party[me.cardId]; const left = gamesLeft(p);
+  const bet = P.innBet || 5; const gp = p.card.gp || 0;
+  return h("section", { class: "svc-sec" }, h("h3", null, "🎲 เกมในโรงเตี๊ยม"),
+    h("p", { class: "small muted", style: "margin:0" }, "วางเดิมพันแล้วลุ้น ชนะได้เท่าที่วาง แพ้เสียเท่าที่วาง · วันนี้เหลือ " + left + "/3 ตา"),
+    h("div", { class: "chips" }, [1, 5, 10, 25].map((b) => h("button", { class: "chip", "aria-pressed": bet === b ? "true" : "false", onclick: () => { P.innBet = b; renderRoom(); } }, b + " GP"))),
+    h("div", { class: "pick-grid" },
+      h("div", { class: "pick" }, h("span", { class: "nm" }, "ทอยเต๋ากับ Old Pell"), h("span", { class: "small muted" }, "ต่างคนทอย 2d6 แต้มสูงกว่าชนะ"),
+        h("button", { class: "btn small primary", disabled: !left || gp < bet, onclick: () => playInnGame(me.cardId, "dice", bet) }, "ทอยเลย (" + bet + " GP)")),
+      h("div", { class: "pick" }, h("span", { class: "nm" }, "งัดข้อกับ Big Tom"), h("span", { class: "small muted" }, "d20 + Athletics สู้กับ Big Tom d20+5"),
+        h("button", { class: "btn small primary", disabled: !left || gp < bet, onclick: () => playInnGame(me.cardId, "arm", bet) }, "งัดข้อ (" + bet + " GP)"))));
+}
+function forgePanel() {
+  const me = myMember(); if (!me) return h("p", null, "เข้าร่วมทีมก่อน"); const c = me.card; const gp = c.gp || 0;
+  const inv = c.inventory || [];
+  const up = inv.map((x, i) => [x, i]).filter(([x]) => { const it = IX.items[x.id]; return it && ["weapon", "armor"].includes(it.kind) && !x.plus; });
+  return h("div", { class: "work" }, h("p", { style: "margin:0" }, "ประกายไฟกระเด็นจากทั่ง Hilda ทุบเหล็กร้อนพลางร้องเพลงคนแคระเสียงดังลั่น"),
+    h("div", { class: "row" }, h("span", { class: "tag num" }, c.name.split(" ")[0] + " มี " + fmtGp(gp))),
+    h("section", { class: "svc-sec" }, h("h3", null, "🔨 ตีอาวุธ/เกราะเป็น +1"),
+      h("p", { class: "small muted", style: "margin:0" }, "อาวุธ +1 = โจมตีและดาเมจ +1 · เกราะ/โล่ +1 = AC +1 · ตีได้ชิ้นละครั้ง"),
+      itemTable(up.map(([x, i]) => { const cost = upgradeCost(IX.items[x.id]); return [itemName(x) + (x.equipped ? " (สวมอยู่)" : ""), itemSub(x), x.qty,
+        [h("button", { class: "btn small primary", disabled: gp < cost, onclick: () => forgeUpgrade(me.cardId, i) }, "ตี +1 · " + cost + " GP")]]; }), "ไม่มีอาวุธหรือเกราะที่ตีได้")),
+    h("section", { class: "svc-sec" }, h("h3", null, "💰 ขายของให้ Hilda"),
+      h("p", { class: "small muted", style: "margin:0" }, "รับซื้อครึ่งราคา ของ +1 ได้เพิ่มครึ่งหนึ่งของค่าตี"),
+      itemTable(inv.map((x, i) => [itemName(x) + (x.equipped ? " (สวมอยู่)" : ""), "", x.qty,
+        [h("button", { class: "btn small ghost", disabled: !!x.equipped, onclick: () => sellItem(me.cardId, i) }, "ขาย " + priceTxt(sellPrice(x)))]]), "กระเป๋าว่าง")));
+}
+function alchemistPanel() {
+  const me = myMember(); if (!me) return h("p", null, "เข้าร่วมทีมก่อน"); const gp = me.card.gp || 0;
+  const list = D.equipment.gear.filter((it) => it.shop === "alch" || it.id === "potion-healing");
+  return h("div", { class: "work" }, h("p", { style: "margin:0" }, "ขวดแก้วเดือดปุด ๆ ทุกชั้น กลิ่นสมุนไพรปนกำมะถัน Mirelle วิ่งวุ่นไปมา"),
+    h("div", { class: "row" }, h("span", { class: "tag num" }, me.card.name.split(" ")[0] + " มี " + fmtGp(gp))),
+    itemTable(list.map((it) => [it.name, it.th, 0, [h("button", { class: "btn small", disabled: gp + 1e-9 < it.cost, onclick: () => buyItem(me.cardId, it.id, it.cost) }, "ซื้อ " + priceTxt(it.cost))]])),
+    h("p", { class: "small muted", style: "margin:0" }, "ยาและคัมภีร์ใช้ในการต่อสู้ได้จากปุ่ม “ยา” ในแถบท่า หรือใช้นอกการต่อสู้จากแท็บกระเป๋า"));
+}
+function stablePanel() {
+  const locs = CAMP.world.locations.filter((l) => l.type !== "town");
+  return h("div", { class: "work" }, h("p", { style: "margin:0" }, "กลิ่นฟางและหนังม้า เกวียนคลุมผ้าใบจอดเรียง Garrick ตรวจเกือกม้าอย่างใจเย็น"),
+    h("ul", { class: "traits" }, h("li", null, "ค่าคาราวาน " + CARAVAN_GP + " GP ต่อคน (ใครเงินไม่พอ Garrick ลดให้)"), h("li", null, "ถึงเร็วกว่า: ใช้เวลา 2 ชั่วโมง แทน 4"), h("li", null, "ปลอดภัยกว่า: โอกาสเจอเหตุการณ์ระหว่างทางเหลือ 1 ใน 6")),
+    h("div", { class: "pick-grid" }, locs.map((l) => h("div", { class: "pick" },
+      h("span", { class: "nm" }, l.name), h("span", { class: "th" }, l.th), h("span", { class: "small muted" }, "เลเวลแนะนำ " + l.level + ((P.meta.done || {})[l.id] ? " · ✓ จบแล้ว" : "")),
+      h("button", { class: "btn small primary", onclick: () => proposeTravel(l.id, { caravan: true }) }, "🐴 จ้างคาราวานไป")))));
+}
+function nightPanel() {
+  const me = myMember(); if (!me) return h("p", null, "เข้าร่วมทีมก่อน"); const gp = me.card.gp || 0;
+  return h("div", { class: "work" }, h("p", { style: "margin:0" }, "โคมกระดาษลอยเรียงในหมอก แผงร้านโผล่มาจากไหนไม่รู้ Sable ยิ้มใต้หน้ากาก"),
+    h("div", { class: "row" }, h("span", { class: "tag num" }, me.card.name.split(" ")[0] + " มี " + fmtGp(gp)), h("span", { class: "small muted" }, "ของเปลี่ยนทุกคืน หายไปตอนรุ่งเช้า")),
+    itemTable(nightStock().map((o) => { const x = { id: o.id, plus: o.plus || 0 }; return [itemName(x), itemSub(x), 0,
+      [h("button", { class: "btn small primary", disabled: gp + 1e-9 < o.cost, onclick: () => buyItem(me.cardId, o.id, o.cost, o.plus || 0) }, "ซื้อ " + priceTxt(o.cost))]]; })));
 }
 function templePanel() {
   const me = myMember();
@@ -571,25 +644,11 @@ function templePanel() {
 function marketPanel() {
   const me = myMember(); if (!me) return h("p", null, "เข้าร่วมทีมก่อน");
   const tab = P.shopTab || "weapons";
-  const list = D.equipment[tab];
+  const list = D.equipment[tab].filter((it) => !it.shop);
   const disc = (P.meta && P.meta.discount) || null;
   const price = (it) => (disc ? Math.round(it.cost * (100 - disc.pct)) / 100 : it.cost);
-  const buy = async (it0) => {
-    const p = P.party[me.cardId]; const it = { ...it0, cost: price(it0) };
-    if ((p.card.gp || 0) + 1e-9 < it.cost) return toast("เงินไม่พอ");
-    { const trial = { ...p.card, inventory: [...(p.card.inventory || []), { id: it.id, qty: 1, equipped: false }] }; try { const b = invSlots(trial, D); if (b.over) toast("กระเป๋าเต็มแล้ว (" + b.used + "/" + b.cap + ") ของเกินจะทำให้เดินช้าลง 10 ft"); } catch (e) {} }
-    const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === it.id);
-    if (e) e.qty++; else inv.push({ id: it.id, qty: 1, equipped: false });
-    await writeParty(me.cardId, { card: { ...p.card, gp: Math.round((p.card.gp - it.cost) * 100) / 100, inventory: inv } });
-    toast("ซื้อ " + it.name + " แล้ว");
-  };
-  const sell = async (i) => {
-    const p = P.party[me.cardId]; const inv = clone(p.card.inventory); const x = inv[i]; const it = IX.items[x.id];
-    const price = Math.round(((it && it.cost) || 0) * 50) / 100;
-    x.qty--; if (x.qty <= 0) inv.splice(i, 1);
-    await writeParty(me.cardId, { card: { ...p.card, gp: Math.round(((p.card.gp || 0) + price) * 100) / 100, inventory: inv } });
-    toast("ขาย " + (it ? it.name : x.id) + " ได้ " + price + " GP");
-  };
+  const buy = (it) => buyItem(me.cardId, it.id, price(it));
+  const sell = (i) => sellItem(me.cardId, i);
   const equip = async (i) => {
     const p = P.party[me.cardId]; const inv = clone(p.card.inventory); const it = IX.items[inv[i].id]; const now = !inv[i].equipped;
     if (now) inv.forEach((y) => { const yi = IX.items[y.id]; if (yi && yi.kind === "armor" && (yi.cat === "shield") === (it.cat === "shield")) y.equipped = false; });
@@ -606,9 +665,9 @@ function marketPanel() {
       h("td", null, h("button", { class: "btn small", disabled: (me.card.gp || 0) + 1e-9 < price(it), onclick: () => buy(it) }, "ซื้อ"))))))),
     h("h3", null, "ของของ " + me.card.name), bagMeter(me.card),
     h("div", { class: "tbl shop" }, h("table", null, h("tbody", null, (me.card.inventory || []).map((x, i) => { const it = IX.items[x.id] || { name: x.id, cost: 0 };
-      return h("tr", null, h("td", null, it.name + (x.equipped ? " (สวมอยู่)" : "")), h("td", { class: "num" }, "×" + x.qty),
+      return h("tr", null, h("td", null, itemName(x) + (x.equipped ? " (สวมอยู่)" : "")), h("td", { class: "num" }, "×" + x.qty),
         h("td", null, h("div", { class: "row" }, it.kind === "armor" && h("button", { class: "btn small", onclick: () => equip(i) }, x.equipped ? "ถอด" : "สวม"),
-          h("button", { class: "btn small ghost", onclick: () => sell(i) }, "ขาย " + Math.round((it.cost || 0) * 50) / 100 + " GP")))); })))));
+          h("button", { class: "btn small ghost", disabled: !!x.equipped, onclick: () => sell(i) }, "ขาย " + priceTxt(sellPrice(x)))))); })))));
 }
 function boardPanel() {
   return h("div", { class: "work" }, questBoard(),
@@ -1064,24 +1123,47 @@ function bestWeapon(u, t) {
 async function castNow(extra) {
   const sel = P.spellSel; if (!sel) return;
   P.mode = "move";
-  await act((s, a) => castSpell(s, a, sel.id, { slot: sel.slot, useMI: sel.useMI, targets: sel.targets || [], ...extra }));
+  const who = (current(combatState()) || {}).cardId;
+  const ok = await act((s, a) => castSpell(s, a, sel.id, { slot: sel.slot, useMI: sel.useMI, targets: sel.targets || [], ...(sel.scroll ? { scroll: true } : {}), ...extra }));
+  if (ok && sel.scroll && who) await consumeItem(who, sel.scroll);
 }
-function pickSpell(id, slot, useMI) {
+async function consumeItem(cardId, itemId) {
+  const p = P.party[cardId]; if (!p) return; const inv = clone(p.card.inventory || []); const i = inv.findIndex((x) => x.id === itemId && x.qty > 0);
+  if (i < 0) return; takeOne(inv, i); await writeParty(cardId, { card: { ...P.party[cardId].card, inventory: inv } });
+}
+function pickSpell(id, slot, useMI, scroll) {
   const need = spellNeed(id);
   if (need.kind === "narr") { toast("เวทนี้ใช้แบบเล่าเรื่อง: พิมพ์บอก DM ในช่องแชต"); return; }
-  P.spellSel = { id, slot, useMI, targets: [] }; P.mode = "spell";
+  P.spellSel = { id, slot, useMI, targets: [], ...(scroll ? { scroll } : {}) }; P.mode = "spell";
   if (need.kind === "self") { castNow({}); return; }
   renderBar(); drawStage();
 }
-async function drinkPotion() {
+// combat consumables: potions (bonus action), scrolls (cast like a spell), alchemist's fire (action, thrown)
+function combatItems(inv) { return (inv || []).filter((x) => x.qty > 0 && (() => { const u = useOf(x.id); return u && !u.luck; })()); }
+async function drinkPotion(itemId = "potion-healing") {
   const st = combatState(); const u = current(st); const p = P.party[u.cardId];
-  const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === "potion-healing" && x.qty > 0);
-  if (!e) return toast("ไม่มี Potion of Healing");
+  const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === itemId && x.qty > 0); const use = useOf(itemId);
+  if (!e || !use) return toast("ไม่มี " + iname(itemId));
   if (!u.turn.bonus) return toast("ใช้ Bonus Action ไปแล้ว");
-  u.turn.bonus = 0; const r = roll("2d4+2"); heal(st, u, r.total); log(st, u.name + " ดื่ม Potion of Healing ฟื้น " + r.text, { kind: "heal" });
+  u.turn.bonus = 0;
+  if (use.heal) { const r = roll(use.heal); heal(st, u, r.total); log(st, u.name + " ดื่ม " + iname(itemId) + " ฟื้น " + r.text, { kind: "heal" }); }
+  else if (use.cure) { delCond(u, use.cure); log(st, u.name + " ดื่ม " + iname(itemId) + " หายจาก " + use.cure, { kind: "heal" }); }
   e.qty--; if (!e.qty) inv.splice(inv.indexOf(e), 1);
   await commitCombat(st);
   await writeParty(u.cardId, { card: { ...p.card, inventory: inv } });
+}
+async function throwItem(itemId, targetId) {
+  const who = (current(combatState()) || {}).cardId; const t0 = useOf(itemId); const T = t0 && t0.throw; if (!T) return;
+  const ok = await act((st, u) => {
+    if (!u.turn.action) return { error: "ใช้ Action ไปแล้ว" };
+    const t = st.units[targetId]; if (!t || !alive(t)) return { error: "เลือกเป้าใหม่" };
+    if (dist(u, t) > T.range) return { error: "ไกลเกิน " + T.range + " ft" };
+    u.turn.action = 0;
+    const sv = savingThrow(t, T.ab, T.dc); const r = roll(T.dmg); const amt = sv.ok ? Math.floor(r.total / 2) : r.total;
+    log(st, u.name + " ขว้าง " + iname(itemId) + " ใส่ " + t.name + " · เซฟ " + T.ab + " " + sv.total + " vs DC " + T.dc + (sv.ok ? " ผ่าน" : " ไม่ผ่าน") + " · " + r.text + (sv.ok ? " (ครึ่ง " + amt + ")" : ""), { kind: "hit" });
+    damage(st, t, amt, T.type, u);
+  });
+  if (ok && who) await consumeItem(who, itemId);
 }
 
 // ---------- homebrew: Controlled Chaos potions ----------
@@ -1176,7 +1258,7 @@ function hotbar(st, u) {
   const endBtn = h("button", { class: "g-slot end", "data-act": "end", onclick: endTurnNow }, h("kbd", null, "⏎"), svg("end"), h("span", null, "จบตา"));
   if (u.hp <= 0) { out.push(h("div", { class: "g-step" }, h("span", null, "หมดสติ: ระบบทอย Death Save ให้อัตโนมัติ")), h("div", { class: "g-hot" }, endBtn)); return out; }
   const inv = ((P.party[u.cardId] || {}).card || { inventory: [] }).inventory || [];
-  const hasPotion = inv.some((x) => x.id === "potion-healing" && x.qty > 0);
+  const hasPotion = combatItems(inv).length > 0;
   const chaos = homebrewOn() && chaosBottles({ inventory: inv }).length > 0;
   const canAct = T.action || T.attacksLeft > 0;
   const list = [["atk", "sword", "โจมตี", !canAct], spellList(st, u).length && ["spell", "spell", "เวท", false], (hasPotion || chaos) && ["potion", "potion", "ยา", false],
@@ -1211,9 +1293,21 @@ function popover(st, u, id, hasPotion) {
       h("div", { class: "g-improv" }, P.dom.improvIn, h("div", { class: "row" }, sel, h("button", { class: "btn primary small", disabled: !T.action, onclick: sendImprov }, "ลองเลย")))];
     setTimeout(() => { if (P.pop === "improv" && document.activeElement !== sel) P.dom.improvIn.focus(); }, 0);
   }
-  else if (id === "potion") body = [h("div", { class: "g-pop-t" }, "ยา"), h("div", { class: "g-pop-list" },
-    hasPotion && opt("🧪 Potion of Healing", "Bonus Action · ฟื้น 2d4+2", !T.bonus, () => { P.pop = null; drinkPotion(); }),
-    ...chaosBar(u, T).map((x) => h("div", { class: "g-opt-row" }, x)))];
+  else if (id === "potion") {
+    const inv = ((P.party[u.cardId] || {}).card || {}).inventory || [];
+    const rows = combatItems(inv).map((x) => {
+      const use = useOf(x.id); const nm = iname(x.id) + (x.qty > 1 ? " ×" + x.qty : "");
+      if (use.heal || use.cure) return opt("🧪 " + nm, "Bonus Action · " + (use.heal ? "ฟื้น " + use.heal : "หาย " + use.cure), !T.bonus, () => { P.pop = null; drinkPotion(x.id); });
+      if (use.spell) { const fx = SPELLFX[use.spell] || {}; const bonus = !!fx.bonus;
+        return opt("📜 " + nm, (bonus ? "Bonus Action" : "Action") + " · ร่ายได้ 1 ครั้ง ไม่ใช้ช่องเวท", bonus ? !T.bonus : !T.action, () => { P.pop = null; pickSpell(use.spell, 0, false, x.id); renderPlay(); }); }
+      if (use.throw) { const foes = Object.values(st.units).filter((f) => alive(f) && f.side === "foe" && dist(u, f) <= use.throw.range).sort((a, b) => dist(u, a) - dist(u, b));
+        return h("div", { class: "g-opt-row" }, h("b", null, "🔥 " + nm), h("small", null, " Action · ขว้างได้ " + use.throw.range + " ft · " + use.throw.dmg + " " + use.throw.type),
+          foes.length ? h("div", { class: "row", style: "gap:6px;flex-wrap:wrap" }, foes.map((f) => h("button", { class: "btn small", disabled: !T.action, onclick: () => { P.pop = null; throwItem(x.id, f.id); } }, shortName(f.name) + " · " + dist(u, f) + " ft")))
+            : h("small", { class: "muted" }, " · ไม่มีศัตรูในระยะ")); }
+      return null;
+    });
+    body = [h("div", { class: "g-pop-t" }, "ยาและของใช้"), h("div", { class: "g-pop-list" }, ...rows, ...chaosBar(u, T).map((x) => h("div", { class: "g-opt-row" }, x)))];
+  }
   else {
     const res = u.resources || {};
     const go2 = (fn) => () => { P.pop = null; fn(); };
@@ -1717,14 +1811,14 @@ function bagPanel() {
         !(c.inventory || []).length ? h("p", { class: "small muted" }, "กระเป๋าว่าง") :
         h("ul", { class: "bagp-list" }, c.inventory.map((x, i) => {
           const it = IX.items[x.id] || { name: x.id }; const slots = bag && bag.rows[i] ? bag.rows[i].slots : 0;
-          const det = it.kind === "weapon" ? it.dmg + " " + it.dtype : it.kind === "armor" ? (it.cat === "shield" ? "+2 AC" : "AC " + it.ac) : it.th || "";
+          const det = itemSub(x); const use = useOf(x.id);
           const key = p.cardId + ":" + i; const asking = P.bagDrop === key;
           return h("li", { class: "bagp-item" + (x.equipped ? " on" : "") },
-            h("div", { class: "bagp-name" }, h("b", null, it.name + (x.qty > 1 ? " ×" + x.qty : "")), x.equipped && h("span", { class: "tag ok" }, "สวมอยู่"),
+            h("div", { class: "bagp-name" }, h("b", null, itemName(x) + (x.qty > 1 ? " ×" + x.qty : "")), x.equipped && h("span", { class: "tag ok" }, "สวมอยู่"),
               h("span", { class: "small muted" }, (det ? det + " · " : "") + (slots ? slots + " ช่อง" : "ไม่กินช่อง"))),
             !fight && h("div", { class: "bagp-act" },
               it.kind === "armor" && h("button", { class: "btn tiny", onclick: () => bagEquip(p, i) }, x.equipped ? "ถอด" : "ใส่"),
-              x.id === "potion-healing" && h("button", { class: "btn tiny", disabled: p.live.dead || hp >= hpMax, title: hp >= hpMax ? "HP เต็มแล้ว" : "", onclick: () => bagDrink(p) }, "ดื่ม"),
+              use && !use.throw && !(use.spell && use.spell === "magic-missile") && h("button", { class: "btn tiny", disabled: p.live.dead || ((use.heal || use.spell) && hp >= hpMax), title: (use.heal || use.spell) && hp >= hpMax ? "HP เต็มแล้ว" : "", onclick: () => useItemOutside(p.cardId, i) }, use.spell ? "อ่าน" : "ใช้"),
               asking ? [h("button", { class: "btn tiny danger", onclick: () => bagDropItem(p, i) }, "ทิ้งเลย"), h("button", { class: "btn tiny ghost", onclick: () => { P.bagDrop = null; renderSide(); } }, "ไม่ทิ้ง")]
                 : h("button", { class: "btn tiny ghost", onclick: () => { P.bagDrop = key; renderSide(); } }, x.qty > 1 ? "ทิ้ง 1" : "ทิ้ง")));
         })));
@@ -1737,14 +1831,6 @@ async function bagEquip(p, i) {
   inv[i].equipped = now;
   await writeParty(p.cardId, { card: { ...p.card, inventory: inv } });
   toast((now ? "ใส่ " : "ถอด ") + it.name + " แล้ว");
-}
-async function bagDrink(p) {
-  const inv = clone(p.card.inventory || []); const e = inv.find((x) => x.id === "potion-healing" && x.qty > 0); if (!e) return;
-  const sh = safeSheet(p.card); const hpMax = sh ? sh.hpMax : 1; const hp = p.live.hp ?? hpMax;
-  const r = roll("2d4+2"); const nhp = Math.min(hpMax, hp + r.total);
-  e.qty--; if (!e.qty) inv.splice(inv.indexOf(e), 1);
-  await writeParty(p.cardId, { card: { ...p.card, inventory: inv }, live: { ...p.live, hp: nhp } });
-  await say("system", "🧪 " + p.card.name + " ดื่ม Potion of Healing ฟื้น " + r.text + " → HP " + nhp + "/" + hpMax);
 }
 async function bagDropItem(p, i) {
   P.bagDrop = null;
@@ -1780,4 +1866,35 @@ function showMoment(kind, title, sub, face) {
     h("button", { class: "g-moment-x", "aria-label": "ปิด", onclick: () => { box.hidden = true; } }, "✕")));
   box.hidden = false; box.classList.remove("in"); void box.offsetWidth; box.classList.add("in");
   P.momentT = setTimeout(() => { box.hidden = true; }, kind === "win" ? 5000 : 6000);
+}
+
+// ---------- journey: a few seconds on the road between places, with the random event shown on the way ----------
+function renderJourney() {
+  const box = P.dom.journey; const j = P.scene && P.scene.journey;
+  if (!j || !j.ts || P.mapEdit) { box.hidden = true; return; }
+  const seen = P.journeySeen || (P.journeySeen = { first: true, ts: 0 });
+  if (seen.ts !== j.ts) { // first sight of this trip: play it only if it just started (a page opened later skips it)
+    seen.ts = j.ts; const fresh = !seen.first && Math.abs(Date.now() - j.ts) < 20000; seen.first = false;
+    if (!fresh) { box.hidden = true; return; }
+    P.journeyAt = Date.now(); clearTimeout(P.journeyT);
+    const ev = j.ev ? TRAVEL_EVENTS.find((e) => e.id === j.ev) : null;
+    const L = locInfo(j.to) || { name: j.to, th: "" }; const toTown = j.to === CAMP.town.id;
+    const faces = Object.values(P.party).map((p) => face(p.card.portrait || premadePortrait(p.card), p.card.name, "g-face sm"));
+    const close = () => { clearTimeout(P.journeyT); box.hidden = true; P.journeyAt = 0; };
+    const art = toTown ? "travel-home" : j.caravan ? "travel-caravan" : "travel-road";
+    fill(box, h("div", { class: "g-jr" + (j.night ? " night" : "") + (ev ? " has-ev" : ""), role: "status", "aria-live": "polite" },
+      h("div", { class: "g-jr-art", style: "background-image:url(assets/" + art + ".webp), url(assets/travel-road.webp)" }),
+      h("div", { class: "g-jr-shade" }),
+      h("div", { class: "g-jr-top" }, h("span", { class: "eyebrow" }, (j.caravan ? "🐴 นั่งคาราวานของ Garrick" : toTown ? "🏡 เดินทางกลับ" : "🧭 กำลังเดินทาง") + (j.night ? " · 🌙 กลางคืน" : " · ☀️ กลางวัน")),
+        h("h2", null, "สู่ " + L.name), h("small", null, L.th || "")),
+      ev && h("div", { class: "g-jr-ev" },
+        h("div", { class: "g-jr-ev-art", style: "background-image:url(assets/travel-" + ev.id + ".webp)" }, h("span", null, ev.icon)),
+        h("div", { class: "g-jr-ev-text" }, h("span", { class: "eyebrow" }, "⚠ เหตุการณ์ระหว่างทาง"), h("b", null, ev.title), h("small", null, ev.sub))),
+      h("div", { class: "g-jr-road" }, h("span", { class: "g-jr-end a" }, toTown ? "⚔" : "🏡"), h("div", { class: "g-jr-track" }, h("div", { class: "g-jr-fill" }), h("div", { class: "g-jr-party" }, faces)), h("span", { class: "g-jr-end b" }, toTown ? "🏡" : "⚑")),
+      h("button", { class: "btn small ghost g-jr-skip", onclick: close }, ev ? "อ่านแล้ว ไปต่อ" : "ข้าม")));
+    const ms = ev ? JOURNEY_EV_MS : JOURNEY_MS;
+    box.style.setProperty("--jr-ms", ms + "ms"); box.style.setProperty("--jr-ev", Math.round(ms * 0.3) + "ms");
+    box.hidden = false; box.classList.remove("in"); void box.offsetWidth; box.classList.add("in");
+    P.journeyT = setTimeout(close, ms);
+  }
 }

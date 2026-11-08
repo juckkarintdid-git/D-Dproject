@@ -590,22 +590,25 @@ export function castSpell(state, a, spellId, opts = {}) {
   const cost = fx.bonus ? "bonus" : (sp && /Reaction/.test(sp.time)) ? "reaction" : "action";
   if (cost === "action" && !a.turn.action) return { error: "ใช้ Action ไปแล้ว" };
   if (cost === "bonus" && !a.turn.bonus) return { error: "ใช้ Bonus Action ไปแล้ว" };
-  const ci = a.mi && a.mi.ability && opts.useMI ? a.mi : a.casting;
+  // a spell scroll lets anyone read it once: fixed attack +5 / DC 13 / +3 modifier, no slot spent
+  const scrollC = opts.scroll ? { ability: null, attack: 5, dc: 13 } : null;
+  const ci = scrollC || (a.mi && a.mi.ability && opts.useMI ? a.mi : a.casting);
   if (!ci && !a.mi) return { error: "ร่ายเวทไม่ได้" };
   const caster = ci || a.mi;
   let slot = 0;
-  if (lvl > 0) {
+  if (scrollC) slot = lvl;
+  else if (lvl > 0) {
     if (opts.useMI && !a.miUsed && a.mi) { a.miUsed = true; slot = lvl; }
     else { slot = spendSlot(a, Math.max(lvl, opts.slot || lvl)); if (!slot) return { error: "ช่องเวทเลเวล " + lvl + "+ หมดแล้ว" }; }
   }
   if (fx.t === "revive") {
     const t = state.units[(opts.targets || [])[0]];
-    if (!t || !t.dead || t.kind !== "pc") { if (lvl) a.slotsUsed[slot - 1]--; return { error: "ใช้กับเพื่อนที่เพิ่งเสียชีวิต" }; }
+    if (!t || !t.dead || t.kind !== "pc") { if (lvl && !scrollC) a.slotsUsed[slot - 1]--; return { error: "ใช้กับเพื่อนที่เพิ่งเสียชีวิต" }; }
   }
   if (cost === "action") a.turn.action = 0; else if (cost === "bonus") a.turn.bonus = 0;
   const up = lvl > 0 ? slot - lvl : 0;
-  const mo = caster.ability ? a.mods[caster.ability] : 0;
-  log(state, a.name + " ร่าย " + name + (slot ? " (ช่องเลเวล " + slot + ")" : ""), { kind: "cast", a: a.id, spell: spellId });
+  const mo = scrollC ? 3 : caster.ability ? a.mods[caster.ability] : 0;
+  log(state, a.name + (scrollC ? " อ่านคัมภีร์ " : " ร่าย ") + name + (slot && !scrollC ? " (ช่องเลเวล " + slot + ")" : ""), { kind: "cast", a: a.id, spell: spellId });
   const targets = (opts.targets || []).map((id) => state.units[id]).filter(Boolean);
   const dmgExpr = (base) => { let e = fx.cantrip ? cantripDice(base, a.level) : base; if (fx.up && fx.up.dmg) e = scaleExpr(e, fx.up.dmg, up); return e; };
   const concId = fx.conc ? startConc(state, a, name) : null;

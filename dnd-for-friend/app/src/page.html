@@ -504,6 +504,43 @@ body.ingame main { max-width: none; padding: 0 }
 .g-moment-text small { color: #b9a687 }
 .g-moment-x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; cursor: pointer }
 @keyframes momentIn { from { opacity: 0; transform: translateX(-50%) scale(.85) } to { opacity: 1; transform: translateX(-50%) scale(1) } }
+.g-pin.night { background: #9fb8ff; box-shadow: 0 0 0 4px rgba(140,170,255,.25), 0 0 18px #9fb8ff }
+.svc-sec { display: flex; flex-direction: column; gap: 8px }
+.svc-sec h3 { margin: 4px 0 0 }
+.g-journey { position: absolute; inset: 0; z-index: 30; pointer-events: auto }
+.g-journey[hidden] { display: none }
+.g-journey.in { animation: storyIn .5s ease-out }
+.g-jr { position: absolute; inset: 0; overflow: hidden; background: #120d09; color: #efe3c8; display: flex; flex-direction: column; justify-content: space-between; padding: max(22px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(22px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); gap: 14px }
+.g-jr-art { position: absolute; inset: -4%; background-size: cover; background-position: center; background-color: #2b2116; background-image: linear-gradient(180deg, #3b4a5a, #6b5a3a 60%, #2b2116); animation: jrPan var(--jr-ms, 5s) linear forwards }
+.g-jr.night .g-jr-art { filter: brightness(.55) saturate(.7) hue-rotate(195deg) }
+.g-jr-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,7,5,.75), rgba(10,7,5,.1) 35%, rgba(10,7,5,.1) 60%, rgba(10,7,5,.85)) }
+.g-jr > :not(.g-jr-art):not(.g-jr-shade) { position: relative }
+.g-jr-top { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px }
+.g-jr-top .eyebrow { color: #f4d27a }
+.g-jr-top h2 { margin: 0; font: 400 clamp(1.6rem, 5vw, 2.6rem) var(--f-name, serif); color: #fff3d6; text-shadow: 0 2px 16px rgba(0,0,0,.8); text-wrap: balance }
+.g-jr-top small { color: #d8c8a6 }
+.g-jr-ev { align-self: center; width: min(460px, 100%); display: flex; gap: 12px; align-items: stretch; background: rgba(20,15,11,.9); border: 2px solid #e0a040; border-radius: 14px; overflow: hidden; box-shadow: 0 16px 50px rgba(0,0,0,.6); opacity: 0; animation: jrEv .5s cubic-bezier(.2,1.4,.4,1) var(--jr-ev, 1.5s) forwards }
+.g-jr-ev-art { flex: 0 0 38%; min-height: 110px; background-size: cover; background-position: center; background-color: #3a2a12; display: grid; place-items: center; font-size: 2.4rem }
+.g-jr-ev-art[style*="travel-"] span { text-shadow: 0 2px 8px rgba(0,0,0,.8) }
+.g-jr-ev-text { display: flex; flex-direction: column; gap: 3px; padding: 12px 12px 12px 0; min-width: 0 }
+.g-jr-ev-text .eyebrow { color: #f0b860 }
+.g-jr-ev-text b { font: 400 1.35rem var(--f-name, serif); color: #fff3d6 }
+.g-jr-ev-text small { color: #cdbb98; line-height: 1.5 }
+.g-jr-road { display: flex; align-items: center; gap: 10px; width: min(620px, 100%); align-self: center }
+.g-jr-end { font-size: 1.3rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,.8)) }
+.g-jr-track { position: relative; flex: 1; height: 8px; border-radius: 99px; background: repeating-linear-gradient(90deg, rgba(255,240,210,.35) 0 8px, transparent 8px 14px) }
+.g-jr-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; background: linear-gradient(90deg, #c98a2e, #f4d27a); animation: jrFill var(--jr-ms, 5s) linear forwards }
+.g-jr-party { position: absolute; top: 50%; left: 0; display: flex; transform: translate(-50%, -50%); animation: jrWalk var(--jr-ms, 5s) linear forwards }
+.g-jr-party .g-face { margin-left: -8px; border: 2px solid #f4d27a; animation: jrBob .5s ease-in-out infinite alternate }
+.g-jr-party .g-face:nth-child(2n) { animation-delay: .25s }
+.g-jr-skip { position: absolute !important; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); color: #efe3c8 }
+.g-jr-road { margin-bottom: 34px }
+@keyframes jrPan { from { transform: scale(1.08) translateX(2%) } to { transform: scale(1.16) translateX(-2%) } }
+@keyframes jrFill { to { width: 100% } }
+@keyframes jrWalk { to { left: 100% } }
+@keyframes jrBob { from { transform: translateY(0) } to { transform: translateY(-4px) } }
+@keyframes jrEv { from { opacity: 0; transform: translateY(16px) scale(.9) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) { .g-jr-art, .g-jr-party .g-face { animation: none } }
 .g-npc { position: relative }
 .g-portrait { position: relative; transition: filter .3s, transform .3s, opacity .3s }
 .g-npc .g-portrait:not(.pc) { width: min(54%, 280px) }
