@@ -14,6 +14,8 @@ const canBrew = (p) => !!p && (p.card.homebrew || []).includes("chaos-potions") 
 const chaosBottles = (card) => (card.inventory || []).filter((x) => chaosRecipe(x.id) && x.qty > 0);
 
 // ---------- tiny local database (same shape as the db capability) for offline / signed-out play ----------
+const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const deepMerge = (a, b) => { const o = { ...(a || {}) }; for (const [k, v] of Object.entries(b)) o[k] = isObj(v) && isObj(o[k]) ? deepMerge(o[k], v) : v; return o; };
 function localDB() {
   const KEY = "dnd4f-localdb";
   let data = {}; try { data = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
@@ -25,7 +27,7 @@ function localDB() {
     id: path.split("/").pop(),
     get: async () => snap(path),
     set: async (d) => { data[path] = JSON.parse(JSON.stringify(d)); emit(); },
-    update: async (d) => { data[path] = { ...(data[path] || {}), ...JSON.parse(JSON.stringify(d)) }; emit(); },
+    update: async (d) => { data[path] = deepMerge(data[path], JSON.parse(JSON.stringify(d))); emit(); },
     delete: async () => { delete data[path]; emit(); },
     onSnapshot(cb) { const f = () => cb(snap(path)); subs.add(f); setTimeout(f, 0); return () => subs.delete(f); },
     collection: (p) => colRef(path + "/" + p),
@@ -46,6 +48,21 @@ function localDB() {
 let DBX = null;
 function dbx() { if (!DBX) { DBX = NET.db || localDB(); NET.local = !NET.db; } return DBX; }
 const myUid = () => NET.uid || "local";
+// shared clock: devices disagree by seconds or minutes, so timestamps that other devices compare use the store's time
+let CLOCK = 0;
+const nowT = () => Date.now() + CLOCK;
+const DEV = Math.random().toString(36).slice(2, 10); // this tab
+let clockAsked = false;
+async function syncClock() {
+  if (clockAsked || NET.local) return; clockAsked = true;
+  try {
+    const ref = dbx().doc("clock/" + DEV); if (!ref.acquire) return;
+    const t0 = Date.now(); const r = await ref.acquire({ holder: DEV, ttlMs: 5000 }); const t1 = Date.now();
+    const exp = r && r.acquired && r.expiresAt ? Date.parse(r.expiresAt) : NaN;
+    if (isFinite(exp) && t1 - t0 < 4000) { const off = exp - 5000 - (t0 + t1) / 2; CLOCK = Math.abs(off) > 1500 ? Math.round(off) : 0; }
+    ref.delete().catch(() => {});
+  } catch (e) {}
+}
 async function useSample() {
   if (NET.sample !== undefined) return NET.sample;
   try { NET.sample = window.claude ? await window.claude.use("sample") : null; } catch (e) { NET.sample = null; }
@@ -61,25 +78,34 @@ async function useAssets() {
 let campUnsub = null;
 function watchCampaigns() {
   if (campUnsub) return;
+  syncClock();
   campUnsub = dbx().collection("campaigns").onSnapshot((snap) => {
-    S.campaigns = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    S.campaigns = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => !c.deleting || c.owner === myUid()).sort((a, b) => (b.updated || 0) - (a.updated || 0));
     if (S.view === "play" && !P.cid) render();
   }, () => {});
 }
 async function createCampaign(name) {
-  const id = "c" + Date.now().toString(36);
-  const meta = { id, name: name || CAMP.name, preset: CAMP.id, owner: myUid(), hostUid: myUid(), createdAt: Date.now(), updated: Date.now(),
+  const id = "c" + nowT().toString(36);
+  const meta = { id, name: name || CAMP.name, preset: CAMP.id, owner: myUid(), hostUid: myUid(), createdAt: nowT(), updated: nowT(),
     cleared: {}, done: {}, opened: {}, found: {}, flags: {}, day: 1, dmBusy: false, log: [], homebrew: true };
   await dbx().doc("campaigns/" + id).set(meta);
-  await dbx().doc("campaigns/" + id + "/scene/main").set({ rev: 1, mode: "town", loc: CAMP.start, combat: null, updated: Date.now() });
-  await dbx().collection("campaigns/" + id + "/chat").add({ ts: Date.now(), kind: "dm", text: "ยินดีต้อนรับสู่ " + CAMP.name + " · " + CAMP.th + "\n\n" + CAMP.summary + "\n\n" + CAMP.town.intro, who: "DM" });
+  await dbx().doc("campaigns/" + id + "/scene/main").set({ rev: 1, mode: "town", loc: CAMP.start, combat: null, updated: nowT() });
+  await dbx().collection("campaigns/" + id + "/chat").add({ ts: nowT(), kind: "dm", text: "ยินดีต้อนรับสู่ " + CAMP.name + " · " + CAMP.th + "\n\n" + CAMP.summary + "\n\n" + CAMP.town.intro, who: "DM" });
   return id;
 }
 function openCampaign(cid) {
   closeCampaign();
   P.cid = cid; P.party = {}; P.partyLoaded = false; P.chat = []; P.meta = null; P.scene = null; P.maps = {}; lsSet("dnd-last-room", cid);
   const base = "campaigns/" + cid;
-  P.unsub.push(dbx().doc(base).onSnapshot((s) => { P.meta = s.exists ? s.data() : null; onSync(); }));
+  LEASE.until = 0; LEASE.err = 0; LEASE.next = 0; LEASE.doc = null; LEASE.heard = 0; LEASE.opened = Date.now(); P.hadMeta = false;
+  syncClock();
+  P.unsub.push(dbx().doc(base).onSnapshot((s) => {
+    P.meta = s.exists ? s.data() : null;
+    if (P.meta) P.hadMeta = true;
+    if ((!P.meta && P.hadMeta) || (P.meta && P.meta.deleting)) { if (P.cid === cid) { closeCampaign(); toast("ห้องนี้ถูกลบแล้ว"); render(); } return; }
+    onSync();
+  }));
+  if (!NET.local) P.unsub.push(dbx().doc(base + "/lock/host").onSnapshot((s) => { const d = s.exists ? s.data() : null; if (!LEASE.doc || !d || d.seen !== LEASE.doc.seen) LEASE.heard = Date.now(); LEASE.doc = d; }, () => {}));
   P.unsub.push(dbx().doc(base + "/scene/main").onSnapshot((s) => { P.scene = s.exists ? s.data() : null; onSync("scene"); }));
   P.unsub.push(dbx().collection(base + "/party").onSnapshot((s) => { P.party = Object.fromEntries(s.docs.map((d) => [d.id, d.data()])); P.partyLoaded = true; onSync("party"); }));
   P.unsub.push(dbx().collection(base + "/chat").orderBy("ts", "desc").limit(60).onSnapshot((s) => { P.chat = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.ts - b.ts); onSync("chat"); }));
@@ -87,13 +113,66 @@ function openCampaign(cid) {
   S.view = "play"; render();
 }
 function closeCampaign() { P.unsub.forEach((u) => { try { u(); } catch (e) {} }); P.unsub = []; P.cid = null; P.myCardId = null; }
-const isHost = () => !!P.meta && (NET.local || P.meta.hostUid === myUid());
+// ---------- host: one device per room ----------
+// The host role belongs to an account (meta.hostUid), but only ONE open tab may act on it: the tab holding the
+// short lease on lock/host. A second tab or TV screen of the same account waits, and takes over if the first closes.
+const LEASE = { until: 0, err: 0, next: 0, busy: false, doc: null, heard: 0, opened: 0 };
+const isHost = () => !!P.meta && (NET.local || (P.meta.hostUid === myUid() && (LEASE.err >= 3 || Date.now() < LEASE.until)));
+const hostParty = () => Object.values(P.party).find((p) => p.uid === (P.meta || {}).hostUid);
+function hostAlive() {
+  if (NET.local || isHost()) return true;
+  if (LEASE.doc && LEASE.heard && Date.now() - LEASE.heard < 45000) return true;
+  const hp = hostParty(); return !!hp && nowT() - (hp.seen || 0) < 45000;
+}
+// when the host has been gone a while, the first online player (lowest id) picks the role up
+function shouldTakeOver() {
+  if (!P.myCardId || !P.partyLoaded || Date.now() - LEASE.opened < 30000 || hostAlive()) return false;
+  const ids = [...new Set(Object.values(P.party).filter((p) => p.uid && p.uid !== P.meta.hostUid && isOnline(p)).map((p) => p.uid))].sort();
+  return ids[0] === myUid();
+}
+async function leaseTick() {
+  if (!P.cid || !P.meta || NET.local || LEASE.busy || Date.now() < LEASE.next) return;
+  const mine = P.meta.hostUid === myUid();
+  if (!mine && !shouldTakeOver()) return;
+  const ref = dbx().doc("campaigns/" + P.cid + "/lock/host");
+  if (!ref.acquire) { LEASE.err = 9; return; }
+  LEASE.busy = true; LEASE.next = Date.now() + 5000;
+  const cid = P.cid, t0 = Date.now(), was = isHost();
+  try {
+    const r = await ref.acquire({ holder: DEV, ttlMs: 16000, data: { uid: myUid(), seen: nowT() } });
+    if (cid !== P.cid) return;
+    LEASE.err = 0;
+    if (r && r.acquired) {
+      LEASE.until = t0 + 13000;
+      if (!mine) { await writeMeta({ hostUid: myUid() }); const me = P.party[P.myCardId]; await say("system", "👑 host เดิมไม่อยู่ · " + (me ? me.card.name : "ผู้เล่น") + " รับหน้าที่ host แทนชั่วคราว", { place: null }); }
+    } else LEASE.until = 0;
+  } catch (e) { LEASE.err++; }
+  finally { LEASE.busy = false; if (cid === P.cid && was !== isHost()) onSync(); }
+}
+setInterval(leaseTick, 2500);
+async function takeHost() { await writeMeta({ hostUid: myUid() }); LEASE.next = 0; toast("คุณเป็น host แล้ว (เริ่มทำงานภายในไม่กี่วินาที)"); leaseTick(); }
+// ---------- delete a room (owner only): every document under it, then the room itself ----------
+async function deleteCampaign(cid, onStep) {
+  const base = "campaigns/" + cid; let n = 0;
+  const del = async (ref) => { for (let i = 0; i < 4; i++) { try { await ref.delete(); n++; if (onStep) onStep(n); return; } catch (e) { await new Promise((r) => setTimeout(r, 800 * (i + 1))); } } throw new Error("delete failed"); };
+  if (P.cid === cid) closeCampaign();
+  try { await dbx().doc(base).update({ deleting: nowT() }); } catch (e) {}
+  for (const col of ["chat", "party", "maps", "lock", "scene"]) {
+    for (let round = 0; round < 40; round++) {
+      const snap = await dbx().collection(base + "/" + col).limit(200).get();
+      if (!snap.docs.length) break;
+      for (const d of snap.docs) await del(dbx().doc(base + "/" + col + "/" + d.id));
+    }
+  }
+  await del(dbx().doc(base));
+  if (lsGet("dnd-last-room") === cid) lsSet("dnd-last-room", "");
+}
 const myParty = () => Object.values(P.party).filter((p) => NET.local || p.uid === myUid());
 function canControl(unit) {
   if (!unit) return false;
   if (NET.local) return true;
   const pd = P.party[unit.cardId];
-  return (pd && pd.uid === myUid()) || (isHost() && pd && pd.uid && (Date.now() - (pd.seen || 0) > 120000));
+  return (pd && pd.uid === myUid()) || (isHost() && pd && pd.uid && (nowT() - (pd.seen || 0) > 60000));
 }
 
 // ---------- map data ----------
@@ -128,23 +207,49 @@ function visibleCells(grid, from, radius = 7) {
 }
 
 // ---------- writes ----------
+// Only the fields that changed are sent (update merges), so two people writing the same document at the same
+// moment no longer wipe each other's change. A removed key cannot be expressed that way, so it falls back to a full set.
+function docDiff(cur, next) {
+  const diff = {}; let removed = false, n = 0;
+  for (const k of Object.keys(cur || {})) if (cur[k] !== undefined && next[k] === undefined) removed = true;
+  for (const [k, v] of Object.entries(next)) {
+    if (v === undefined) continue;
+    const c = cur ? cur[k] : undefined;
+    if (isObj(v) && isObj(c)) { const d = docDiff(c, v); if (d.removed) removed = true; if (d.n) { diff[k] = d.diff; n++; } }
+    else if (JSON.stringify(v) !== JSON.stringify(c)) { diff[k] = v; n++; }
+  }
+  return { diff, removed, n };
+}
+const writeQ = {};
+function writeDoc(path, cur, next, atomic) {
+  const d = cur && !atomic ? docDiff(cur, next) : null;
+  const run = () => {
+    const ref = dbx().doc(path);
+    if (!d || d.removed) return ref.set(next);
+    if (!d.n) return null;
+    return ref.update(d.diff).catch((e) => (e && e.code === "invalid_argument" ? ref.set(next) : Promise.reject(e)));
+  };
+  const p = (writeQ[path] || Promise.resolve()).catch(() => {}).then(run); // one write at a time per document
+  writeQ[path] = p; return p;
+}
 async function writeScene(patch) {
-  const next = { ...P.scene, ...patch, rev: (P.scene ? P.scene.rev || 0 : 0) + 1, updated: Date.now(), by: myUid() };
+  const cur = P.scene;
+  const next = { ...cur, ...patch, rev: (cur ? cur.rev || 0 : 0) + 1, updated: nowT(), by: myUid() };
   P.scene = next; // optimistic
-  await dbx().doc("campaigns/" + P.cid + "/scene/main").set(next);
+  await writeDoc("campaigns/" + P.cid + "/scene/main", cur, next, isObj(patch.combat)); // a fight is always written whole
 }
 async function writeParty(cardId, patch) {
-  const cur = P.party[cardId] || {};
-  const next = { ...cur, ...patch };
+  const cur = P.party[cardId];
+  const next = { ...(cur || {}), ...patch };
   P.party[cardId] = next;
-  await dbx().doc("campaigns/" + P.cid + "/party/" + cardId).set(next);
+  await writeDoc("campaigns/" + P.cid + "/party/" + cardId, cur, next);
 }
-async function writeMeta(patch) { P.meta = { ...P.meta, ...patch, updated: Date.now() }; await dbx().doc("campaigns/" + P.cid).update({ ...patch, updated: Date.now() }); }
+async function writeMeta(patch) { const cur = P.meta; const next = { ...cur, ...patch, updated: nowT() }; P.meta = next; await writeDoc("campaigns/" + P.cid, cur, next); }
 const unEntity = (t) => String(t == null ? "" : t).replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16))).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 // chat lines said inside a village building carry that building's id, so the building shows its own conversation
 async function say(kind, text, extra = {}) {
   const place = "place" in extra ? extra.place : (P.scene && P.scene.mode === "town" && P.townPlace) || null;
-  await dbx().collection("campaigns/" + P.cid + "/chat").add({ ts: Date.now(), kind, text: unEntity(text), who: extra.who || (kind === "dm" ? "DM" : ""), uid: myUid(), ...extra, place });
+  await dbx().collection("campaigns/" + P.cid + "/chat").add({ ts: nowT(), kind, text: unEntity(text), who: extra.who || (kind === "dm" ? "DM" : ""), uid: myUid(), ...extra, place });
 }
 
 // ---------- join / sync cards ----------
@@ -154,7 +259,7 @@ async function joinWith(card) {
   const sh = computeSheet(c, D);
   const def = P.scene && mapDef(P.scene.loc);
   const start = def && def.rows ? freeStart(def) : { x: 1, y: 1 };
-  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level, brewsLeft: 2 }, pos: start, revealed: {}, seen: Date.now(), joined: Date.now() });
+  await writeParty(c.id, { uid: myUid(), cardId: c.id, card: c, live: { hp: sh.hpMax, slotsUsed: [], resUsed: {}, conditions: [], deathSaves: { ok: 0, fail: 0 }, dead: false, hitDice: c.level, brewsLeft: 2 }, pos: start, revealed: {}, seen: nowT(), joined: nowT() });
   P.myCardId = c.id; P.forceJoin = false;
   await say("system", c.name + " (" + classLine(c) + " Lv" + c.level + ") เข้าร่วมทีม");
   render();
@@ -206,13 +311,14 @@ function onSync(what) {
     if (req && P.recapReqCid === P.cid && req.ts > P.recapReqSeen) maybeRecap(true);
     P.recapReqCid = P.cid; P.recapReqSeen = req ? req.ts : 0;
   }
+  if (P.meta && !NET.local && !LEASE.until) leaseTick();
   if (isHost()) hostTick(what);
   if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; if (S.view === "play") renderPlay(); }); }
 }
 // safety net: the host keeps the game moving even if a sync was missed
 setInterval(() => { if (P.cid && P.scene && isHost()) hostTick(); }, 3000);
 // heartbeat so the host knows who is online
-setInterval(() => { if (P.cid && P.myCardId && P.party[P.myCardId] && !NET.local) dbx().doc("campaigns/" + P.cid + "/party/" + P.myCardId).update({ seen: Date.now() }).catch(() => {}); }, 60000);
+setInterval(() => { if (P.cid && P.myCardId && P.party[P.myCardId] && !NET.local) dbx().doc("campaigns/" + P.cid + "/party/" + P.myCardId).update({ seen: nowT() }).catch(() => {}); }, 20000);
 
 // ---------- combat state helpers ----------
 function combatState() { if (!P.scene || !P.scene.combat) return null; return attachData(clone(P.scene.combat), D); }
@@ -319,14 +425,14 @@ async function finalizeCombat(st) {
     const done = st.boss ? { ...(P.meta.done || {}), [st.mapId]: true } : P.meta.done || {};
     await writeMeta({ cleared, done });
     await countKills(st);
-    await writeScene({ mode: "explore", combat: null, finalized: true, ex: { ...(P.scene.ex || {}), moved: 0, acted: false }, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss, final: !!(st.boss && def.final), ts: Date.now() } });
+    await writeScene({ mode: "explore", combat: null, finalized: true, ex: { ...(P.scene.ex || {}), moved: 0, acted: false }, lastCombat: { result: "win", xp: share, enc: def.encounters[st.encounter].th, boss: st.boss, final: !!(st.boss && def.final), ts: nowT() } });
     await say("system", "🏆 ชนะ " + def.encounters[st.encounter].th + " · ได้ EXP คนละ " + share + (milestone ? " (บอสดันเจี้ยน: EXP อย่างน้อย " + milestone + ")" : "") + pcs.filter((u) => u.dead).map((u) => " · " + u.name + " เสียชีวิต ต้องไปชุบที่วิหาร").join(""));
     if ((st.captives || []).length) await writeMeta({ flags: { ...(P.meta.flags || {}), captives: st.captives.join(", ") } });
     await questCheck();
     requestDM({ event: "ชนะการต่อสู้กับ " + def.encounters[st.encounter].th + ((st.captives || []).length ? " · จับเชลยได้: " + st.captives.join(", ") + " (ผู้เล่นสอบสวนได้)" : "") + (st.boss ? " (บอสของสถานที่นี้)" + (def.final ? " นี่คือบอสสุดท้ายของแคมเปญ ให้บรรยายตอนจบ" : "") : "") });
   } else {
     // stay on the battlefield with a "defeated" screen; a player taps to be carried back to the temple
-    await writeScene({ finalized: true, defeat: { ts: Date.now(), enc: def.encounters[st.encounter].th } });
+    await writeScene({ finalized: true, defeat: { ts: nowT(), enc: def.encounters[st.encounter].th } });
     await say("system", "💀 ทีมพ่ายแพ้ใน " + def.encounters[st.encounter].th + "…");
   }
 }
@@ -355,13 +461,13 @@ async function startSkirmish(field, monsters, title, extra = {}) {
   const units = members.map((p, i) => { const u = pcUnit({ ...p.card, owner: p.uid }, D, p.live); const c = starts[i] || starts[0]; u.x = c.x + (i >= starts.length ? 1 : 0); u.y = c.y; u.owner = p.uid; return u; });
   list.forEach(([id, tier], i) => { const c = spawns[i % spawns.length]; const m = monsterUnit(MON[id], tier, i + 1, members.length); m.x = c.x - (i >= spawns.length ? 1 : 0); m.y = c.y; units.push(m); });
   const st = newCombat(grid, units, D);
-  st.encounter = "skirmish-" + Date.now(); st.mapId = def.id; st.boss = false; st.skirmish = true; st.encTh = String(title || def.th).slice(0, 60);
+  st.encounter = "skirmish-" + nowT(); st.mapId = def.id; st.boss = false; st.skirmish = true; st.encTh = String(title || def.th).slice(0, 60);
   log(st, "⚔️ " + st.encTh + "!", { kind: "start" });
   rollInitiative(st);
   const from = { mode: sc.mode === "explore" ? "explore" : sc.mode === "world" ? "world" : "town", loc: sc.loc, quest: extra.quest || null, place: P.townPlace || null };
   if (P.townPlace) for (const p of Object.values(P.party)) if (p.townPlace) await writeParty(p.cardId, { townPlace: null });
   await writeScene({ mode: "combat", loc: def.id, combat: serialize(st), finalized: false, skirmish: from, vote: null,
-    journey: { ts: Date.now(), to: def.id, ev: null, caravan: false, night: isNight() } });
+    journey: { ts: nowT(), to: def.id, ev: null, caravan: false, night: isNight() } });
   await say("system", "⚔️ " + st.encTh + " ที่ " + def.name + " · " + def.th + " · " + st.order.map((id) => st.units[id].name + " " + st.units[id].init).join(" · "));
 }
 async function finalizeSkirmish(st) {
@@ -372,12 +478,12 @@ async function finalizeSkirmish(st) {
     for (const u of pcs) { const p = P.party[u.cardId]; if (!p) continue; await writeParty(u.cardId, { card: { ...p.card, xp: (p.card.xp || 0) + share }, live: { ...p.live, ...liveOf(u) } }); }
     await countKills(st);
     if (from.quest) await writeQuests({ won: { ...(qState().won || {}), [from.quest]: true } });
-    await writeScene({ mode: from.mode, loc: from.loc, combat: null, finalized: true, skirmish: null, lastCombat: { result: "win", xp: share, enc: st.encTh, ts: Date.now() } });
+    await writeScene({ mode: from.mode, loc: from.loc, combat: null, finalized: true, skirmish: null, lastCombat: { result: "win", xp: share, enc: st.encTh, ts: nowT() } });
     await say("system", "🏆 ชนะ " + st.encTh + " · ได้ EXP คนละ " + share + pcs.filter((u) => u.dead).map((u) => " · " + u.name + " เสียชีวิต ต้องไปชุบที่วิหาร").join(""));
     await questCheck();
     requestDM({ event: "ชนะการต่อสู้ " + st.encTh + " ที่ " + def.name + " แล้วทีมกลับมาที่เดิม" + (from.quest ? " (งานของเควสเสร็จแล้ว ให้กลับไปส่งเควสกับคนให้งาน)" : "") });
   } else {
-    await writeScene({ finalized: true, defeat: { ts: Date.now(), enc: st.encTh } });
+    await writeScene({ finalized: true, defeat: { ts: nowT(), enc: st.encTh } });
     await say("system", "💀 ทีมพ่ายแพ้ใน " + st.encTh + "…");
   }
 }
@@ -393,7 +499,7 @@ async function returnAfterDefeat() {
       const sh = computeSheet(p.card, D);
       await writeParty(u.cardId, { card: { ...p.card, gp: (p.card.gp || 0) - fee }, live: { ...p.live, ...liveOf(u), hp: Math.max(1, Math.floor(sh.hpMax / 2)), dead: false, deathSaves: { ok: 0, fail: 0 } } });
     }
-    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, defeat: null, skirmish: null, lastCombat: { result: "lose", ts: Date.now() }, vote: null });
+    await writeScene({ mode: "town", loc: CAMP.start, combat: null, finalized: true, defeat: null, skirmish: null, lastCombat: { result: "lose", ts: nowT() }, vote: null });
     for (const p of Object.values(P.party)) if (P.party[p.cardId].townPlace) await writeParty(p.cardId, { townPlace: null });
     await say("system", "💀 ทุกคนตื่นขึ้นที่วิหารรุ่งอรุณ ใน Brindlemoor (เสียค่าชุบชีวิต 50 GP × เลเวล หรือเท่าที่มี)");
     requestDM({ event: "ทีมแพ้และถูกพากลับมาชุบชีวิตที่วิหาร" });
@@ -512,21 +618,21 @@ async function maybeFlavor(st) {
   if (P.flavorKey !== P.cid + st.mapId + st.encounter) { P.flavorKey = P.cid + st.mapId + st.encounter; P.flavorSeq = st.seq; return; }
   const fresh = st.log.filter((l) => l.n > (P.flavorSeq || 0)); P.flavorSeq = st.seq;
   const hit = fresh.filter((l) => (l.kind === "attack" && l.crit) || (l.kind === "kill" && /\((Sub )?Boss\)/.test(l.text)) || l.kind === "down").pop();
-  if (!hit || Date.now() - (P.flavorAt || 0) < 12000) return;
+  if (!hit || nowT() - (P.flavorAt || 0) < 12000) return;
   const sample = await useSample(); if (!sample) return;
-  P.flavorAt = Date.now();
+  P.flavorAt = nowT();
   try { const ans = await sample.json("คุณคือ DM ของเกม D&D เล่าจังหวะนี้ให้ตื่นเต้นเป็นภาษาไทย 1 ประโยค ไม่เกิน 20 คำ ห้ามเปลี่ยนผลที่เกิดขึ้น\nเหตุการณ์: " + hit.text + "\nตอบ JSON: {\"say\":\"...\"}", { modelTier: "quick" }); if (ans && ans.say) await say("dm", String(ans.say).slice(0, 160), { flavor: true }); } catch (e) {}
 }
 // recap: when the host opens a room after a break, Claude sums up "last time…"
 async function maybeRecap(force) {
   if (!isHost() || P.recapBusy || !P.chat.length) return;
-  if (!force) { if (P.recapChecked === P.cid) return; P.recapChecked = P.cid; const last = P.chat[P.chat.length - 1].ts; if (P.chat.length < 8 || Date.now() - last < 3 * 3600e3) return; }
+  if (!force) { if (P.recapChecked === P.cid) return; P.recapChecked = P.cid; const last = P.chat[P.chat.length - 1].ts; if (P.chat.length < 8 || nowT() - last < 3 * 3600e3) return; }
   const sample = await useSample(); if (!sample) { if (force) toast("ต้องเปิดผ่านลิงก์ claude.ai DM ถึงจะสรุปได้"); return; }
   P.recapBusy = true;
   try {
     const hist = P.chat.slice(-40).map((m) => (m.kind === "dm" ? "DM: " : m.kind === "system" ? "[ระบบ] " : (m.who || "ผู้เล่น") + ": ") + m.text).join("\n");
     const ans = await sample.json("คุณคือ DM ของเกม D&D สรุปเรื่องที่ผ่านมาให้ผู้เล่นที่กลับมาเล่นต่อ ภาษาไทย 3-5 ประโยค เล่าเหมือนตอนต้นของซีรีส์ (ครั้งที่แล้ว…) บอกว่าตอนนี้ทีมอยู่ที่ไหนและเป้าหมายต่อไปคืออะไร\n" + dmContext() + "\n=== บันทึก ===\n" + hist + "\nตอบ JSON: {\"say\":\"...\"}", { modelTier: "default" });
-    if (ans && ans.say) { await say("dm", "📖 ครั้งที่แล้ว… " + String(ans.say).slice(0, 900), { recap: true }); await writeMeta({ recapAt: Date.now() }); }
+    if (ans && ans.say) { await say("dm", "📖 ครั้งที่แล้ว… " + String(ans.say).slice(0, 900), { recap: true }); await writeMeta({ recapAt: nowT() }); }
   } catch (e) { if (force) toast("สรุปเรื่องไม่สำเร็จ ลองใหม่อีกครั้ง"); } finally { P.recapBusy = false; }
 }
 
@@ -672,7 +778,7 @@ async function dmAction(a) {
     }
     else if (a.type === "place" && P.scene.mode === "town") { // the story moved the party to another building (or outside): everyone follows
       const to = a.to && CAMP.town.places.some((p) => p.id === a.to) ? a.to : null;
-      if (!(to === "night" && !isNight())) { P.dmPlace = to; await writeScene({ gather: { place: to, ts: Date.now() } }); }
+      if (!(to === "night" && !isNight())) { P.dmPlace = to; await writeScene({ gather: { place: to, ts: nowT() } }); }
     }
     else if (a.type === "give") {
       const who = a.who === "all" ? Object.values(P.party) : [findMember(a.who)].filter(Boolean);
@@ -784,7 +890,7 @@ async function travelTo(loc, quiet, opts = {}) {
   const ev = !quiet && !isTown && Math.random() < (opts.caravan ? 1 / 6 : isNight() ? 1 / 2 : 1 / 3) ? TRAVEL_EVENTS[Math.floor(Math.random() * TRAVEL_EVENTS.length)] : null;
   P.arriving = true;
   await writeScene({ mode: isTown ? "town" : "explore", loc, combat: null, lastCombat: null, vote: null,
-    journey: quiet ? null : { ts: Date.now(), to: loc, ev: ev ? ev.id : null, caravan: !!opts.caravan, night: isNight() }, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false },
+    journey: quiet ? null : { ts: nowT(), to: loc, ev: ev ? ev.id : null, caravan: !!opts.caravan, night: isNight() }, ex: { group: !!(P.scene.ex || {}).group, turn: null, moved: 0, acted: false },
     ...(!isTown && def && def.rows ? { traps: genTraps(def), trapLoc: loc } : {}) });
   if (!quiet) await passTime(loc === "summit" ? 1 : opts.caravan ? 2 : 4);
   if (!isTown && P.meta.discount) await writeMeta({ discount: null });
@@ -816,7 +922,7 @@ async function restParty(kind, quiet) {
 
 // ---------- exploration turns: solo (each walks 30 ft) or group (the leader walks, everyone follows) ----------
 const EX_FT = 30;
-const isOnline = (p) => NET.local || p.uid === myUid() || Date.now() - (p.seen || 0) < 150000;
+const isOnline = (p) => NET.local || p.uid === myUid() || nowT() - (p.seen || 0) < 65000;
 function exMembers() {
   return Object.values(P.party).filter((p) => p.pos && !(p.live && p.live.dead) && isOnline(p))
     .sort((a, b) => (a.joined || 0) - (b.joined || 0) || String(a.cardId).localeCompare(String(b.cardId)));
@@ -849,7 +955,7 @@ function voteStatus() {
 async function proposeTravel(loc, opts = {}) {
   const others = Object.values(P.party).filter((p) => isOnline(p) && !(NET.local || p.uid === myUid()));
   if (NET.local || !others.length) return travelTo(loc, false, opts);
-  const id = Date.now(); const me = P.party[P.myCardId];
+  const id = nowT(); const me = P.party[P.myCardId];
   await writeScene({ vote: { loc, id, by: me ? me.card.name : "", caravan: !!opts.caravan } });
   for (const p of myParty()) await writeParty(p.cardId, { ready: id });
   const L = locInfo(loc);
@@ -864,8 +970,7 @@ async function sendChat(text) {
   const me = P.party[P.myCardId];
   await say("player", text, { who: me ? me.card.name : "ผู้เล่น" });
   if (!isHost() && !NET.local) {
-    const host = Object.values(P.party).find((p) => p.uid === P.meta.hostUid);
-    if (!host || Date.now() - (host.seen || 0) > 180000) toast("ตอนนี้ host ไม่ได้เปิดเกม DM จะตอบเมื่อ host กลับมา");
+    if (!hostAlive()) toast("ตอนนี้ host ไม่อยู่ DM จะตอบเมื่อมีคนรับหน้าที่ host (ระบบจะส่งต่อให้เองภายในราว 1 นาที)");
   }
 }
 function speakLatest() {
@@ -935,7 +1040,7 @@ async function takeQuest(id) {
   if (sideSlotsFull()) return toast("รับเควสรองได้ทีละ " + (QD.maxSide || 3) + " เควส ส่งเควสเก่าก่อนนะ");
   const others = Object.values(P.party).filter((p) => isOnline(p) && !(NET.local || p.uid === myUid()));
   if (NET.local || !others.length) return acceptQuest(id);
-  const ts = Date.now(); const me = myMember();
+  const ts = nowT(); const me = myMember();
   await writeScene({ qvote: { id, ts, by: me ? me.card.name : "" } });
   for (const p of myParty()) await writeParty(p.cardId, { qok: ts });
   await say("system", "📜 " + (me ? me.card.name : "มีคน") + " ชวนรับเควส “" + q.title + "” · ทุกคนกด “ยอมรับ” เพื่อรับงาน");
@@ -959,11 +1064,11 @@ async function acceptQuest(id) {
   const taken = qState().taken || {};
   if (sideSlotsFull()) return toast("รับเควสรองได้ทีละ " + (QD.maxSide || 3) + " เควส ส่งเควสเก่าก่อนนะ");
   const base = q.goal.t === "kill" ? killTotal(q.goal.mon) : q.goal.t === "chests" ? Object.keys(P.meta.opened || {}).length : 0;
-  await writeQuests({ taken: { ...taken, [id]: { at: Date.now(), base } } });
+  await writeQuests({ taken: { ...taken, [id]: { at: nowT(), base } } });
   const sp = giverSpot(q);
   await say("system", "📜 ทีมรับเควส “" + q.title + "” จาก " + q.giver + " · " + q.goalTh, { place: sp ? sp.id : null });
   if (sp) { // walk the whole party to the quest giver, who explains the job
-    await writeScene({ gather: { place: sp.id, ts: Date.now() } });
+    await writeScene({ gather: { place: sp.id, ts: nowT() } });
     requestDM({ event: "ทีมเพิ่งรับเควส “" + q.title + "” (" + q.goalTh + ") และเดินมาหา " + q.giver + " ให้ " + q.giver + " เล่ารายละเอียดงานเป็นคำพูดของตัวเอง สั้น ๆ พร้อมคำใบ้หนึ่งอย่าง", place: sp.id });
   }
 }
@@ -974,7 +1079,7 @@ async function dropQuest(id) {
 async function turnInQuest(id) {
   const q = questDef(id); if (!q || questStatus(q) !== "ready") return;
   if (P.scene.mode !== "town") return toast("กลับไปส่งเควสที่กระดานประกาศในหมู่บ้านนะ");
-  await writeQuests({ turned: { ...(qState().turned || {}), [id]: Date.now() } });
+  await writeQuests({ turned: { ...(qState().turned || {}), [id]: nowT() } });
   await giveQuestReward(q);
   requestDM({ event: "ทีมส่งเควส “" + q.title + "” ให้ " + q.giver + " และได้รับรางวัล ให้ " + q.giver + " พูดขอบคุณสั้น ๆ ตามนิสัย" + (q.kind === "main" && nextMainQuest() ? " แล้วบอกใบ้งานถัดไป: " + nextMainQuest().story : ""), place: P.townPlace || (giverSpot(q) || {}).id || null });
 }
@@ -1018,7 +1123,7 @@ function questContext() {
 async function dmQuest(a) {
   const custom = clone(qState().custom || []);
   if (a.op === "add" && a.title && custom.filter((q) => q.status !== "done").length < 3) {
-    const id = "d" + Date.now().toString(36);
+    const id = "d" + nowT().toString(36);
     custom.push({ id, title: String(a.title).slice(0, 40), goalTh: String(a.goal || a.title).slice(0, 80), giver: String(a.giver || "DM").slice(0, 30), loc: CAMP.world.locations.some((l) => l.id === a.loc) ? a.loc : null, goal: { t: "dm" }, status: "open", reward: { gp: Math.max(0, Math.min(100, Math.round(+a.gp || 0))), items: [] } });
     await writeQuests({ custom });
     await say("system", "📜 เควสใหม่จาก " + custom[custom.length - 1].giver + ": “" + custom[custom.length - 1].title + "” · " + custom[custom.length - 1].goalTh);

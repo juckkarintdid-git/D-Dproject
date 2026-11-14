@@ -44,7 +44,7 @@ function viewPlay() {
   return P.dom.root;
 }
 // ---------- home: welcome art, continue, my hero, rooms ----------
-const agoTh = (ts) => { const m = Math.round((Date.now() - (ts || 0)) / 60000); return m < 2 ? "เมื่อสักครู่" : m < 60 ? m + " นาทีที่แล้ว" : m < 1440 ? Math.round(m / 60) + " ชม.ที่แล้ว" : Math.round(m / 1440) + " วันที่แล้ว"; };
+const agoTh = (ts) => { const m = Math.round((nowT() - (ts || 0)) / 60000); return m < 2 ? "เมื่อสักครู่" : m < 60 ? m + " นาทีที่แล้ว" : m < 1440 ? Math.round(m / 60) + " ชม.ที่แล้ว" : Math.round(m / 1440) + " วันที่แล้ว"; };
 // who is online in each room (party docs refresh "seen" every minute while someone plays)
 function watchRoomOnline(list) {
   S.online = S.online || {}; S.onlineWatch = S.onlineWatch || {};
@@ -52,13 +52,19 @@ function watchRoomOnline(list) {
     if (S.onlineWatch[c.id]) continue;
     S.onlineWatch[c.id] = dbx().collection("campaigns/" + c.id + "/party").onSnapshot((snap) => {
       const docs = snap.docs.map((d) => d.data());
-      const on = docs.filter((d) => Date.now() - (d.seen || 0) < 180000).map((d) => d.card && d.card.name).filter(Boolean);
+      const on = docs.filter((d) => nowT() - (d.seen || 0) < 65000).map((d) => d.card && d.card.name).filter(Boolean);
       const key = on.join("|") + "/" + docs.length;
       if ((S.online[c.id] || {}).key === key) return;
       S.online[c.id] = { key, on, n: docs.length, faces: docs.slice(0, 4).map((d) => d.card || {}) };
       if (S.view === "play" && !P.cid) render();
     }, () => {});
   }
+}
+async function removeRoom(c) {
+  if (S.delBusy) return; S.delBusy = true; S.delN = 0; render();
+  try { await deleteCampaign(c.id, (n) => { S.delN = n; if (n % 10 === 0) render(); }); toast("ลบห้อง “" + c.name + "” แล้ว"); }
+  catch (e) { toast("ลบไม่สำเร็จ ลองกดลบอีกครั้ง"); }
+  S.delBusy = false; S.delRoom = null; render();
 }
 function viewLobby() {
   if (S.store === "loading") return h("div", { class: "empty" }, "กำลังเชื่อมต่อ…");
@@ -107,7 +113,12 @@ function viewLobby() {
               h("div", { class: "small muted" }, "เล่นล่าสุด " + agoTh(c.updated || c.createdAt) + " · จบดันเจียน " + Object.keys(c.done || {}).length + "/5"),
               h("div", null, o.on.length ? h("span", { class: "tag ok" }, "● ออนไลน์ " + o.on.length + " คน: " + o.on.join(", ")) : h("span", { class: "tag" }, "ในทีม " + o.n + " คน"),
                 c.hostUid === myUid() && h("span", { class: "tag" }, "ห้องของฉัน"))),
-            h("button", { class: "btn" + (last && last.id === c.id ? " primary" : ""), onclick: () => openCampaign(c.id) }, "เข้าห้อง")); }))
+            h("div", { class: "room-acts" },
+              h("button", { class: "btn" + (last && last.id === c.id ? " primary" : ""), disabled: S.delRoom === c.id && S.delBusy ? "" : null, onclick: () => openCampaign(c.id) }, "เข้าห้อง"),
+              (NET.local || c.owner === myUid()) && (S.delRoom === c.id
+                ? (S.delBusy ? h("span", { class: "small muted" }, "กำลังลบ… " + (S.delN || 0))
+                  : h("span", { class: "row", style: "gap:6px" }, h("button", { class: "btn small danger", onclick: () => removeRoom(c) }, "ยืนยันลบ"), h("button", { class: "btn ghost small", onclick: () => { S.delRoom = null; render(); } }, "ยกเลิก")))
+                : h("button", { class: "btn ghost small", title: "ลบห้องนี้ถาวร", onclick: () => { S.delRoom = c.id; render(); } }, "🗑 ลบห้อง")))); }))
         : h("div", { class: "empty" }, "ยังไม่มีห้อง ตั้งชื่อแล้วกด “สร้างห้อง” ได้เลย"))));
 }
 
@@ -218,7 +229,7 @@ function renderPlay() {
   document.body.classList.toggle("tv", P.tv);
   const sc = P.scene;
   if (!sc.gather && P.gatherSeen === undefined) P.gatherSeen = 0;
-  if (sc.gather && sc.mode === "town" && P.gatherSeen !== sc.gather.ts) { const first = P.gatherSeen === undefined; P.gatherSeen = sc.gather.ts; if (!first && myParty().length && Date.now() - sc.gather.ts < 120000) { P.roomTab = "talk"; enterPlace(sc.gather.place); return; } }
+  if (sc.gather && sc.mode === "town" && P.gatherSeen !== sc.gather.ts) { const first = P.gatherSeen === undefined; P.gatherSeen = sc.gather.ts; if (!first && myParty().length && nowT() - sc.gather.ts < 120000) { P.roomTab = "talk"; enterPlace(sc.gather.place); return; } }
   if (P.lastLoc !== sc.loc + sc.mode) { if (sc.mode !== "town") P.townPlace = null; P.pan = null; P.lastLoc = sc.loc + sc.mode; }
   if (NET.local && sc.mode === "explore") { const t = exState().turn; if (t && P.party[t]) P.myCardId = t; }
   if (P.mode !== "move") P.pop = null;
@@ -531,7 +542,7 @@ function renderCaption() {
   const show = !P.mapEdit && myParty().length > 0 && sc.mode !== "combat" && !(sc.mode === "town" && P.townPlace);
   P.dom.caption.hidden = !show; if (!show) return;
   const lastDm = [...P.chat].reverse().find((m) => m.kind === "dm");
-  const after = P.chat.slice(lastDm ? P.chat.lastIndexOf(lastDm) + 1 : 0).filter((m) => m.kind !== "dm" && m.ts > Date.now() - 300000).slice(-2);
+  const after = P.chat.slice(lastDm ? P.chat.lastIndexOf(lastDm) + 1 : 0).filter((m) => m.kind !== "dm" && m.ts > nowT() - 300000).slice(-2);
   const fallback = sc.mode === "town" ? CAMP.town.intro : sc.mode === "world" ? "เลือกที่หมายบนแผนที่ แล้วชวนเพื่อนออกเดินทาง ทุกคนต้องกด “พร้อม” ก่อน" : ((mapDef(sc.loc) || {}).intro || "");
   const text = lastDm ? lastDm.text : fallback;
   const min = !!P.capMin;
@@ -1412,7 +1423,7 @@ function stepFor(st, u) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let fxChain = Promise.resolve();
 // effects that fall more than a few seconds behind are skipped so the screen never lags behind the game
-function fxQueue(fn) { const t = Date.now(); fxChain = fxChain.then(() => (Date.now() - t > 4500 ? null : fn())).catch(() => {}); }
+function fxQueue(fn) { const t = nowT(); fxChain = fxChain.then(() => (nowT() - t > 4500 ? null : fn())).catch(() => {}); }
 const D20 = '<svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="#efe3c8" stroke="#2a1d12" stroke-width="2.5"/><polygon points="50,22 78,68 22,68" fill="#e2d2b0" stroke="#2a1d12" stroke-width="1.5"/><path d="M50 3 50 22M93 27 78 68M7 27 22 68M50 97 22 68M50 97 78 68M7 73 22 68M93 73 78 68M7 27 50 22 93 27" stroke="#2a1d12" stroke-width="1.3" fill="none"/></svg>';
 // ---------- 3D d20 (three.js): tumbles, then settles with the rolled face toward the camera ----------
 const DIE3 = { r: null, scene: null, cam: null, mesh: null, normals: [], ups: [], failed: false };
@@ -1593,10 +1604,10 @@ function renderSide() {
   const tabs = [["dm", "เรื่องเล่า"], ["bag", "กระเป๋า"], ["quest", "เควส"], ["party", "ทีม"], ["log", "บันทึก"]];
   fill(P.dom.sideTabs, ...tabs.map(([k, l]) => h("button", { class: "tab", role: "tab", "aria-selected": P.panel === k ? "true" : "false", "aria-current": P.panel === k ? "true" : "false", onclick: () => { P.panel = k; renderSide(); } }, l)));
   P.dom.chatForm.hidden = P.panel !== "dm";
-  const hostP = Object.values(P.party).find((p) => p.uid === (P.meta || {}).hostUid);
+  const hostP = hostParty(); const mineAcc = !NET.local && (P.meta || {}).hostUid === myUid();
   const body = P.panel === "party" ? h("div", null,
-      h("div", { class: "row small", style: "margin-bottom:8px" }, h("span", { class: "tag" + (isHost() ? " ok" : "") }, NET.local ? "ออฟไลน์ (เครื่องนี้คุมทุกตัว)" : isHost() ? "คุณเป็น host" : "host: " + (hostP ? hostP.card.name : "ไม่อยู่")),
-        !isHost() && !NET.local && h("button", { class: "btn tiny", onclick: async () => { await writeMeta({ hostUid: myUid() }); toast("คุณเป็น host แล้ว"); } }, "เป็น host แทน")),
+      h("div", { class: "row small", style: "margin-bottom:8px" }, h("span", { class: "tag" + (isHost() ? " ok" : "") }, NET.local ? "ออฟไลน์ (เครื่องนี้คุมทุกตัว)" : isHost() ? "คุณเป็น host (เครื่องนี้)" : mineAcc ? "host คือจออื่นของคุณ" : "host: " + (hostP ? hostP.card.name : "เจ้าของห้อง") + (hostAlive() ? "" : " (ไม่อยู่)")),
+        !mineAcc && !NET.local && h("button", { class: "btn tiny", onclick: takeHost }, "เป็น host แทน")),
       partyPanel())
     : P.panel === "log" ? logPanel() : P.panel === "quest" ? questPanel() : P.panel === "bag" ? bagPanel() : chatPanel();
   const sb = P.dom.sideBody;
@@ -1628,7 +1639,7 @@ function partyPanel() {
     Object.values(P.party).map((p) => {
       const sh = computeSheet(p.card, D); const u = st && st.units["pc-" + p.cardId];
       const hp = u ? u.hp : p.live.hp; const mine = NET.local || p.uid === myUid();
-      const online = NET.local || Date.now() - (p.seen || 0) < 150000;
+      const online = isOnline(p);
       const canLv = sh.xpNext && p.card.xp >= sh.xpNext;
       return h("div", { class: "member" + (p.cardId === P.myCardId ? " me" : "") }, portraitEl(p.card),
         h("div", { style: "min-width:0;flex:1" },
@@ -1902,7 +1913,7 @@ function watchMoments() {
   const lc = sc.lastCombat;
   if (lc && lc.ts && lc.result === "win" && !lc.final && !seen.ids["win" + lc.ts]) {
     seen.ids["win" + lc.ts] = 1;
-    if (!seen.first && Date.now() - lc.ts < 60000) showMoment("win", "ชนะ!", (lc.enc || "การต่อสู้") + " · ได้ EXP คนละ " + (lc.xp || 0) + (lc.boss ? " · ปราบบอสได้!" : ""));
+    if (!seen.first && nowT() - lc.ts < 60000) showMoment("win", "ชนะ!", (lc.enc || "การต่อสู้") + " · ได้ EXP คนละ " + (lc.xp || 0) + (lc.boss ? " · ปราบบอสได้!" : ""));
   }
   const st = sc.mode === "combat" && sc.combat;
   if (st) for (const u of Object.values(st.units || {})) {
@@ -1928,9 +1939,9 @@ function renderJourney() {
   if (!j || !j.ts || P.mapEdit) { box.hidden = true; return; }
   const seen = P.journeySeen || (P.journeySeen = { first: true, ts: 0 });
   if (seen.ts !== j.ts) { // first sight of this trip: play it only if it just started (a page opened later skips it)
-    seen.ts = j.ts; const fresh = !seen.first && Math.abs(Date.now() - j.ts) < 20000; seen.first = false;
+    seen.ts = j.ts; const fresh = !seen.first && Math.abs(nowT() - j.ts) < 20000; seen.first = false;
     if (!fresh) { box.hidden = true; return; }
-    P.journeyAt = Date.now(); clearTimeout(P.journeyT);
+    P.journeyAt = nowT(); clearTimeout(P.journeyT);
     const ev = j.ev ? TRAVEL_EVENTS.find((e) => e.id === j.ev) : null;
     const L = locInfo(j.to) || { name: j.to, th: "" }; const toTown = j.to === CAMP.town.id;
     const faces = Object.values(P.party).map((p) => face(p.card.portrait || premadePortrait(p.card), p.card.name, "g-face sm"));
